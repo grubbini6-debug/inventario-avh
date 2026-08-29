@@ -7,7 +7,8 @@
     "src/core/auth.js",
     "src/core/bootstrap.js",
     "src/core/data-views.js",
-    "src/ui/navigation.js"
+    "src/ui/navigation.js",
+    "src/features/admin/base.js"
   ],
   "features": [
     "src/features/inventory/forms-and-presentations.js",
