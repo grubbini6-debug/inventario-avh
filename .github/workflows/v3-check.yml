@@ -18,9 +18,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
       - name: Validar estructura y construir V3
         working-directory: v3
         run: node scripts/check.mjs
+
       - name: Verificar artefacto
         working-directory: v3
         run: |
@@ -29,3 +31,26 @@ jobs:
           test -s dist/app.css
           grep -q '<title>Inventario AVH</title>' dist/index.html
           grep -q 'renderPurchases' dist/app.js
+
+      - name: Smoke test real en navegador
+        working-directory: v3
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$CHROME"
+          "$CHROME" \
+            --headless=new \
+            --no-sandbox \
+            --disable-gpu \
+            --allow-file-access-from-files \
+            --virtual-time-budget=3000 \
+            --dump-dom "file://$PWD/dist/index.html" \
+            > /tmp/avh-v3-dom.html 2> /tmp/avh-v3-browser.log
+          grep -q 'data-avh-boot="ok"' /tmp/avh-v3-dom.html
+          grep -q 'id="loginForm"' /tmp/avh-v3-dom.html
+          if grep -Eiq 'Uncaught|ReferenceError|TypeError|SyntaxError|AVH boot error' /tmp/avh-v3-browser.log; then
+            cat /tmp/avh-v3-browser.log
+            exit 1
+          fi
+          echo 'Browser smoke OK.'
