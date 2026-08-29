@@ -25,5 +25,9 @@
     "src/features/purchases/item-editor.js",
     "src/features/purchases/free-text-product.js"
   ],
-  "bootstrap": "src/core/bootstrap.js"
+  "bootstrap": "src/core/bootstrap.js",
+  "styles": [
+    "src/styles/app.css"
+  ],
+  "template": "src/index.template.html"
 }
