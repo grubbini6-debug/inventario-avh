@@ -1,0 +1,47 @@
+name: Deploy Inventario AVH
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Reconstruir sitio estático
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cat app/part0.b64 app/part1.b64 app/part2.b64 app/part3.b64 | tr -d '\r\n' | base64 --decode | gzip -d > dist/index.html
+          test -s dist/index.html
+          grep -q '<title>Inventario AVH</title>' dist/index.html
+          echo 'Sitio reconstruido correctamente.'
+
+      - name: Configurar GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Preparar artefacto
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ./dist
+
+      - name: Publicar
+        id: deployment
+        uses: actions/deploy-pages@v4
