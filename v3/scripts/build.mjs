@@ -11,15 +11,15 @@ const base = zlib.gunzipSync(Buffer.from(parts.join(''), 'base64')).toString('ut
 
 const styles = [...base.matchAll(/<style(?:\s[^>]*)?>([\s\S]*?)<\/style>/gi)].map(m => m[1]);
 const inlineScripts = [...base.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]);
-if (inlineScripts.length < 4) throw new Error('La base legacy no contiene los bloques esperados.');
+if (inlineScripts.length < 5) throw new Error('La base legacy no contiene los bloques esperados.');
 
 let html = base.replace(/<style(?:\s[^>]*)?>[\s\S]*?<\/style>/gi, '').replace(/<script(?![^>]*\bsrc=)[^>]*>[\s\S]*?<\/script>/gi, '');
 html = html.replace('</head>', '<link rel="stylesheet" href="app.css"></head>');
 html = html.replace('</body>', '<script src="app.js"></script></body>');
 
 const coreCode = manifest.core.map(p => `\n/* ===== ${p} ===== */\n${fs.readFileSync(path.join(root,p),'utf8')}`).join('\n');
-// Los bloques legacy 0, 1 y 2 ya fueron sustituidos por módulos legibles.
-const remainingLegacyCore = inlineScripts.slice(3).map((code,i)=>`\n/* ===== legacy core block ${i+3} ===== */\n${code}`).join('\n');
+// Los bloques legacy 0..3 ya fueron sustituidos por módulos legibles.
+const remainingLegacyCore = inlineScripts.slice(4).map((code,i)=>`\n/* ===== legacy core block ${i+4} ===== */\n${code}`).join('\n');
 const featureCode = manifest.features.map(p => `\n/* ===== ${p} ===== */\n${fs.readFileSync(path.join(root,p),'utf8')}`).join('\n');
 const appJs = coreCode + remainingLegacyCore + featureCode;
 const appCss = styles.join('\n\n');
@@ -28,4 +28,4 @@ fs.mkdirSync(path.join(root,'dist'), { recursive:true });
 fs.writeFileSync(path.join(root,'dist/index.html'), html);
 fs.writeFileSync(path.join(root,'dist/app.js'), appJs);
 fs.writeFileSync(path.join(root,'dist/app.css'), appCss);
-console.log(`AVH V3 build OK: ${manifest.core.length} módulos core/UI + ${inlineScripts.length-3} bloques legacy + ${manifest.features.length} módulos funcionales`);
+console.log(`AVH V3 build OK: ${manifest.core.length} módulos base + ${inlineScripts.length-4} bloque(s) legacy + ${manifest.features.length} extensiones`);
