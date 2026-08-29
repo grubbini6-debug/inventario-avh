@@ -25,7 +25,7 @@ if(fs.existsSync(distJs)){
   for(const symbol of ['record_entry','record_exit','record_transfer','receive_purchase','renderPurchases','startRealtime','openMovementDetail']){
     if(!js.includes(symbol)){console.error('Missing critical symbol:',symbol);failed=true;}
   }
-  if(js.includes('legacy core block 0')){console.error('Legacy core block 0 must not be present');failed=true;}
+  for(const legacy of ['legacy core block 0','legacy core block 1']) if(js.includes(legacy)){console.error(`${legacy} must not be present`);failed=true;}
   for(const p of manifest.core||[]){if(!js.includes(`===== ${p} =====`)){console.error('Missing modular core block:',p);failed=true;}}
   const seen=new Map();
   for(const m of js.matchAll(/\b(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/g)) seen.set(m[1],(seen.get(m[1])||0)+1);
