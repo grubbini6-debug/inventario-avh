@@ -6,11 +6,12 @@ import { fileURLToPath } from 'node:url';
 const here=path.dirname(fileURLToPath(import.meta.url));
 const root=path.resolve(here,'..');
 const manifest=JSON.parse(fs.readFileSync(path.join(root,'build-manifest.json'),'utf8'));
+const backendContract=JSON.parse(fs.readFileSync(path.join(root,'backend-contract.json'),'utf8'));
 let failed=false;
 const sourceModules=[...(manifest.core||[]),...(manifest.features||[]),manifest.bootstrap].filter(Boolean);
 const styleModules=(manifest.styles||[]).filter(Boolean);
 
-for(const p of [...sourceModules,...styleModules,manifest.template].filter(Boolean)){
+for(const p of [...sourceModules,...styleModules,manifest.template,'backend-contract.json'].filter(Boolean)){
   const full=path.join(root,p);
   if(!fs.existsSync(full)||fs.statSync(full).size===0){console.error('Missing source:',p);failed=true;}
 }
@@ -70,6 +71,16 @@ function globalFunctionNames(code){
   return names;
 }
 
+function uniqueMatches(code,re){return [...new Set([...code.matchAll(re)].map(m=>m[1]))].sort()}
+function compareContract(type,actual){
+  const expected=[...(backendContract[type]||[])].sort();
+  const missing=expected.filter(x=>!actual.includes(x));
+  const extra=actual.filter(x=>!expected.includes(x));
+  if(missing.length||extra.length){
+    console.error(`Backend contract mismatch [${type}]`,{missing,extra});failed=true;
+  }else console.log(`Backend contract ${type}: ${actual.length}/${expected.length} OK`);
+}
+
 if(fs.existsSync(distJs)){
   const syntax=spawnSync(process.execPath,['--check',distJs],{encoding:'utf8'});
   if(syntax.status!==0){console.error(syntax.stderr);failed=true;}
@@ -92,6 +103,12 @@ if(fs.existsSync(distJs)){
   fs.writeFileSync(path.join(root,'DUPLICATE_FUNCTIONS.md'),'# Colisiones globales detectadas\n\n'+(duplicates.length?duplicates.map(([n,files])=>`- **${n}**: ${files.join(' → ')}`).join('\n'):'Ninguna función global está declarada más de una vez.')+'\n');
   if(duplicates.length){console.error('Duplicate GLOBAL function declarations:',duplicates);failed=true;}
   else console.log('Global function collisions: 0');
+
+  compareContract('rpc',uniqueMatches(js,/\brpc\(\s*['"]([^'"]+)/g));
+  compareContract('query',uniqueMatches(js,/\bquery\(\s*['"]([^'"]+)/g));
+  compareContract('edge',uniqueMatches(js,/\bedge\(\s*['"]([^'"]+)/g));
+  compareContract('insert',uniqueMatches(js,/\binsert\(\s*['"]([^'"]+)/g));
+  compareContract('upsert',uniqueMatches(js,/\bupsert\(\s*['"]([^'"]+)/g));
 }
 
 if(fs.existsSync(distHtml)){
@@ -108,4 +125,4 @@ if(fs.existsSync(distCss)){
 }
 
 if(failed)process.exit(1);
-console.log(`AVH V3 checks OK · legacy build: 0 · JS modules: ${sourceModules.length} · CSS: ${styleModules.length}`);
+console.log(`AVH V3 checks OK · legacy build: 0 · JS modules: ${sourceModules.length} · CSS: ${styleModules.length} · backend contract: OK`);
