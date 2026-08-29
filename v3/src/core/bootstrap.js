@@ -23,4 +23,6 @@ function bindBootstrapEvents(){
   $('#refreshBtn').onclick=()=>loadAll(true);
 }
 bindBootstrapEvents();
-boot();
+boot()
+  .then(()=>{document.documentElement.dataset.avhBoot='ok'})
+  .catch(err=>{document.documentElement.dataset.avhBoot='error';console.error('AVH boot error',err)});
