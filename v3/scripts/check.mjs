@@ -22,10 +22,10 @@ if(fs.existsSync(distJs)){
   const syntax=spawnSync(process.execPath,['--check',distJs],{encoding:'utf8'});
   if(syntax.status!==0){console.error(syntax.stderr);failed=true;}
   const js=fs.readFileSync(distJs,'utf8');
-  for(const symbol of ['record_entry','record_exit','record_transfer','receive_purchase','renderPurchases','startRealtime','openMovementDetail']){
+  for(const symbol of ['record_entry','record_exit','record_transfer','receive_purchase','renderPurchases','startRealtime','openMovementDetail','openModal','renderAlerts']){
     if(!js.includes(symbol)){console.error('Missing critical symbol:',symbol);failed=true;}
   }
-  for(const legacy of ['legacy core block 0','legacy core block 1']) if(js.includes(legacy)){console.error(`${legacy} must not be present`);failed=true;}
+  for(const legacy of ['legacy core block 0','legacy core block 1','legacy core block 2']) if(js.includes(legacy)){console.error(`${legacy} must not be present`);failed=true;}
   for(const p of manifest.core||[]){if(!js.includes(`===== ${p} =====`)){console.error('Missing modular core block:',p);failed=true;}}
   const seen=new Map();
   for(const m of js.matchAll(/\b(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/g)) seen.set(m[1],(seen.get(m[1])||0)+1);
@@ -34,4 +34,4 @@ if(fs.existsSync(distJs)){
   console.log(`Tracked ${duplicates.length} named overrides for phase 2.`);
 }
 if(failed)process.exit(1);
-console.log(`AVH V3 static checks OK · ${manifest.core?.length||0} core modules activos`);
+console.log(`AVH V3 static checks OK · ${manifest.core?.length||0} módulos core/UI activos`);
