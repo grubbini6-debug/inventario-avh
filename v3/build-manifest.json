@@ -5,10 +5,12 @@
     "src/core/utils.js",
     "src/core/api.js",
     "src/core/auth.js",
-    "src/core/bootstrap.js",
     "src/core/data-views.js",
     "src/ui/navigation.js",
-    "src/features/admin/base.js"
+    "src/features/admin/base.js",
+    "src/features/inventory/operations.js",
+    "src/features/inventory/views.js",
+    "src/core/router.js"
   ],
   "features": [
     "src/features/inventory/forms-and-presentations.js",
@@ -22,5 +24,6 @@
     "src/features/purchases/contractor-link.js",
     "src/features/purchases/item-editor.js",
     "src/features/purchases/free-text-product.js"
-  ]
+  ],
+  "bootstrap": "src/core/bootstrap.js"
 }
