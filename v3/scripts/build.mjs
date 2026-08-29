@@ -11,16 +11,21 @@ const base = zlib.gunzipSync(Buffer.from(parts.join(''), 'base64')).toString('ut
 
 const styles = [...base.matchAll(/<style(?:\s[^>]*)?>([\s\S]*?)<\/style>/gi)].map(m => m[1]);
 const inlineScripts = [...base.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]);
+if (inlineScripts.length < 2) throw new Error('La base legacy no contiene los bloques esperados.');
+
 let html = base.replace(/<style(?:\s[^>]*)?>[\s\S]*?<\/style>/gi, '').replace(/<script(?![^>]*\bsrc=)[^>]*>[\s\S]*?<\/script>/gi, '');
 html = html.replace('</head>', '<link rel="stylesheet" href="app.css"></head>');
 html = html.replace('</body>', '<script src="app.js"></script></body>');
 
+const coreCode = manifest.core.map(p => `\n/* ===== ${p} ===== */\n${fs.readFileSync(path.join(root,p),'utf8')}`).join('\n');
+// El bloque legacy 0 era configuración/sesión/API/auth. Ya fue sustituido por src/core/*.
+const remainingLegacyCore = inlineScripts.slice(1).map((code,i)=>`\n/* ===== legacy core block ${i+1} ===== */\n${code}`).join('\n');
 const featureCode = manifest.features.map(p => `\n/* ===== ${p} ===== */\n${fs.readFileSync(path.join(root,p),'utf8')}`).join('\n');
-const appJs = inlineScripts.join('\n\n/* ===== legacy core boundary ===== */\n\n') + featureCode;
+const appJs = coreCode + remainingLegacyCore + featureCode;
 const appCss = styles.join('\n\n');
 
 fs.mkdirSync(path.join(root,'dist'), { recursive:true });
 fs.writeFileSync(path.join(root,'dist/index.html'), html);
 fs.writeFileSync(path.join(root,'dist/app.js'), appJs);
 fs.writeFileSync(path.join(root,'dist/app.css'), appCss);
-console.log(`AVH V3 build OK: ${inlineScripts.length} core blocks + ${manifest.features.length} feature modules`);
+console.log(`AVH V3 build OK: ${manifest.core.length} core modules + ${inlineScripts.length-1} legacy core blocks + ${manifest.features.length} feature modules`);
