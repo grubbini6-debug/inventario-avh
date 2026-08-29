@@ -30,11 +30,11 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           cat app/part0.b64 app/part1.b64 app/part2.b64 app/part3.b64 | tr -d '\r\n' | base64 --decode | gzip -d > dist/index.html
-          cp app/patch1.js app/patch2.js dist/
-          sed -i 's#</body>#<script src="patch1.js"></script><script src="patch2.js"></script></body>#' dist/index.html
+          cp app/patch1.js app/patch2.js app/patch3.js dist/
+          sed -i 's#</body>#<script src="patch1.js"></script><script src="patch2.js"></script><script src="patch3.js"></script></body>#' dist/index.html
           test -s dist/index.html
           grep -q '<title>Inventario AVH</title>' dist/index.html
-          grep -q 'patch2.js' dist/index.html
+          grep -q 'patch3.js' dist/index.html
           echo 'Sitio reconstruido correctamente.'
 
       - name: Configurar GitHub Pages
