@@ -8,10 +8,21 @@ const root=path.resolve(here,'..');
 const manifest=JSON.parse(fs.readFileSync(path.join(root,'build-manifest.json'),'utf8'));
 let failed=false;
 const sourceModules=[...(manifest.core||[]),...(manifest.features||[]),manifest.bootstrap].filter(Boolean);
+const styleModules=(manifest.styles||[]).filter(Boolean);
 
+for(const p of [...sourceModules,...styleModules,manifest.template].filter(Boolean)){
+  const full=path.join(root,p);
+  if(!fs.existsSync(full)||fs.statSync(full).size===0){console.error('Missing source:',p);failed=true;}
+}
 for(const p of sourceModules){
   const r=spawnSync(process.execPath,['--check',path.join(root,p)],{encoding:'utf8'});
   if(r.status!==0){console.error(`Syntax error: ${p}\n${r.stderr}`);failed=true;}
+}
+
+const buildSource=fs.readFileSync(path.join(root,'scripts/build.mjs'),'utf8');
+const manifestSource=fs.readFileSync(path.join(root,'build-manifest.json'),'utf8');
+if(/legacy\/part\d+\.b64|part\$?\{?\w*\}?\.b64|zlib|gunzipSync/.test(buildSource+manifestSource)){
+  console.error('Build still references compressed legacy assets.');failed=true;
 }
 
 const build=spawnSync(process.execPath,[path.join(root,'scripts/build.mjs')],{encoding:'utf8'});
@@ -31,7 +42,6 @@ function globalFunctionNames(code){
       const m=matches[mi];
       let j=i-1;while(j>=0&&/\s/.test(code[j]))j--;
       const prev=j>=0?code[j]:'';
-      // Solo declaraciones globales. Expresiones como (function boot(){}) o x=function y() no cuentan.
       if(state==='code'&&!lineComment&&!blockComment&&depth===0&&!['(','=',':',',','.'].includes(prev)) names.push(m[1]);
       mi++;
     }
@@ -84,5 +94,18 @@ if(fs.existsSync(distJs)){
   else console.log('Global function collisions: 0');
 }
 
+if(fs.existsSync(distHtml)){
+  const html=fs.readFileSync(distHtml,'utf8');
+  for(const token of ['<title>Inventario AVH</title>','id="loginForm"','id="main"','id="page-stock"','id="page-moves"','id="page-barges"','id="page-more"','href="app.css"','src="app.js"']){
+    if(!html.includes(token)){console.error('Missing HTML contract:',token);failed=true;}
+  }
+  if(/<style\b|<script(?![^>]*src=)/i.test(html)){console.error('Inline CSS/JS must not return to V3 template.');failed=true;}
+}
+
+if(fs.existsSync(distCss)){
+  const css=fs.readFileSync(distCss,'utf8');
+  for(const token of [':root{','.nav{','.modal{','.login{','.hero{']) if(!css.includes(token)){console.error('Missing CSS contract:',token);failed=true;}
+}
+
 if(failed)process.exit(1);
-console.log(`AVH V3 static checks OK · JS legacy: 0 · módulos: ${sourceModules.length}`);
+console.log(`AVH V3 checks OK · legacy build: 0 · JS modules: ${sourceModules.length} · CSS: ${styleModules.length}`);
