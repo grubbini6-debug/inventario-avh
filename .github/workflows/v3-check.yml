@@ -1,0 +1,31 @@
+name: Validar Inventario AVH V3
+
+on:
+  push:
+    branches: [refactor-v3]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'v3/**'
+      - '.github/workflows/v3-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  check-v3:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Validar estructura y construir V3
+        working-directory: v3
+        run: node scripts/check.mjs
+      - name: Verificar artefacto
+        working-directory: v3
+        run: |
+          test -s dist/index.html
+          test -s dist/app.js
+          test -s dist/app.css
+          grep -q '<title>Inventario AVH</title>' dist/index.html
+          grep -q 'renderPurchases' dist/app.js
