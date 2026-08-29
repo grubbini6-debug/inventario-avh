@@ -34,6 +34,19 @@ jobs:
           grep -q '<title>Inventario AVH</title>' dist/index.html
           echo 'Sitio reconstruido correctamente.'
 
+      - name: Habilitar GitHub Pages si hace falta
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -e
+          if gh api "repos/${GITHUB_REPOSITORY}/pages" >/dev/null 2>&1; then
+            echo 'Pages ya está habilitado.'
+          else
+            echo 'Intentando habilitar Pages con GitHub Actions como fuente...'
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/pages" -f build_type=workflow
+          fi
+
       - name: Configurar GitHub Pages
         uses: actions/configure-pages@v5
 
