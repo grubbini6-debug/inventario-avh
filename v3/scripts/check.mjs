@@ -7,7 +7,7 @@ const here=path.dirname(fileURLToPath(import.meta.url));
 const root=path.resolve(here,'..');
 const manifest=JSON.parse(fs.readFileSync(path.join(root,'build-manifest.json'),'utf8'));
 let failed=false;
-const sourceModules=[...(manifest.core||[]),...(manifest.features||[])];
+const sourceModules=[...(manifest.core||[]),...(manifest.features||[]),manifest.bootstrap].filter(Boolean);
 for(const p of sourceModules){
   const r=spawnSync(process.execPath,['--check',path.join(root,p)],{encoding:'utf8'});
   if(r.status!==0){console.error(`Syntax error: ${p}\n${r.stderr}`);failed=true;}
@@ -22,16 +22,18 @@ if(fs.existsSync(distJs)){
   const syntax=spawnSync(process.execPath,['--check',distJs],{encoding:'utf8'});
   if(syntax.status!==0){console.error(syntax.stderr);failed=true;}
   const js=fs.readFileSync(distJs,'utf8');
-  for(const symbol of ['record_entry','record_exit','record_transfer','receive_purchase','renderPurchases','startRealtime','openMovementDetail','openModal','renderAlerts','renderAdmin','adminPresentations']){
+  for(const symbol of ['record_entry','record_exit','record_transfer','receive_purchase','renderPurchases','startRealtime','openMovementDetail','openModal','renderAlerts','renderAdmin','adminPresentations','boot()']){
     if(!js.includes(symbol)){console.error('Missing critical symbol:',symbol);failed=true;}
   }
-  for(const legacy of ['legacy core block 0','legacy core block 1','legacy core block 2','legacy core block 3']) if(js.includes(legacy)){console.error(`${legacy} must not be present`);failed=true;}
+  if(/legacy core block \d+/.test(js)){console.error('No legacy JavaScript block may remain in dist/app.js');failed=true;}
   for(const p of manifest.core||[]){if(!js.includes(`===== ${p} =====`)){console.error('Missing modular base block:',p);failed=true;}}
+  if(manifest.bootstrap&&!js.includes(`===== ${manifest.bootstrap} =====`)){console.error('Missing bootstrap block');failed=true;}
   const seen=new Map();
   for(const m of js.matchAll(/\b(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/g)) seen.set(m[1],(seen.get(m[1])||0)+1);
   const duplicates=[...seen].filter(([,n])=>n>1).sort((a,b)=>a[0].localeCompare(b[0]));
-  fs.writeFileSync(path.join(root,'DUPLICATE_FUNCTIONS.md'),'# Overrides pendientes de consolidar\n\n'+duplicates.map(([n,c])=>`- **${n}**: ${c} implementaciones`).join('\n')+'\n');
-  console.log(`Tracked ${duplicates.length} named overrides for phase 2.`);
+  fs.writeFileSync(path.join(root,'DUPLICATE_FUNCTIONS.md'),'# Overrides pendientes de consolidar\n\n'+(duplicates.length?duplicates.map(([n,c])=>`- **${n}**: ${c} implementaciones`).join('\n'):'Ninguna función declarada está duplicada.')+'\n');
+  if(duplicates.length){console.error('Duplicate named function declarations:',duplicates);failed=true;}
+  console.log('Named function duplicates: 0');
 }
 if(failed)process.exit(1);
-console.log(`AVH V3 static checks OK · ${manifest.core?.length||0} módulos base activos`);
+console.log(`AVH V3 static checks OK · JS legacy: 0 · módulos: ${sourceModules.length}`);
