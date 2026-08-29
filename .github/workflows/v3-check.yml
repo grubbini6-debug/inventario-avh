@@ -54,3 +54,11 @@ jobs:
             exit 1
           fi
           echo 'Browser smoke OK.'
+
+      - name: Guardar artefacto V3 validado
+        uses: actions/upload-artifact@v4
+        with:
+          name: avh-v3-preview
+          path: v3/dist
+          retention-days: 7
+          if-no-files-found: error
