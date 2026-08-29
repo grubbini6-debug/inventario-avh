@@ -6,7 +6,8 @@
     "src/core/api.js",
     "src/core/auth.js",
     "src/core/bootstrap.js",
-    "src/core/data-views.js"
+    "src/core/data-views.js",
+    "src/ui/navigation.js"
   ],
   "features": [
     "src/features/inventory/forms-and-presentations.js",
