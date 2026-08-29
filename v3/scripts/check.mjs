@@ -7,7 +7,8 @@ const here=path.dirname(fileURLToPath(import.meta.url));
 const root=path.resolve(here,'..');
 const manifest=JSON.parse(fs.readFileSync(path.join(root,'build-manifest.json'),'utf8'));
 let failed=false;
-for(const p of manifest.features){
+const sourceModules=[...(manifest.core||[]),...(manifest.features||[])];
+for(const p of sourceModules){
   const r=spawnSync(process.execPath,['--check',path.join(root,p)],{encoding:'utf8'});
   if(r.status!==0){console.error(`Syntax error: ${p}\n${r.stderr}`);failed=true;}
 }
@@ -24,13 +25,13 @@ if(fs.existsSync(distJs)){
   for(const symbol of ['record_entry','record_exit','record_transfer','receive_purchase','renderPurchases','startRealtime','openMovementDetail']){
     if(!js.includes(symbol)){console.error('Missing critical symbol:',symbol);failed=true;}
   }
+  if(js.includes('legacy core block 0')){console.error('Legacy core block 0 must not be present');failed=true;}
+  for(const p of manifest.core||[]){if(!js.includes(`===== ${p} =====`)){console.error('Missing modular core block:',p);failed=true;}}
   const seen=new Map();
-  for(const m of js.matchAll(/\b(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/g)){
-    seen.set(m[1],(seen.get(m[1])||0)+1);
-  }
+  for(const m of js.matchAll(/\b(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/g)) seen.set(m[1],(seen.get(m[1])||0)+1);
   const duplicates=[...seen].filter(([,n])=>n>1).sort((a,b)=>a[0].localeCompare(b[0]));
   fs.writeFileSync(path.join(root,'DUPLICATE_FUNCTIONS.md'),'# Overrides pendientes de consolidar\n\n'+duplicates.map(([n,c])=>`- **${n}**: ${c} implementaciones`).join('\n')+'\n');
   console.log(`Tracked ${duplicates.length} named overrides for phase 2.`);
 }
 if(failed)process.exit(1);
-console.log('AVH V3 static checks OK');
+console.log(`AVH V3 static checks OK · ${manifest.core?.length||0} core modules activos`);
