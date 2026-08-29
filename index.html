@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Inventario AVH</title>
+<style>
+html,body{margin:0;height:100%;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#071d16;color:#fff}body{display:grid;place-items:center}.box{text-align:center;padding:28px}.logo{width:58px;height:58px;border-radius:18px;background:#19a974;display:grid;place-items:center;margin:0 auto 16px;font-weight:900;font-size:22px}.spin{width:28px;height:28px;border:3px solid #ffffff35;border-top-color:#fff;border-radius:50%;margin:18px auto;animation:s .8s linear infinite}@keyframes s{to{transform:rotate(360deg)}}.muted{opacity:.7;font-size:13px}.err{max-width:520px;line-height:1.45;color:#ffd4d4}
+</style>
+</head>
+<body>
+<div class="box" id="loader"><div class="logo">AVH</div><b>Cargando Inventario AVH</b><div class="spin"></div><div class="muted">Conectando al sistema…</div></div>
+<script>
+(async()=>{
+  try{
+    const files=['app/part0.b64','app/part1.b64','app/part2.b64','app/part3.b64'];
+    const parts=await Promise.all(files.map(async f=>{const r=await fetch(f,{cache:'no-store'});if(!r.ok)throw new Error('No se pudo cargar '+f);return r.text()}));
+    const b64=parts.join('').replace(/\s/g,'');
+    const bin=atob(b64),bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    if(!('DecompressionStream' in window))throw new Error('Este navegador no soporta descompresión web. Actualizá Chrome, Edge o Safari.');
+    const ds=new DecompressionStream('gzip');
+    const html=await new Response(new Blob([bytes]).stream().pipeThrough(ds)).text();
+    if(!html.toLowerCase().includes('<title>inventario avh</title>'))throw new Error('El archivo principal no es válido.');
+    document.open();document.write(html);document.close();
+  }catch(e){document.getElementById('loader').innerHTML='<div class="logo">AVH</div><h2>No se pudo abrir Inventario AVH</h2><div class="err">'+String(e.message||e)+'</div>';console.error(e)}
+})();
+</script>
+</body>
+</html>
