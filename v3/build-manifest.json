@@ -1,4 +1,12 @@
 {
+  "core": [
+    "src/core/config.js",
+    "src/core/state.js",
+    "src/core/utils.js",
+    "src/core/api.js",
+    "src/core/auth.js",
+    "src/core/bootstrap.js"
+  ],
   "features": [
     "src/features/inventory/forms-and-presentations.js",
     "src/features/admin/catalogs-and-requests.js",
