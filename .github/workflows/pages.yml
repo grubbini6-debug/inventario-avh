@@ -40,7 +40,10 @@ jobs:
             echo 'ERROR: Pages no debe volver a publicar la arquitectura de patches.'
             exit 1
           fi
-          echo 'AVH V3 lista para publicar.'
+          sed -i "s#href=\"app.css\"#href=\"app.css?v=${GITHUB_SHA}\"#; s#src=\"app.js\"#src=\"app.js?v=${GITHUB_SHA}\"#" v3/dist/index.html
+          grep -q "app.css?v=${GITHUB_SHA}" v3/dist/index.html
+          grep -q "app.js?v=${GITHUB_SHA}" v3/dist/index.html
+          echo 'AVH V3 lista para publicar con cache-busting.'
 
       - name: Configurar GitHub Pages
         uses: actions/configure-pages@v5
