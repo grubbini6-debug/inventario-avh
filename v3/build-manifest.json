@@ -1,0 +1,33 @@
+{
+  "core": [
+    "src/core/config.js",
+    "src/core/state.js",
+    "src/core/utils.js",
+    "src/core/api.js",
+    "src/core/auth.js",
+    "src/core/data-views.js",
+    "src/ui/navigation.js",
+    "src/features/admin/base.js",
+    "src/features/inventory/operations.js",
+    "src/features/inventory/views.js",
+    "src/core/router.js"
+  ],
+  "features": [
+    "src/features/inventory/forms-and-presentations.js",
+    "src/features/admin/catalogs-and-requests.js",
+    "src/features/inventory/movement-governance.js",
+    "src/features/admin/depositor-management.js",
+    "src/features/admin/password-ux.js",
+    "src/features/management/realtime-audit-reports.js",
+    "src/features/purchases/base.js",
+    "src/features/purchases/integration.js",
+    "src/features/purchases/contractor-link.js",
+    "src/features/purchases/item-editor.js",
+    "src/features/purchases/free-text-product.js"
+  ],
+  "bootstrap": "src/core/bootstrap.js",
+  "styles": [
+    "src/styles/app.css"
+  ],
+  "template": "src/index.template.html"
+}

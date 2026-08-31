@@ -24,22 +24,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Reconstruir sitio estático
-        shell: bash
+      - name: Validar y construir AVH V3
+        working-directory: v3
+        run: node scripts/check.mjs
+
+      - name: Verificar sitio a publicar
         run: |
           set -euo pipefail
-          mkdir -p dist
-          cat app/part0.b64 app/part1.b64 app/part2.b64 app/part3.b64 | tr -d '\r\n' | base64 --decode | gzip -d > dist/index.html
-          cp app/patch1.js app/patch2.js app/patch3.js app/patch4.js app/patch5.js app/patch6.js app/patch7.js app/patch8.js app/patch9.js app/patch10.js app/patch11.js dist/
-          sed -i 's#</body>#<script src="patch1.js"></script><script src="patch2.js"></script><script src="patch3.js"></script><script src="patch4.js"></script><script src="patch5.js"></script><script src="patch6.js"></script><script src="patch7.js"></script><script src="patch8.js"></script><script src="patch9.js"></script><script src="patch10.js"></script><script src="patch11.js"></script></body>#' dist/index.html
-          test -s dist/index.html
-          grep -q '<title>Inventario AVH</title>' dist/index.html
-          grep -q 'patch11.js' dist/index.html
-          node --check dist/patch8.js
-          node --check dist/patch9.js
-          node --check dist/patch10.js
-          node --check dist/patch11.js
-          echo 'Sitio reconstruido correctamente.'
+          test -s v3/dist/index.html
+          test -s v3/dist/app.css
+          test -s v3/dist/app.js
+          grep -q '<title>Inventario AVH</title>' v3/dist/index.html
+          grep -q 'renderPurchases' v3/dist/app.js
+          if grep -q 'patch11.js' v3/dist/index.html; then
+            echo 'ERROR: Pages no debe volver a publicar la arquitectura de patches.'
+            exit 1
+          fi
+          echo 'AVH V3 lista para publicar.'
 
       - name: Configurar GitHub Pages
         uses: actions/configure-pages@v5
@@ -47,7 +48,7 @@ jobs:
       - name: Preparar artefacto
         uses: actions/upload-pages-artifact@v4
         with:
-          path: ./dist
+          path: ./v3/dist
 
       - name: Publicar
         id: deployment
