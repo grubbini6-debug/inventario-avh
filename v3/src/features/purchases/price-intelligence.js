@@ -1,135 +1,33 @@
-// AVH V3 — Inteligencia de precios y ficha 360° de proveedores.
-// Módulo aditivo: solo lectura sobre compras/proveedores existentes; no altera FIFO ni recepción.
+// AVH V3 — Historial inteligente de precios + ficha 360° de proveedores.
+// Solo lectura sobre compras/proveedores; no modifica inventario, FIFO ni recepción.
 (function(){
-  const st=document.createElement('style');
-  st.textContent=`
-    .price-intel-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}
-    .price-intel-card{border:1px solid #dfe9e2;border-radius:12px;padding:10px;background:#fbfdfb}
-    .price-intel-card .label{font-size:11px;color:#6f7f76;text-transform:uppercase;letter-spacing:.05em;font-weight:800}
-    .price-intel-card .value{font-size:18px;font-weight:900;margin-top:3px}
-    .price-intel-panel{margin-top:10px;border:1px solid #dfe9e2;border-radius:12px;padding:10px;background:#fff}
-    .price-intel-panel.good{border-color:#79b890;background:#f4fbf6}
-    .price-intel-panel.warn{border-color:#d6aa54;background:#fffaf0}
-    .price-intel-panel.bad{border-color:#d87878;background:#fff5f5}
-    .price-intel-table{width:100%;border-collapse:collapse;font-size:12px}
-    .price-intel-table th,.price-intel-table td{padding:7px 6px;border-bottom:1px solid #e8efea;text-align:left;vertical-align:top}
-    .price-intel-table th{font-size:10px;text-transform:uppercase;color:#718078;letter-spacing:.04em}
-    .supplier-profile-products{display:grid;gap:8px}
-    @media(min-width:760px){.price-intel-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
-  `;
-  document.head.appendChild(st);
+  const css=document.createElement('style');
+  css.textContent=`.pi-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}.pi-card,.pi-live{border:1px solid #dfe9e2;border-radius:12px;padding:10px;background:#fbfdfb}.pi-card b{display:block;font-size:17px;margin-top:3px}.pi-live{margin-top:10px;background:#fff}.pi-live.good{border-color:#79b890;background:#f4fbf6}.pi-live.warn{border-color:#d6aa54;background:#fffaf0}.pi-live.bad{border-color:#d87878;background:#fff5f5}.pi-table{width:100%;border-collapse:collapse;font-size:12px}.pi-table th,.pi-table td{padding:7px;border-bottom:1px solid #e8efea;text-align:left}@media(min-width:760px){.pi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}`;
+  document.head.appendChild(css);
+  const n=v=>Number.isFinite(Number(v))?Number(v):0;
+  const prod=id=>(D.products||[]).find(x=>x.id===id);
+  const supp=id=>(D.suppliers||[]).find(x=>x.id===id);
+  const pur=id=>(D.purchases||[]).find(x=>x.id===id);
+  const d=v=>{if(!v)return'—';try{return new Date(v.length===10?v+'T12:00:00':v).toLocaleDateString('es-PY')}catch{return v}};
+  const cash=(v,c)=>typeof money==='function'?money(v,c):`${c||''} ${n(v).toLocaleString('es-PY',{maximumFractionDigits:4})}`;
 
-  function productById(id){return (D.products||[]).find(x=>x.id===id)}
-  function supplierById(id){return (D.suppliers||[]).find(x=>x.id===id)}
-  function purchaseById(id){return (D.purchases||[]).find(x=>x.id===id)}
-  function safeDate(v){if(!v)return'';try{return new Date(v.length===10?v+'T12:00:00':v).toLocaleDateString('es-PY')}catch{return v}}
-  function num(v){const n=Number(v);return Number.isFinite(n)?n:0}
-  function fmtPrice(v,c){return typeof money==='function'?money(v,c):`${c||''} ${num(v).toLocaleString('es-PY',{maximumFractionDigits:4})}`}
-  function pct(v){return `${v>=0?'+':''}${v.toFixed(1)}%`}
+  function rows(productId){return (D.purchaseItems||[]).filter(i=>i.product_id===productId).map(i=>{const p=pur(i.purchase_id);if(!p||p.status==='cancelled')return null;const f=n(i.factor_to_base)||1;return{p,i,s:supp(p.supplier_id),date:p.ordered_date||p.created_at||i.created_at,c:p.currency||'',qty:n(i.quantity)*f,price:n(i.unit_price)/f}}).filter(Boolean).sort((a,b)=>new Date(b.date)-new Date(a.date))}
+  function stats(list){const q=list.reduce((a,x)=>a+x.qty,0);return{last:list[0],best:list.reduce((a,b)=>b.price<a.price?b:a,list[0]),worst:list.reduce((a,b)=>b.price>a.price?b:a,list[0]),avg:q?list.reduce((a,x)=>a+x.price*x.qty,0)/q:0,qty:q}}
+  function groups(list){const g={};list.forEach(x=>(g[x.c]=g[x.c]||[]).push(x));return Object.entries(g)}
+  function table(list,limit=30){const p=prod(list[0]?.i?.product_id);return`<div style="overflow:auto"><table class="pi-table"><thead><tr><th>Fecha</th><th>Proveedor</th><th>Cantidad</th><th>Precio base</th></tr></thead><tbody>${list.slice(0,limit).map(x=>`<tr><td>${d(x.date)}</td><td>${esc(x.s?.name||'Sin proveedor')}</td><td>${fmt(x.qty)} ${esc(p?.base_unit||'')}</td><td><b>${cash(x.price,x.c)}</b> / ${esc(p?.base_unit||'base')}</td></tr>`).join('')}</tbody></table></div>`}
 
-  function priceHistory(productId){
-    if(!productId)return[];
-    return (D.purchaseItems||[]).filter(i=>i.product_id===productId).map(i=>{
-      const p=purchaseById(i.purchase_id);
-      if(!p||p.status==='cancelled')return null;
-      const factor=num(i.factor_to_base)||1;
-      const quantity=num(i.quantity);
-      const baseQty=quantity*factor;
-      const basePrice=num(i.unit_price)/factor;
-      return {purchase:p,item:i,supplier:supplierById(p.supplier_id),date:p.ordered_date||p.created_at||i.created_at,currency:p.currency||'',baseQty,basePrice,unit:i.unit,factor};
-    }).filter(Boolean).sort((a,b)=>new Date(b.date)-new Date(a.date));
-  }
+  window.openPriceAnalysis=function(productId){if(profile?.role!=='admin')return;const ps=(D.products||[]).filter(x=>x.active||rows(x.id).length);openModal('Análisis de precios','Usa compras reales y no mezcla monedas.',`<div class="field"><label>Producto</label><select id="piProduct">${ps.map(p=>`<option value="${p.id}" ${p.id===productId?'selected':''}>${esc(p.name)} · ${esc(p.base_unit)}</option>`).join('')}</select></div><div id="piBody"></div>`);const draw=()=>{const id=$('#piProduct').value,p=prod(id),r=rows(id),h=$('#piBody');if(!r.length){h.innerHTML='<div class="empty">Sin historial para este producto.</div>';return}h.innerHTML=groups(r).map(([c,l])=>{const s=stats(l);return`<div class="section-head"><div><h2>${esc(c||'Sin moneda')}</h2><p>${l.length} registros · ${fmt(s.qty)} ${esc(p?.base_unit||'')}</p></div></div><div class="pi-grid"><div class="pi-card"><span>Último</span><b>${cash(s.last.price,c)}</b><small>${esc(s.last.s?.name||'Sin proveedor')} · ${d(s.last.date)}</small></div><div class="pi-card"><span>Mejor</span><b>${cash(s.best.price,c)}</b><small>${esc(s.best.s?.name||'Sin proveedor')}</small></div><div class="pi-card"><span>Promedio ponderado</span><b>${cash(s.avg,c)}</b><small>Por cantidad</small></div><div class="pi-card"><span>Más alto</span><b>${cash(s.worst.price,c)}</b><small>${esc(s.worst.s?.name||'Sin proveedor')}</small></div></div>${table(l)}`}).join('')};$('#piProduct').onchange=draw;draw()};
 
-  function currencyStats(rows){
-    const by={};
-    rows.forEach(r=>(by[r.currency]=by[r.currency]||[]).push(r));
-    return Object.entries(by).map(([currency,list])=>{
-      const last=list[0],best=list.reduce((a,b)=>b.basePrice<a.basePrice?b:a,list[0]),worst=list.reduce((a,b)=>b.basePrice>a.basePrice?b:a,list[0]);
-      const totalQty=list.reduce((a,x)=>a+x.baseQty,0),weighted=totalQty?list.reduce((a,x)=>a+x.basePrice*x.baseQty,0)/totalQty:0;
-      return {currency,list,last,best,worst,weighted,totalQty};
-    });
-  }
+  function addAnalysisButton(){if(profile?.role!=='admin')return;const a=document.querySelector('#page-purchases .section-head .split-actions');if(!a||document.querySelector('#piOpen'))return;const b=document.createElement('button');b.id='piOpen';b.className='btn sm soft';b.textContent='📈 Análisis de precios';b.onclick=()=>openPriceAnalysis();a.prepend(b)}
 
-  function historyTable(rows,limit=30){
-    const p=productById(rows[0]?.item?.product_id);
-    return `<div style="overflow:auto"><table class="price-intel-table"><thead><tr><th>Fecha</th><th>Proveedor</th><th>Cantidad base</th><th>Precio base</th><th>Compra</th></tr></thead><tbody>${rows.slice(0,limit).map(r=>`<tr><td>${safeDate(r.date)}</td><td>${esc(r.supplier?.name||'Sin proveedor')}</td><td>${fmt(r.baseQty)} ${esc(p?.base_unit||'')}</td><td><b>${fmtPrice(r.basePrice,r.currency)}</b> / ${esc(p?.base_unit||'')}</td><td>${esc(r.item.description||'')}</td></tr>`).join('')}</tbody></table></div>`;
-  }
-
-  function openPriceAnalysis(initialProductId){
-    if(profile?.role!=='admin')return;
-    const products=(D.products||[]).filter(x=>x.active||priceHistory(x.id).length);
-    openModal('Análisis de precios','Historial calculado desde compras reales; compara por moneda sin mezclar USD y PYG.',`<div class="field"><label>Producto</label><select id="priceIntelProduct">${products.map(p=>`<option value="${p.id}" ${p.id===initialProductId?'selected':''}>${esc(p.name)} · ${esc(p.base_unit)}</option>`).join('')}</select></div><div id="priceIntelBody"></div>`);
-    const draw=()=>{
-      const id=$('#priceIntelProduct').value,p=productById(id),rows=priceHistory(id),host=$('#priceIntelBody');
-      if(!rows.length){host.innerHTML='<div class="empty">Todavía no hay compras históricas vinculadas a este producto.</div>';return}
-      host.innerHTML=currencyStats(rows).map(s=>`<div class="section-head"><div><h2>${esc(s.currency||'Sin moneda')}</h2><p>${s.list.length} registro${s.list.length===1?'':'s'} · ${fmt(s.totalQty)} ${esc(p?.base_unit||'')} comprados</p></div></div><div class="price-intel-grid"><div class="price-intel-card"><div class="label">Último</div><div class="value">${fmtPrice(s.last.basePrice,s.currency)}</div><div class="subtext">${esc(s.last.supplier?.name||'Sin proveedor')} · ${safeDate(s.last.date)}</div></div><div class="price-intel-card"><div class="label">Mejor</div><div class="value">${fmtPrice(s.best.basePrice,s.currency)}</div><div class="subtext">${esc(s.best.supplier?.name||'Sin proveedor')}</div></div><div class="price-intel-card"><div class="label">Promedio ponderado</div><div class="value">${fmtPrice(s.weighted,s.currency)}</div><div class="subtext">Por cantidad comprada</div></div><div class="price-intel-card"><div class="label">Más alto</div><div class="value">${fmtPrice(s.worst.basePrice,s.currency)}</div><div class="subtext">${esc(s.worst.supplier?.name||'Sin proveedor')}</div></div></div>${historyTable(s.list)}`).join('');
-    };
-    $('#priceIntelProduct').onchange=draw;draw();
-  }
-  window.openPriceAnalysis=openPriceAnalysis;
-
-  function injectPriceAnalysisButton(){
-    if(profile?.role!=='admin')return;
-    const page=document.querySelector('#page-purchases');
-    if(!page||page.querySelector('#priceIntelOpen'))return;
-    const head=page.querySelector('.section-head .split-actions');
-    if(!head)return;
-    const b=document.createElement('button');b.id='priceIntelOpen';b.className='btn sm soft';b.textContent='📈 Análisis de precios';b.onclick=()=>openPriceAnalysis();head.prepend(b);
-  }
-
-  function livePricePanel(){
-    if(profile?.role!=='admin')return;
-    const productSel=document.querySelector('#pciProduct'),priceInput=document.querySelector('#pciPrice'),currencySel=document.querySelector('#pcCurrency'),factorInput=document.querySelector('#pciFactor');
-    if(!productSel||!priceInput||!currencySel||!factorInput)return;
-    let panel=document.querySelector('#priceIntelLive');
-    if(!panel){panel=document.createElement('div');panel.id='priceIntelLive';priceInput.closest('.two')?.insertAdjacentElement('afterend',panel)}
-    const render=()=>{
-      document.querySelector('#priceIntelRecent')?.remove();
-      const productId=productSel.value,currency=currencySel.value,factor=num(factorInput.value)||1,current=num(priceInput.value)/factor,rows=priceHistory(productId).filter(x=>x.currency===currency),p=productById(productId);
-      if(!productId||!rows.length){panel.className='';panel.innerHTML=productId?'<div class="price-intel-panel"><b>Sin historial comparable todavía.</b><div class="hint">Esta compra empezará el historial de precios de este producto.</div></div>':'';return}
-      const s=currencyStats(rows)[0],diff=s.last.basePrice?((current-s.last.basePrice)/s.last.basePrice)*100:0;
-      let cls='',label='Ingresá el precio para compararlo';
-      if(current>0){if(current<s.weighted){cls='good';label='🟢 Buen precio: por debajo del promedio histórico';}else if(diff>10){cls='bad';label='🔴 Precio alto: más de 10% sobre la última compra';}else if(diff>=5){cls='warn';label='🟡 Revisar: entre 5% y 10% sobre la última compra';}else{label='Precio dentro del rango reciente';}}
-      panel.className=`price-intel-panel ${cls}`;panel.innerHTML=`<div class="line"><div><b>${label}</b><div class="subtext">${esc(p?.name||'')} · comparación en ${esc(currency)} por ${esc(p?.base_unit||'unidad base')}</div></div><button type="button" id="priceIntelDetail" class="btn sm soft">Últimas 5</button></div><div class="metric-pills"><span>Último: ${fmtPrice(s.last.basePrice,currency)}</span><span>Mejor: ${fmtPrice(s.best.basePrice,currency)}</span><span>Promedio: ${fmtPrice(s.weighted,currency)}</span>${current>0?`<span>Actual: ${fmtPrice(current,currency)}${s.last.basePrice?' · '+pct(diff):''}</span>`:''}</div>`;
-      const recent=document.createElement('div');recent.id='priceIntelRecent';recent.style.display='none';recent.innerHTML=historyTable(rows,5);panel.insertAdjacentElement('afterend',recent);document.querySelector('#priceIntelDetail').onclick=()=>{recent.style.display=recent.style.display==='none'?'block':'none'};
-    };
-    if(!productSel.dataset.priceIntelBound){productSel.dataset.priceIntelBound='1';['change','input'].forEach(ev=>productSel.addEventListener(ev,render));priceInput.addEventListener('input',render);currencySel.addEventListener('change',render);factorInput.addEventListener('input',render);document.querySelector('#pcAddItem')?.addEventListener('click',()=>setTimeout(render,0))}
-    render();
-  }
+  function bindLive(){const ps=$('#pciProduct'),pr=$('#pciPrice'),cu=$('#pcCurrency'),fa=$('#pciFactor');if(profile?.role!=='admin'||!ps||!pr||!cu||!fa||ps.dataset.piBound)return;ps.dataset.piBound='1';let box=document.createElement('div');box.id='piLive';pr.closest('.two')?.insertAdjacentElement('afterend',box);const draw=()=>{document.querySelector('#piRecent')?.remove();const id=ps.value,c=cu.value,f=n(fa.value)||1,current=n(pr.value)/f,l=rows(id).filter(x=>x.c===c),p=prod(id);if(!id){box.innerHTML='';box.className='';return}if(!l.length){box.className='pi-live';box.innerHTML='<b>Sin historial comparable.</b><div class="hint">Esta compra iniciará el historial de este producto.</div>';return}const s=stats(l),diff=s.last.price?((current-s.last.price)/s.last.price)*100:0;let cls='',label='Ingresá el precio para compararlo';if(current>0){if(current<s.avg){cls='good';label='🟢 Buen precio: debajo del promedio histórico'}else if(diff>10){cls='bad';label='🔴 Precio alto: más de 10% sobre la última compra'}else if(diff>=5){cls='warn';label='🟡 Revisar: 5%–10% sobre la última compra'}else label='Precio dentro del rango reciente'}box.className=`pi-live ${cls}`;box.innerHTML=`<div class="line"><div><b>${label}</b><div class="subtext">${esc(p?.name||'')} · ${esc(c)} por ${esc(p?.base_unit||'base')}</div></div><button id="piLast5" type="button" class="btn sm soft">Últimas 5</button></div><div class="metric-pills"><span>Último ${cash(s.last.price,c)}</span><span>Mejor ${cash(s.best.price,c)}</span><span>Promedio ${cash(s.avg,c)}</span>${current>0?`<span>Actual ${cash(current,c)} · ${diff>=0?'+':''}${diff.toFixed(1)}%</span>`:''}</div>`;const recent=document.createElement('div');recent.id='piRecent';recent.style.display='none';recent.innerHTML=table(l,5);box.insertAdjacentElement('afterend',recent);$('#piLast5').onclick=()=>recent.style.display=recent.style.display==='none'?'block':'none'};ps.addEventListener('change',draw);pr.addEventListener('input',draw);cu.addEventListener('change',draw);fa.addEventListener('input',draw);$('#pcAddItem')?.addEventListener('click',()=>setTimeout(draw,0));draw()}
 
   function supplierPurchases(id){return (D.purchases||[]).filter(p=>p.supplier_id===id&&p.status!=='cancelled').sort((a,b)=>new Date(b.ordered_date||b.created_at)-new Date(a.ordered_date||a.created_at))}
-  function supplierItems(id){const ids=new Set(supplierPurchases(id).map(p=>p.id));return (D.purchaseItems||[]).filter(i=>ids.has(i.purchase_id))}
-  function supplierTotals(id){const result={};supplierPurchases(id).forEach(p=>{const total=(D.purchaseItems||[]).filter(i=>i.purchase_id===p.id).reduce((a,i)=>a+num(i.quantity)*num(i.unit_price),0);result[p.currency]=(result[p.currency]||0)+total});return result}
+  window.openSupplierProfile=function(id){if(profile?.role!=='admin')return;const s=supp(id);if(!s)return;const ps=supplierPurchases(id),ids=new Set(ps.map(x=>x.id)),items=(D.purchaseItems||[]).filter(i=>ids.has(i.purchase_id)),tot={};ps.forEach(p=>tot[p.currency]=(tot[p.currency]||0)+items.filter(i=>i.purchase_id===p.id).reduce((a,i)=>a+n(i.quantity)*n(i.unit_price),0));const pids=[...new Set(items.filter(i=>i.product_id).map(i=>i.product_id))],last=ps[0];openModal(s.name,'Ficha 360° del proveedor',`<div class="pi-grid"><div class="pi-card"><span>RUC</span><b style="font-size:14px">${esc(s.tax_id||'Sin RUC')}</b></div><div class="pi-card"><span>Teléfono</span><b style="font-size:14px">${esc(s.phone||'Sin teléfono')}</b></div><div class="pi-card"><span>Compras</span><b>${ps.length}</b></div><div class="pi-card"><span>Última compra</span><b style="font-size:14px">${last?d(last.ordered_date||last.created_at):'—'}</b></div></div><div class="card"><div class="eyebrow">MONTO HISTÓRICO REGISTRADO</div><div class="metric-pills" style="margin-top:8px">${Object.entries(tot).map(([c,v])=>`<span><b>${cash(v,c)}</b></span>`).join('')||'<span>Sin compras</span>'}</div>${s.notes?`<div class="hint" style="margin-top:8px">${esc(s.notes)}</div>`:''}</div><div class="section-head"><div><h2>Productos comprados</h2><p>Último y mejor precio por moneda</p></div></div><div class="list">${pids.map(pid=>{const p=prod(pid),r=rows(pid).filter(x=>x.p.supplier_id===id);return`<div class="row"><div class="line"><div><div class="title">${esc(p?.name||'Producto')}</div><div class="metric-pills">${groups(r).map(([c,l])=>{const x=stats(l);return`<span>${esc(c)} último ${cash(x.last.price,c)}</span><span>mejor ${cash(x.best.price,c)}</span>`}).join('')}</div></div><button class="btn sm soft" data-pi-product="${pid}">Historial</button></div></div>`}).join('')||'<div class="empty">Sin productos vinculados.</div>'}</div><div class="section-head"><div><h2>Compras recientes</h2><p>Últimas 15</p></div></div><div class="list">${ps.slice(0,15).map(p=>`<div class="row"><div class="title">${d(p.ordered_date||p.created_at)} · ${esc(p.order_reference||'Sin referencia')}</div><div class="subtext">${items.filter(i=>i.purchase_id===p.id).map(i=>esc(i.description)).slice(0,3).join(' · ')}</div></div>`).join('')||'<div class="empty">Sin compras registradas.</div>'}</div>`);$$('[data-pi-product]').forEach(b=>b.onclick=()=>openPriceAnalysis(b.dataset.piProduct))};
 
-  function openSupplierProfile(id){
-    if(profile?.role!=='admin')return;
-    const s=supplierById(id);if(!s)return;
-    const purchases=supplierPurchases(id),items=supplierItems(id),totals=supplierTotals(id),linked=items.filter(i=>i.product_id),productIds=[...new Set(linked.map(i=>i.product_id))],latest=purchases[0];
-    const productCards=productIds.map(pid=>{
-      const p=productById(pid),rows=priceHistory(pid).filter(r=>r.purchase.supplier_id===id);
-      return `<div class="row"><div class="line"><div><div class="title">${esc(p?.name||linked.find(i=>i.product_id===pid)?.description||'Producto')}</div><div class="subtext">${rows.length} compra${rows.length===1?'':'s'} registrada${rows.length===1?'':'s'}</div></div><button class="btn sm soft" data-supplier-price-product="${pid}">Historial</button></div><div class="metric-pills">${currencyStats(rows).map(x=>`<span>${esc(x.currency)} último ${fmtPrice(x.last.basePrice,x.currency)} / ${esc(p?.base_unit||'base')}</span><span>mejor ${fmtPrice(x.best.basePrice,x.currency)}</span>`).join('')}</div></div>`;
-    }).join('');
-    openModal(s.name,'Ficha 360° del proveedor',`<div class="price-intel-grid"><div class="price-intel-card"><div class="label">RUC</div><div class="value" style="font-size:15px">${esc(s.tax_id||'Sin RUC')}</div></div><div class="price-intel-card"><div class="label">Teléfono</div><div class="value" style="font-size:15px">${esc(s.phone||'Sin teléfono')}</div></div><div class="price-intel-card"><div class="label">Compras</div><div class="value">${purchases.length}</div><div class="subtext">No canceladas</div></div><div class="price-intel-card"><div class="label">Última compra</div><div class="value" style="font-size:15px">${latest?safeDate(latest.ordered_date||latest.created_at):'—'}</div><div class="subtext">${latest?esc(latest.order_reference||latest.status||''):'Sin compras'}</div></div></div><div class="card"><div class="eyebrow">MONTO HISTÓRICO REGISTRADO</div><div class="metric-pills" style="margin-top:8px">${Object.entries(totals).map(([c,v])=>`<span><b>${fmtPrice(v,c)}</b></span>`).join('')||'<span>Sin compras</span>'}</div>${s.notes?`<div class="hint" style="margin-top:8px">${esc(s.notes)}</div>`:''}</div><div class="section-head"><div><h2>Productos comprados</h2><p>Precios normalizados a la unidad base del inventario</p></div></div><div class="supplier-profile-products">${productCards||'<div class="empty">Todavía no hay productos de inventario vinculados a este proveedor.</div>'}</div><div class="section-head"><div><h2>Compras recientes</h2><p>Últimos movimientos comerciales registrados</p></div></div><div class="list">${purchases.slice(0,15).map(p=>`<div class="row"><div class="line"><div><div class="title">${safeDate(p.ordered_date||p.created_at)} · ${esc(p.order_reference||'Sin referencia')}</div><div class="subtext">${(D.purchaseItems||[]).filter(i=>i.purchase_id===p.id).map(i=>esc(i.description)).slice(0,3).join(' · ')}</div></div><span class="badge">${esc(p.currency||'')}</span></div></div>`).join('')||'<div class="empty">Sin compras registradas.</div>'}</div>`);
-    $$('[data-supplier-price-product]').forEach(b=>b.onclick=()=>openPriceAnalysis(b.dataset.supplierPriceProduct));
-  }
-  window.openSupplierProfile=openSupplierProfile;
+  function enhanceSuppliers(){if(profile?.role!=='admin'||!$('#supplierNew'))return;const list=document.querySelector('#adminBox .list');if(!list)return;[...list.querySelectorAll('.row')].forEach((r,i)=>{const s=(D.suppliers||[])[i];if(!s||r.querySelector('[data-pi-supplier]'))return;const b=document.createElement('button');b.className='btn sm soft';b.dataset.piSupplier=s.id;b.textContent='Ficha 360°';b.onclick=()=>openSupplierProfile(s.id);r.appendChild(b)})}
 
-  function enhanceSupplierAdmin(){
-    if(profile?.role!=='admin')return;
-    const box=document.querySelector('#adminBox');if(!box||!document.querySelector('#supplierNew'))return;
-    const list=box.querySelector('.list');if(!list)return;
-    [...list.querySelectorAll('.row')].forEach((row,i)=>{
-      const s=(D.suppliers||[])[i];if(!s||row.querySelector('[data-supplier-profile]'))return;
-      row.classList.add('clickable');row.dataset.supplierProfile=s.id;
-      const b=document.createElement('button');b.type='button';b.className='btn sm soft';b.dataset.supplierProfile=s.id;b.textContent='Ficha 360°';row.appendChild(b);
-      row.onclick=e=>{if(e.target.closest('button'))return;openSupplierProfile(s.id)};b.onclick=e=>{e.stopPropagation();openSupplierProfile(s.id)};
-    });
-  }
-
-  const previousRenderPurchases=window.renderPurchases;
-  if(typeof previousRenderPurchases==='function')window.renderPurchases=function(){const out=previousRenderPurchases.apply(this,arguments);setTimeout(injectPriceAnalysisButton,0);return out};
-  const previousAdminSuppliers=window.adminSuppliers;
-  if(typeof previousAdminSuppliers==='function')window.adminSuppliers=function(){const out=previousAdminSuppliers.apply(this,arguments);setTimeout(enhanceSupplierAdmin,0);return out};
-  const observer=new MutationObserver(()=>{injectPriceAnalysisButton();livePricePanel();enhanceSupplierAdmin()});
-  observer.observe(document.body,{childList:true,subtree:true});
+  const oldPurchases=window.renderPurchases;if(typeof oldPurchases==='function')window.renderPurchases=function(){const x=oldPurchases.apply(this,arguments);setTimeout(addAnalysisButton,0);return x};
+  const oldSuppliers=window.adminSuppliers;if(typeof oldSuppliers==='function')window.adminSuppliers=function(){const x=oldSuppliers.apply(this,arguments);setTimeout(enhanceSuppliers,0);return x};
+  const obs=new MutationObserver(()=>{addAnalysisButton();if($('#pciProduct')&&!$('#pciProduct').dataset.piBound)bindLive();enhanceSuppliers()});obs.observe(document.body,{childList:true,subtree:true});
 })();
