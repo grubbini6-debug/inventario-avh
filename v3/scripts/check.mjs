@@ -11,6 +11,16 @@ let failed=false;
 const sourceModules=[...(manifest.core||[]),...(manifest.features||[]),manifest.bootstrap].filter(Boolean);
 const styleModules=(manifest.styles||[]).filter(Boolean);
 
+const stateSource=fs.readFileSync(path.join(root,'src/core/state.js'),'utf8');
+const adminSource=fs.readFileSync(path.join(root,'src/features/admin/base.js'),'utf8');
+const routerSource=fs.readFileSync(path.join(root,'src/core/router.js'),'utf8');
+if(!/\blet\s+activeAdminTab\s*=\s*['"]users['"]/.test(stateSource)||
+   !/function\s+renderAdmin\(tab=activeAdminTab\)/.test(adminSource)||
+   !/activeAdminTab=tab\|\|['"]users['"]/.test(adminSource)||
+   !/renderAdmin\(activeAdminTab\)/.test(routerSource)){
+  console.error('Admin tab persistence contract is missing.');failed=true;
+}
+
 for(const p of [...sourceModules,...styleModules,manifest.template,'backend-contract.json'].filter(Boolean)){
   const full=path.join(root,p);
   if(!fs.existsSync(full)||fs.statSync(full).size===0){console.error('Missing source:',p);failed=true;}
