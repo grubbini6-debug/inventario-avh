@@ -1,0 +1,19 @@
+name: Validate free supply text
+
+on:
+  push:
+    branches:
+      - fix/free-text-supply-request
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Validate AVH V3
+        working-directory: v3
+        run: node scripts/check.mjs
