@@ -97,6 +97,7 @@ end;
 $$;
 
 revoke all on function public.create_supply_request(uuid,text,numeric,text,text,text,text) from public;
+revoke execute on function public.create_supply_request(uuid,text,numeric,text,text,text,text) from anon;
 grant execute on function public.create_supply_request(uuid,text,numeric,text,text,text,text) to authenticated;
 
 create or replace function public.review_supply_request(
@@ -141,6 +142,7 @@ end;
 $$;
 
 revoke all on function public.review_supply_request(uuid,text,text) from public;
+revoke execute on function public.review_supply_request(uuid,text,text) from anon;
 grant execute on function public.review_supply_request(uuid,text,text) to authenticated;
 
 -- Realtime es complementario: la notificación ya fuerza recarga, pero esto mantiene el modelo consistente.
