@@ -44,16 +44,18 @@
   function openNewSupplyRequest(productId=null,urgency='normal'){
     if(profile?.role!=='depositor')return;
     const current=productId?product(productId):null;
-    openModal('Solicitar abastecimiento','La solicitud llegará al administrador y quedará pendiente hasta ser atendida.',`
-      <div class="field"><label>Material</label><select id="srProduct"><option value="">Elegir producto</option>${D.products.filter(x=>x.active).map(p=>`<option value="${p.id}" ${p.id===productId?'selected':''}>${esc(p.name)} · ${esc(p.base_unit)}</option>`).join('')}<option value="__free">No está en el catálogo</option></select></div>
-      <div id="srFree" class="field hide"><label>Qué necesitás</label><input id="srName" placeholder="Ej.: Manguera para oxígeno 3/8"></div>
+    const activeProducts=D.products.filter(x=>x.active);
+    openModal('Solicitar abastecimiento','Escribí cualquier material. Si ya existe en inventario, el sistema te lo sugerirá automáticamente.',`
+      <div class="field"><label>Material</label><input id="srName" list="srProductSuggestions" value="${esc(current?.name||'')}" placeholder="Ej.: Manguera para oxígeno 3/8" autocomplete="off"><datalist id="srProductSuggestions">${activeProducts.map(p=>`<option value="${esc(p.name)}">${esc(p.base_unit)}</option>`).join('')}</datalist><div class="hint">Podés escribir cualquier material aunque todavía no exista en el catálogo.</div></div>
       <div class="two"><div class="field"><label>Cantidad</label><input id="srQty" type="number" step="0.001" min="0.001"></div><div class="field"><label>Unidad</label><select id="srUnit">${UNITS.map(u=>`<option value="${u}" ${u===(current?.base_unit||'unidad')?'selected':''}>${u}</option>`).join('')}</select></div></div>
       <div class="two"><div class="field"><label>Urgencia</label><select id="srUrgency"><option value="normal" ${urgency==='normal'?'selected':''}>Normal</option><option value="urgent" ${urgency==='urgent'?'selected':''}>Urgente</option><option value="critical" ${urgency==='critical'?'selected':''}>Crítica</option></select></div><div class="field"><label>Motivo</label><select id="srReason">${REASONS.map(x=>`<option>${x}</option>`).join('')}</select></div></div>
       <div class="field"><label>Detalle / observación</label><textarea id="srNotes" placeholder="Ej.: necesitamos reponer antes del turno de tarde"></textarea></div>
       <button id="srSend" class="btn primary" style="width:100%">Enviar solicitud</button><div id="srMsg"></div>`);
-    const sync=()=>{const v=$('#srProduct').value,p=product(v);$('#srFree').classList.toggle('hide',v!=='__free');if(p&&UNITS.includes(p.base_unit))$('#srUnit').value=p.base_unit};
-    $('#srProduct').onchange=sync;sync();
-    $('#srSend').onclick=async()=>{const b=$('#srSend'),pid=$('#srProduct').value,name=$('#srName')?.value.trim()||'',qty=Number($('#srQty').value),unit=$('#srUnit').value,urg=$('#srUrgency').value,reason=$('#srReason').value,notes=$('#srNotes').value.trim();if(!pid)return msg($('#srMsg'),'Elegí un producto o la opción “No está en el catálogo”.');if(pid==='__free'&&!name)return msg($('#srMsg'),'Escribí qué material necesitás.');if(!qty||qty<=0)return msg($('#srMsg'),'Indicá una cantidad mayor a cero.');b.disabled=true;b.textContent='Enviando…';const r=await rpc('create_supply_request',{p_product_id:pid==='__free'?null:pid,p_name:pid==='__free'?name:null,p_quantity:qty,p_unit:unit,p_urgency:urg,p_reason:reason,p_notes:notes||null});b.disabled=false;b.textContent='Enviar solicitud';if(r.error)return msg($('#srMsg'),r.error);closeModal();await loadAll(true);activeModule='supply-requests';renderSupplyRequests()};
+    const normalize=v=>String(v||'').trim().toLocaleLowerCase('es');
+    const matchingProduct=()=>{const name=normalize($('#srName').value);return activeProducts.find(p=>normalize(p.name)===name)||null};
+    const syncUnit=()=>{const p=matchingProduct();if(p&&UNITS.includes(p.base_unit))$('#srUnit').value=p.base_unit};
+    $('#srName').oninput=syncUnit;syncUnit();
+    $('#srSend').onclick=async()=>{const b=$('#srSend'),name=$('#srName').value.trim(),qty=Number($('#srQty').value),unit=$('#srUnit').value,urg=$('#srUrgency').value,reason=$('#srReason').value,notes=$('#srNotes').value.trim(),matched=matchingProduct();if(!name)return msg($('#srMsg'),'Escribí qué material necesitás.');if(!qty||qty<=0)return msg($('#srMsg'),'Indicá una cantidad mayor a cero.');b.disabled=true;b.textContent='Enviando…';const r=await rpc('create_supply_request',{p_product_id:matched?.id||null,p_name:matched?null:name,p_quantity:qty,p_unit:unit,p_urgency:urg,p_reason:reason,p_notes:notes||null});b.disabled=false;b.textContent='Enviar solicitud';if(r.error)return msg($('#srMsg'),r.error);closeModal();await loadAll(true);activeModule='supply-requests';renderSupplyRequests()};
   }
   window.openNewSupplyRequest=openNewSupplyRequest;
 
