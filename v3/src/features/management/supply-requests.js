@@ -28,17 +28,16 @@
     let b=grid.querySelector('#supplyRequestModule');
     if(profile.role==='depositor'){
       if(!b){b=document.createElement('button');b.id='supplyRequestModule';b.className='card more-card';grid.prepend(b)}
-      const n=myOpenCount();
-      b.innerHTML=`<span>📝</span><strong>Solicitar abastecimiento${n?` <i class="sr-badge">${n}</i>`:''}</strong><small>Pedir materiales al administrador</small>`;
+      const n=myOpenCount(),key=String(n);
+      if(b.dataset.srCount!==key){b.dataset.srCount=key;b.innerHTML=`<span>📝</span><strong>Solicitar abastecimiento${n?` <i class="sr-badge">${n}</i>`:''}</strong><small>Pedir materiales al administrador</small>`}
       b.onclick=()=>{activeModule='supply-requests';renderSupplyRequests()};
       b.style.display='';
-    }else if(b)b.style.display='none';
+    }else if(b&&b.style.display!=='none')b.style.display='none';
 
     const alertBtn=grid.querySelector('[data-module="alerts"]');
     if(alertBtn&&profile.role==='admin'){
-      alertBtn.querySelector('.sr-badge')?.remove();
-      const n=openCount();
-      if(n){const badge=document.createElement('i');badge.className='sr-badge';badge.textContent=n;alertBtn.querySelector('strong')?.appendChild(badge)}
+      const n=openCount();let badge=alertBtn.querySelector('.sr-badge');
+      if(n){if(!badge){badge=document.createElement('i');badge.className='sr-badge';alertBtn.querySelector('strong')?.appendChild(badge)}if(badge.textContent!==String(n))badge.textContent=String(n)}else badge?.remove();
     }
   }
 
@@ -75,7 +74,7 @@
 
   function injectAdminRequests(){
     if(profile?.role!=='admin')return;
-    const host=$('#moduleContent');if(!host)return;
+    const host=$('#moduleContent');if(!host||host.querySelector('#supplyAdminSection'))return;
     const open=(D.supplyRequests||[]).filter(x=>['pending','in_progress'].includes(x.status));
     const sec=document.createElement('div');sec.id='supplyAdminSection';sec.innerHTML=`<div class="section-head"><div><h2>Solicitudes de abastecimiento</h2><p>Pedidos enviados directamente por los depositarios</p></div><span class="badge ${open.length?'amber':'green'}">${open.length} ABIERTA${open.length===1?'':'S'}</span></div><div class="list">${open.map(r=>`<div class="row sr-card ${r.urgency}"><div class="line"><div class="grow"><div class="title">${esc(r.requested_name)} · ${fmt(r.quantity)} ${esc(r.unit)}</div><div class="subtext"><b>${esc(requestUser(r))}</b> · ${esc(requestWarehouse(r))} · ${esc(URG[r.urgency]||r.urgency)} · ${dt(r.created_at)}${r.reason?`<br>${esc(r.reason)}`:''}${r.notes?` · ${esc(r.notes)}`:''}</div></div>${requestStatusBadge(r.status)}</div><div class="split-actions" style="margin-top:8px">${r.status==='pending'?`<button class="btn sm soft" data-sr-action="in_progress" data-sr-id="${r.id}">En gestión</button>`:''}<button class="btn sm primary" data-sr-action="fulfilled" data-sr-id="${r.id}">Atendida</button><button class="btn sm danger" data-sr-action="rejected" data-sr-id="${r.id}">Rechazar</button></div></div>`).join('')||'<div class="empty">No hay solicitudes de abastecimiento abiertas.</div>'}</div>`;
     const first=host.querySelector('.section-head');first?.insertAdjacentElement('afterend',sec);
@@ -97,5 +96,7 @@
   const baseLoadAll=window.loadAll;
   window.loadAll=async function(force=false){await baseLoadAll(force);if(!profile)return;await loadSupplyRequests();ensureRequestShortcut();if(activeModule==='supply-requests'&&profile.role==='depositor')renderSupplyRequests();if(activeModule==='alerts')renderAlerts()};
 
-  const observer=new MutationObserver(()=>ensureRequestShortcut());observer.observe(document.body,{childList:true,subtree:true});
+  let ensureScheduled=false;
+  const observer=new MutationObserver(()=>{if(ensureScheduled)return;ensureScheduled=true;queueMicrotask(()=>{ensureScheduled=false;ensureRequestShortcut()})});
+  observer.observe(document.body,{childList:true,subtree:true});
 })();
