@@ -19,6 +19,7 @@
     "src/features/admin/depositor-management.js",
     "src/features/admin/password-ux.js",
     "src/features/management/realtime-audit-reports.js",
+    "src/features/management/supply-requests.js",
     "src/features/purchases/base.js",
     "src/features/purchases/integration.js",
     "src/features/purchases/price-intelligence.js",

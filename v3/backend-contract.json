@@ -8,6 +8,7 @@
     "approve_product_request",
     "complete_password_change",
     "create_product_request",
+    "create_supply_request",
     "mark_notifications_read",
     "receive_purchase",
     "receive_transfer",
@@ -19,7 +20,8 @@
     "reject_product_request",
     "request_movement_correction",
     "request_product_deletion",
-    "review_product_deletion"
+    "review_product_deletion",
+    "review_supply_request"
   ],
   "query": [
     "audit_events",
@@ -40,6 +42,7 @@
     "purchase_receipts",
     "stock_minimums",
     "suppliers",
+    "supply_requests",
     "v_barge_consumption",
     "v_contractor_consumption",
     "v_inventory_batch_detail",
