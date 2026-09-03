@@ -1,0 +1,19 @@
+name: Validate AI purchase reader
+
+on:
+  push:
+    branches:
+      - feature/ai-purchase-document-reader
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Validate AVH V3
+        working-directory: v3
+        run: node scripts/check.mjs
