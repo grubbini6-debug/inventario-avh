@@ -39,7 +39,6 @@ begin
   if not found then raise exception 'Compra inexistente.'; end if;
   if v_purchase.po_number is not null then return v_purchase.po_number; end if;
   if v_purchase.status in ('cancelled','partially_received','received','invoiced','closed') then raise exception 'El estado actual no permite generar una OC.'; end if;
-
   select coalesce(nullif(po_prefix,''),'OC') into v_prefix from public.purchase_companies where id=v_purchase.company_id;
   v_number:=v_prefix||'-'||extract(year from current_date)::int||'-'||lpad(nextval('public.purchase_order_seq')::text,5,'0');
   update public.purchases
@@ -103,12 +102,13 @@ grant execute on function public.admin_create_purchase_from_quote(jsonb,jsonb) t
 grant execute on function public.admin_confirm_purchase(uuid) to authenticated;
 
 create or replace view public.v_purchase_overview as
-select p.id,p.company_id,c.name as company_name,p.supplier_id,s.name as supplier_name,p.purchase_type,p.status,p.urgency,p.destination_type,p.warehouse_id,w.name as warehouse_name,p.barge_id,b.number as barge_number,p.contractor_id,ct.name as contractor_name,p.destination_text,p.requester,p.sector,p.currency,p.exchange_rate,p.payment_method,p.payment_terms,p.order_reference,p.ordered_date,p.expected_date,p.invoice_number,p.invoice_date,p.notes,p.created_by,p.created_at,p.updated_at,p.po_number,p.po_generated_at,p.purchase_confirmed_at,p.source_document_number,p.source_document_date,p.source_document_kind,
+select p.id,p.company_id,c.name as company_name,p.supplier_id,s.name as supplier_name,p.purchase_type,p.status,p.urgency,p.destination_type,p.warehouse_id,w.name as warehouse_name,p.barge_id,b.number as barge_number,p.contractor_id,ct.name as contractor_name,p.destination_text,p.requester,p.sector,p.currency,p.exchange_rate,p.payment_method,p.payment_terms,p.order_reference,p.ordered_date,p.expected_date,p.invoice_number,p.invoice_date,p.notes,p.created_by,p.created_at,p.updated_at,
   coalesce(sum(pi.quantity*pi.unit_price),0::numeric) as total_amount,
   coalesce(sum(pi.received_qty*pi.unit_price),0::numeric) as received_amount,
   coalesce(sum(pi.quantity),0::numeric) as item_units,
   coalesce(sum(pi.received_qty),0::numeric) as received_units,
-  count(pi.id)::integer as item_count
+  count(pi.id)::integer as item_count,
+  p.po_number,p.po_generated_at,p.purchase_confirmed_at,p.source_document_number,p.source_document_date,p.source_document_kind
 from public.purchases p
 join public.purchase_companies c on c.id=p.company_id
 left join public.suppliers s on s.id=p.supplier_id
