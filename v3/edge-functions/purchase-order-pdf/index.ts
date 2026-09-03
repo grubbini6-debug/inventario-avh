@@ -10,6 +10,7 @@ const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const green=rgb(0.06,0.28,0.18),dark=rgb(0.08,0.13,0.10),muted=rgb(0.37,0.44,0.40),line=rgb(0.84,0.88,0.85),pale=rgb(0.95,0.98,0.96),white=rgb(1,1,1);
 const LOGO_BASE='https://grubbini6-debug.github.io/inventario-avh/assets';
+const PDF_SOURCE='generated_hq_logo_v1';
 const logoBytes=new Map<string,Uint8Array>();
 const safe=(v:unknown)=>String(v??'').replace(/[\u0000-\u001f]/g,' ').trim();
 const n=(v:unknown)=>{const x=Number(v);return Number.isFinite(x)?x:0};
@@ -19,14 +20,14 @@ function b64(bytes:Uint8Array){let binary='';for(let i=0;i<bytes.length;i+=0x800
 function linesFor(text:string,font:PDFFont,size:number,maxWidth:number){const words=safe(text).split(/\s+/).filter(Boolean),out:string[]=[];let row='';for(const w of words){const c=row?`${row} ${w}`:w;if(font.widthOfTextAtSize(c,size)<=maxWidth){row=c;continue}if(row)out.push(row);row=w}if(row)out.push(row);return out.length?out:['']}
 function drawText(page:PDFPage,text:string,x:number,y:number,font:PDFFont,size=9,color=dark,maxWidth?:number){const rows=maxWidth?linesFor(text,font,size,maxWidth):[safe(text)];let yy=y;for(const r of rows){page.drawText(r,{x,y:yy,font,size,color});yy-=size+3}return yy}
 async function fetchLogoBytes(file:string){if(logoBytes.has(file))return logoBytes.get(file)!;const r=await fetch(`${LOGO_BASE}/${file}`,{headers:{'cache-control':'max-age=3600'}});if(!r.ok)throw Error(`No pude cargar ${file}`);const bytes=new Uint8Array(await r.arrayBuffer());logoBytes.set(file,bytes);return bytes}
-async function embedCompanyLogo(pdf:PDFDocument,company:any){const name=safe(company?.legal_name||company?.name||'').toLowerCase(),file=name.includes('maqmoveis')?'logo-maqmoveis.jpg':'logo-avh.jpg';try{return await pdf.embedJpg(await fetchLogoBytes(file))}catch{return null}}
+async function embedCompanyLogo(pdf:PDFDocument,company:any){const name=safe(company?.legal_name||company?.name||'').toLowerCase(),maq=name.includes('maqmoveis'),file=maq?'logo-maqmoveis.jpg':'logo-avh.png';try{const bytes=await fetchLogoBytes(file);return maq?await pdf.embedJpg(bytes):await pdf.embedPng(bytes)}catch{return null}}
 function fitImage(img:PDFImage,maxW:number,maxH:number){const d=img.scale(1),ratio=Math.min(maxW/d.width,maxH/d.height);return{width:d.width*ratio,height:d.height*ratio}}
 function drawBrand(page:PDFPage,company:any,bold:PDFFont,regular:PDFFont,logo:PDFImage|null){
-  if(logo){const s=fitImage(logo,152,68);page.drawImage(logo,{x:36,y:796-s.height,width:s.width,height:s.height})}
+  if(logo){const s=fitImage(logo,184,66);page.drawImage(logo,{x:36,y:798-s.height,width:s.width,height:s.height})}
   const name=safe(company?.legal_name||company?.name||'');
-  page.drawText(name.slice(0,48),{x:205,y:790,font:bold,size:12.5,color:green});
+  page.drawText(name.slice(0,48),{x:230,y:790,font:bold,size:11.5,color:green});
   const details=[company?.tax_id?`RUC ${company.tax_id}`:'',company?.address||'',company?.phone||'',company?.email||''].filter(Boolean).join(' · ');
-  drawText(page,details,205,773,regular,7.5,muted,190);
+  drawText(page,details,230,773,regular,7.2,muted,160);
 }
 function pageBase(pdf:PDFDocument,company:any,bold:PDFFont,regular:PDFFont,logo:PDFImage|null,po:string){const page=pdf.addPage([595.28,841.89]);drawBrand(page,company,bold,regular,logo);page.drawText('ORDEN DE COMPRA',{x:400,y:797,font:bold,size:15.5,color:dark});page.drawText(po,{x:400,y:778,font:bold,size:12,color:green});page.drawLine({start:{x:36,y:746},end:{x:559,y:746},thickness:2,color:green});return page}
 function box(page:PDFPage,label:string,value:string,x:number,y:number,w:number,bold:PDFFont,regular:PDFFont){page.drawRectangle({x,y:y-44,width:w,height:44,borderColor:line,borderWidth:.8,color:white});page.drawText(label.toUpperCase(),{x:x+8,y:y-13,font:bold,size:7.3,color:muted});drawText(page,value||'—',x+8,y-27,bold,8.7,dark,w-16)}
@@ -42,8 +43,8 @@ Deno.serve(async(req:Request)=>{
     const body=await req.json(),purchaseId=safe(body?.purchase_id);if(!UUID.test(purchaseId))return json({error:'Compra inválida.'},400);
     const {data:p,error:pErr}=await admin.from('purchases').select('*').eq('id',purchaseId).maybeSingle();if(pErr||!p)return json({error:'Compra inexistente.'},404);if(!p.po_number)return json({error:'La compra todavía no tiene número de OC.'},400);
 
-    // Si ya existe la OC archivada, devolverla sin reconstruir el PDF.
-    const {data:stored}=await admin.from('purchase_documents').select('file_path,file_name').eq('purchase_id',purchaseId).eq('kind','order').order('created_at',{ascending:false}).limit(1).maybeSingle();
+    // Solo reutilizar PDFs generados con el diseño/logo vigente. Las OC viejas se regeneran una vez.
+    const {data:stored}=await admin.from('purchase_documents').select('file_path,file_name,source').eq('purchase_id',purchaseId).eq('kind','order').eq('source',PDF_SOURCE).order('created_at',{ascending:false}).limit(1).maybeSingle();
     if(stored?.file_path){const d=await admin.storage.from('purchase-documents').download(stored.file_path);if(!d.error&&d.data){const bytes=new Uint8Array(await d.data.arrayBuffer());return json({ok:true,reused:true,filename:stored.file_name||`${p.po_number}.pdf`,pdf_base64:b64(bytes),file_path:stored.file_path})}}
 
     const [companyR,supplierR,itemsR,bargeR,warehouseR]=await Promise.all([
@@ -70,10 +71,10 @@ Deno.serve(async(req:Request)=>{
     drawText(page,`Contacto de Compras: Gabriel Ortega · ${company.phone||'0971 800 829'} · ${company.email||'gortega@astillerovh.com'}`,36,y,regular,8,muted,523);
     drawText(page,`OC asociada al presupuesto/referencia indicado y registrada en AVH.`,36,y-17,regular,7.3,muted,523);
 
-    const pdfBytes=await pdf.save(),filename=`${p.po_number}-${safe(supplier.name||'PROVEEDOR').replace(/[^A-Za-z0-9_-]+/g,'_').slice(0,40)}.pdf`,path=`${purchaseId}/${p.po_number}.pdf`;
+    const pdfBytes=await pdf.save(),filename=`${p.po_number}-${safe(supplier.name||'PROVEEDOR').replace(/[^A-Za-z0-9_-]+/g,'_').slice(0,40)}.pdf`,path=`${purchaseId}/${p.po_number}-hq.pdf`;
     const up=await admin.storage.from('purchase-documents').upload(path,pdfBytes,{contentType:'application/pdf',upsert:true});if(up.error)throw Error(`No pude archivar la OC: ${up.error.message}`);
-    await admin.from('purchase_documents').insert({purchase_id:purchaseId,kind:'order',file_path:path,file_name:filename,document_number:p.po_number,document_date:String(p.po_generated_at||p.created_at).slice(0,10),source:'generated',uploaded_by:userData.user.id});
-    await admin.from('audit_events').insert({entity_type:'purchase',entity_id:purchaseId,purchase_id:purchaseId,action:'purchase_order_pdf_generated',actor_id:userData.user.id,detail:{po_number:p.po_number,file_name:filename}});
+    await admin.from('purchase_documents').insert({purchase_id:purchaseId,kind:'order',file_path:path,file_name:filename,document_number:p.po_number,document_date:String(p.po_generated_at||p.created_at).slice(0,10),source:PDF_SOURCE,uploaded_by:userData.user.id});
+    await admin.from('audit_events').insert({entity_type:'purchase',entity_id:purchaseId,purchase_id:purchaseId,action:'purchase_order_pdf_generated',actor_id:userData.user.id,detail:{po_number:p.po_number,file_name:filename,source:PDF_SOURCE}});
     return json({ok:true,reused:false,filename,pdf_base64:b64(pdfBytes),file_path:path});
   }catch(e){return json({error:e instanceof Error?e.message:'No pude generar la OC.'},400)}
 });
