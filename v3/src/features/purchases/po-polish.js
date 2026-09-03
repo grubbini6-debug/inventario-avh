@@ -3,7 +3,7 @@
   const safe=s=>typeof esc==='function'?esc(String(s??'')):String(s??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
   const num=v=>{const n=Number(v);return Number.isFinite(n)?n:0};
   const dateOnly=v=>{if(!v)return'—';try{return new Date(String(v).slice(0,10)+'T12:00:00').toLocaleDateString('es-PY')}catch{return String(v)}};
-  const PDF_SOURCE='generated_hq_logo_v1';
+  const PDF_SOURCE='generated_vector_logo_v2';
   const st=document.createElement('style');
   st.textContent=`
     .po-sheet.po-polished{padding:0;border:1px solid #dbe6df;border-radius:16px;overflow:hidden;background:#fff;color:#16231c;box-shadow:0 8px 28px rgba(15,54,34,.06)}
