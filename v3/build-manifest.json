@@ -23,6 +23,7 @@
     "src/features/purchases/base.js",
     "src/features/purchases/integration.js",
     "src/features/purchases/price-intelligence.js",
+    "src/features/purchases/multi-item-entry.js",
     "src/features/purchases/contractor-link.js",
     "src/features/purchases/item-editor.js",
     "src/features/purchases/free-text-product.js"
