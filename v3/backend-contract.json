@@ -20,6 +20,7 @@
     "record_initial_inventory",
     "record_return",
     "record_transfer",
+    "register_purchase_receipt_document",
     "reject_product_request",
     "request_movement_correction",
     "request_product_deletion",
