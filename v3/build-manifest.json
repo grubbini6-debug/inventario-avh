@@ -34,7 +34,8 @@
     "src/features/purchases/free-text-product.js",
     "src/features/purchases/delete-purchase.js",
     "src/features/purchases/ai-assistant.js",
-    "src/features/purchases/smart-purchase-flow.js"
+    "src/features/purchases/smart-purchase-flow.js",
+    "src/features/purchases/purchase-lifecycle.js"
   ],
   "bootstrap": "src/core/bootstrap.js",
   "styles": [
