@@ -26,6 +26,8 @@
     "src/features/purchases/multi-item-entry.js",
     "src/features/purchases/import-paste-csv.js",
     "src/features/purchases/direct-document-import.js",
+    "src/features/purchases/paraguay-document-normalizer.js",
+    "src/features/purchases/import-confirm-to-cart.js",
     "src/features/purchases/contractor-link.js",
     "src/features/purchases/item-editor.js",
     "src/features/purchases/free-text-product.js"
