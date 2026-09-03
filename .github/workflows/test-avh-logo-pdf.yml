@@ -10,24 +10,43 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Crear JPEG RGB del logo AVH
+      - name: Aplicar corrección JPEG
         run: |
-          if ! command -v convert >/dev/null 2>&1; then sudo apt-get update -qq && sudo apt-get install -y imagemagick >/dev/null; fi
-          convert v3/src/assets/logo-avh.png -background white -alpha remove -alpha off -resize '1200x' -quality 96 v3/src/assets/logo-avh-pdf.jpg
           file v3/src/assets/logo-avh-pdf.jpg | grep -q JPEG
+          sed -i "s/generated_professional_header_v3/generated_professional_header_v4_jpeg/g" v3/edge-functions/purchase-order-pdf/index.ts v3/src/features/purchases/po-polish.js
           sed -i "s/return await pdf.embedPng(await fetchLogoBytes('logo-avh.png'));/return await pdf.embedJpg(await fetchLogoBytes('logo-avh-pdf.jpg'));/" v3/edge-functions/purchase-order-pdf/index.ts
+          sed -i "s/-professional-v3.pdf/-professional-v4-jpeg.pdf/" v3/edge-functions/purchase-order-pdf/index.ts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validar AVH
+        working-directory: v3
+        run: |
+          node scripts/check.mjs
+          node --check src/features/purchases/po-polish.js
+          test -s src/assets/logo-avh-pdf.jpg
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
       - name: Validar generador y crear PDF real
         run: |
           deno check v3/edge-functions/purchase-order-pdf/index.ts
+          grep -q "generated_professional_header_v4_jpeg" v3/edge-functions/purchase-order-pdf/index.ts
+          grep -q "logo-avh-pdf.jpg" v3/edge-functions/purchase-order-pdf/index.ts
           cat > /tmp/test.ts <<'TS'
-          import { PDFDocument } from 'npm:pdf-lib@1.17.1';
+          import { PDFDocument, StandardFonts, rgb } from 'npm:pdf-lib@1.17.1';
           const jpg=await Deno.readFile('v3/src/assets/logo-avh-pdf.jpg');
           const pdf=await PDFDocument.create(); const page=pdf.addPage([595.28,841.89]);
-          const logo=await pdf.embedJpg(jpg); const d=logo.scale(1), ratio=Math.min(136/d.width,48/d.height);
+          const bold=await pdf.embedFont(StandardFonts.HelveticaBold), regular=await pdf.embedFont(StandardFonts.Helvetica);
+          const logo=await pdf.embedJpg(jpg), d=logo.scale(1), ratio=Math.min(136/d.width,48/d.height);
           page.drawImage(logo,{x:36+(136-d.width*ratio)/2,y:768+(48-d.height*ratio)/2,width:d.width*ratio,height:d.height*ratio});
+          page.drawText('COMPRADOR',{x:188,y:812,font:bold,size:6.7,color:rgb(.37,.44,.40)});
+          page.drawText('Astillero Villa Hayes S.A.',{x:188,y:798,font:bold,size:9.4,color:rgb(.06,.28,.18)});
+          page.drawText('RUC 80091371-0 · Villa Hayes',{x:188,y:784,font:regular,size:6.8,color:rgb(.37,.44,.40)});
+          page.drawText('ORDEN DE COMPRA',{x:410,y:801,font:bold,size:13.6,color:rgb(.08,.13,.10)});
+          page.drawText('OC-PRUEBA',{x:410,y:782,font:bold,size:10.8,color:rgb(.06,.28,.18)});
+          page.drawText('Fecha: 03/09/2026',{x:410,y:765,font:regular,size:7.4,color:rgb(.37,.44,.40)});
+          page.drawLine({start:{x:36,y:746},end:{x:559,y:746},thickness:2,color:rgb(.06,.28,.18)});
           await Deno.writeFile('avh-logo-test.pdf',await pdf.save());
           TS
           deno run --allow-read --allow-write /tmp/test.ts
@@ -35,8 +54,8 @@ jobs:
         run: |
           git config user.name grubbini6-debug
           git config user.email grubbini6@gmail.com
-          git add v3/src/assets/logo-avh-pdf.jpg v3/edge-functions/purchase-order-pdf/index.ts
-          if ! git diff --cached --quiet; then git commit -m 'fix: usar logo AVH RGB en PDF' && git push; fi
+          git add v3/edge-functions/purchase-order-pdf/index.ts v3/src/features/purchases/po-polish.js
+          if ! git diff --cached --quiet; then git commit -m 'fix: usar JPEG válido para logo AVH en OC' && git push; fi
       - uses: actions/upload-artifact@v4
         with:
           name: avh-logo-test
