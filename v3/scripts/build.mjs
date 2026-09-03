@@ -23,17 +23,9 @@ const appCss = (manifest.styles || [])
 if (!manifest.template) throw new Error('Falta template HTML en build-manifest.json');
 const html = fs.readFileSync(path.join(root, manifest.template), 'utf8');
 
-const dist = path.join(root, 'dist');
-fs.mkdirSync(dist, { recursive: true });
-fs.writeFileSync(path.join(dist, 'index.html'), html);
-fs.writeFileSync(path.join(dist, 'app.js'), appJs);
-fs.writeFileSync(path.join(dist, 'app.css'), appCss);
+fs.mkdirSync(path.join(root, 'dist'), { recursive: true });
+fs.writeFileSync(path.join(root, 'dist/index.html'), html);
+fs.writeFileSync(path.join(root, 'dist/app.js'), appJs);
+fs.writeFileSync(path.join(root, 'dist/app.css'), appCss);
 
-const assetsSrc = path.join(root, 'src', 'assets');
-const assetsDist = path.join(dist, 'assets');
-if (fs.existsSync(assetsSrc)) {
-  fs.rmSync(assetsDist, { recursive: true, force: true });
-  fs.cpSync(assetsSrc, assetsDist, { recursive: true });
-}
-
-console.log(`AVH V3 build OK: ${sourceModules.length} módulos JS + ${manifest.styles?.length || 0} CSS + plantilla HTML + assets · dependencia legacy: 0`);
+console.log(`AVH V3 build OK: ${sourceModules.length} módulos JS + ${manifest.styles?.length || 0} CSS + plantilla HTML · dependencia legacy: 0`);
