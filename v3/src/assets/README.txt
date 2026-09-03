@@ -1,0 +1,1 @@
+Recursos visuales usados por Orden de Compra AVH. Los logos se copian a dist/assets durante el build.
