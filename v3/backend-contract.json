@@ -1,6 +1,8 @@
 {
   "rpc": [
+    "admin_confirm_purchase",
     "admin_create_purchase",
+    "admin_create_purchase_from_quote",
     "admin_delete_purchase",
     "admin_update_depositor",
     "admin_update_purchase",
