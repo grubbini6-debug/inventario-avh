@@ -34,8 +34,9 @@
   function normalizeHeaderCell(cell){
     const n=norm(cell);
     if(/^(?:prec|precio|preco)\s*(?:unit|unitario)?$/.test(n)||n==='p unit'||n==='p unitario')return 'Precio unitario';
-    if(n==='cant'||n==='cant.')return 'Cantidad';
+    if(n==='cant'||n==='cantidad')return 'Cantidad';
     if(n==='uni'||n==='unid'||n==='um')return 'Unidad';
+    if(n==='descripcion del producto'||n==='descripcion producto')return 'Descripción';
     return cell;
   }
 
@@ -43,7 +44,6 @@
     let cells=String(line||'').split('\t').map(x=>x.trim());
     cells=cells.map(normalizeHeaderCell);
 
-    // PDF típico local: "16,000 UN" queda en una sola celda aunque Cant. y Uni. son columnas distintas.
     if(cells.length>=4){
       const m=cells[0].match(/^([0-9.,-]+)\s+([A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9²³]+)$/);
       if(m&&UNIT_RE.test(m[2])&&parseMoney(cells[cells.length-2])>0&&parseMoney(cells[cells.length-1])>0){
@@ -53,7 +53,6 @@
       }
     }
 
-    // Si cantidad y unidad ya estaban separadas, igualmente corrige 16,000 -> 16 cuando cantidad x precio = total.
     if(cells.length>=5&&UNIT_RE.test(cells[1])&&parseMoney(cells[cells.length-2])>0&&parseMoney(cells[cells.length-1])>0){
       cells[0]=qtyFromContext(cells[0],cells[cells.length-2],cells[cells.length-1]);
     }
@@ -61,7 +60,10 @@
   }
 
   function normalizeDocument(raw){
-    return String(raw||'').replace(/\r/g,'').split('\n').map(normalizeLine).join('\n');
+    let s=String(raw||'').replace(/\r/g,'');
+    s=s.replace(/N\s*[º°o.]?\s*del\s*presupuesto\s*:\s*([A-Z0-9._\/-]+)/gi,'Presupuesto N°: $1');
+    s=s.replace(/N\s*[º°o.]?\s*de\s*(?:la\s*)?factura\s*:\s*([A-Z0-9._\/-]+)/gi,'Factura N°: $1');
+    return s.split('\n').map(normalizeLine).join('\n');
   }
 
   function supplierByPhone(raw){
