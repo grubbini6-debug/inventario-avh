@@ -10,7 +10,7 @@ const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const green=rgb(0.06,0.28,0.18),dark=rgb(0.08,0.13,0.10),muted=rgb(0.37,0.44,0.40),line=rgb(0.84,0.88,0.85),pale=rgb(0.95,0.98,0.96),white=rgb(1,1,1);
 const LOGO_BASE='https://grubbini6-debug.github.io/inventario-avh/assets';
-const PDF_SOURCE='generated_professional_header_v3';
+const PDF_SOURCE='generated_professional_header_v4_jpeg';
 const logoBytes=new Map<string,Uint8Array>();
 const safe=(v:unknown)=>String(v??'').replace(/[\u0000-\u001f]/g,' ').trim();
 const n=(v:unknown)=>{const x=Number(v);return Number.isFinite(x)?x:0};
@@ -24,7 +24,7 @@ async function fetchLogoBytes(file:string){if(logoBytes.has(file))return logoByt
 function isMaq(company:any){return safe(company?.legal_name||company?.name||'').toLowerCase().includes('maqmoveis')}
 async function embedCompanyLogo(pdf:PDFDocument,company:any){
   if(isMaq(company))return await pdf.embedJpg(await fetchLogoBytes('logo-maqmoveis.jpg'));
-  return await pdf.embedPng(await fetchLogoBytes('logo-avh.png'));
+  return await pdf.embedJpg(await fetchLogoBytes('logo-avh-pdf.jpg'));
 }
 function fitImage(img:PDFImage,maxW:number,maxH:number){const d=img.scale(1),ratio=Math.min(maxW/d.width,maxH/d.height);return{width:d.width*ratio,height:d.height*ratio}}
 function drawHeader(page:PDFPage,company:any,bold:PDFFont,regular:PDFFont,logo:PDFImage,po:string,date:string){
@@ -81,7 +81,7 @@ Deno.serve(async(req:Request)=>{
     drawText(page,`Contacto de Compras: Gabriel Ortega · ${company.phone||'0971 800 829'} · ${company.email||'gortega@astillerovh.com'}`,36,y,regular,8,muted,523);
     drawText(page,'OC asociada al presupuesto/referencia indicado y registrada en AVH.',36,y-17,regular,7.3,muted,523);
 
-    const pdfBytes=await pdf.save(),filename=`${p.po_number}-${safe(supplier.name||'PROVEEDOR').replace(/[^A-Za-z0-9_-]+/g,'_').slice(0,40)}.pdf`,path=`${purchaseId}/${p.po_number}-professional-v3.pdf`;
+    const pdfBytes=await pdf.save(),filename=`${p.po_number}-${safe(supplier.name||'PROVEEDOR').replace(/[^A-Za-z0-9_-]+/g,'_').slice(0,40)}.pdf`,path=`${purchaseId}/${p.po_number}-professional-v4-jpeg.pdf`;
     const up=await admin.storage.from('purchase-documents').upload(path,pdfBytes,{contentType:'application/pdf',upsert:true});if(up.error)throw Error(`No pude archivar la OC: ${up.error.message}`);
     await admin.from('purchase_documents').insert({purchase_id:purchaseId,kind:'order',file_path:path,file_name:filename,document_number:p.po_number,document_date:String(p.po_generated_at||p.created_at).slice(0,10),source:PDF_SOURCE,uploaded_by:userData.user.id});
     await admin.from('audit_events').insert({entity_type:'purchase',entity_id:purchaseId,purchase_id:purchaseId,action:'purchase_order_pdf_generated',actor_id:userData.user.id,detail:{po_number:p.po_number,file_name:filename,source:PDF_SOURCE}});

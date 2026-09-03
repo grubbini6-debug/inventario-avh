@@ -4,7 +4,7 @@
   const num=v=>{const n=Number(v);return Number.isFinite(n)?n:0};
   const dateOnly=v=>{if(!v)return'—';try{return new Date(String(v).slice(0,10)+'T12:00:00').toLocaleDateString('es-PY')}catch{return String(v)}};
   const paymentText=v=>{const t=String(v||'').trim();if(!t)return'Según presupuesto';if(/^cred\.?$/i.test(t))return'Crédito';if(/^cont\.?$/i.test(t))return'Contado';return t};
-  const PDF_SOURCE='generated_professional_header_v3';
+  const PDF_SOURCE='generated_professional_header_v4_jpeg';
   const st=document.createElement('style');
   st.textContent=`
     .po-sheet.po-polished{padding:0;border:1px solid #dbe6df;border-radius:16px;overflow:hidden;background:#fff;color:#16231c;box-shadow:0 8px 28px rgba(15,54,34,.06)}
