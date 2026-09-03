@@ -1,0 +1,25 @@
+name: Validate AVH logo HQ
+on:
+  push:
+    branches: [fix/avh-logo-hq]
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check AVH V3
+        working-directory: v3
+        run: node scripts/check.mjs
+      - name: Check logo y OC
+        working-directory: v3
+        run: |
+          node --check src/features/purchases/po-polish.js
+          test -s src/assets/logo-avh.png
+          test -s dist/assets/logo-avh.png
+          grep -q "assets/logo-avh.png" src/features/purchases/po-polish.js
+          grep -q "logo-avh.png" edge-functions/purchase-order-pdf/index.ts
+          grep -q "generated_hq_logo_v1" edge-functions/purchase-order-pdf/index.ts
