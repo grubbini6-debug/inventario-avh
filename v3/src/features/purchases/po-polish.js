@@ -3,17 +3,18 @@
   const safe=s=>typeof esc==='function'?esc(String(s??'')):String(s??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
   const num=v=>{const n=Number(v);return Number.isFinite(n)?n:0};
   const dateOnly=v=>{if(!v)return'—';try{return new Date(String(v).slice(0,10)+'T12:00:00').toLocaleDateString('es-PY')}catch{return String(v)}};
+  const PDF_SOURCE='generated_hq_logo_v1';
   const st=document.createElement('style');
   st.textContent=`
     .po-sheet.po-polished{padding:0;border:1px solid #dbe6df;border-radius:16px;overflow:hidden;background:#fff;color:#16231c;box-shadow:0 8px 28px rgba(15,54,34,.06)}
-    .po-polished .po-top{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:start;padding:24px 26px 19px;border-bottom:3px solid #174c35}
-    .po-polished .po-company{display:flex;gap:18px;align-items:center;min-width:0}.po-polished .po-logo-wrap{width:160px;min-width:160px;height:72px;display:flex;align-items:center;justify-content:flex-start;background:#fff;overflow:hidden}.po-polished .po-real-logo{display:block;max-width:158px;max-height:70px;width:auto;height:auto;object-fit:contain}
+    .po-polished .po-top{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:22px;align-items:start;padding:24px 26px 19px;border-bottom:3px solid #174c35}
+    .po-polished .po-company{display:flex;gap:20px;align-items:center;min-width:0}.po-polished .po-logo-wrap{width:205px;min-width:205px;height:76px;display:flex;align-items:center;justify-content:flex-start;background:#fff;overflow:hidden}.po-polished .po-real-logo{display:block;max-width:203px;max-height:74px;width:auto;height:auto;object-fit:contain}
     .po-polished .po-buyer-name{font-size:15px;font-weight:900;color:#174c35;line-height:1.25}.po-polished .po-buyer-meta{font-size:11px;color:#61736a;line-height:1.55;margin-top:5px}
     .po-polished .po-doc{text-align:right}.po-polished .po-doc-title{font-size:24px;font-weight:950;letter-spacing:.02em}.po-polished .po-doc-number{font-size:18px;color:#174c35;font-weight:950;margin-top:4px}.po-polished .po-doc-date{font-size:12px;color:#687970;margin-top:4px}
     .po-polished .po-body{padding:18px 26px 24px}.po-polished .po-info-grid{display:grid;grid-template-columns:1.12fr .88fr;gap:12px}.po-polished .po-info-card{border:1px solid #dfe8e2;border-radius:12px;padding:13px;background:#fcfefd}.po-polished .po-info-title{font-size:10px;font-weight:900;letter-spacing:.08em;color:#6c7e74;margin-bottom:7px}.po-polished .po-info-card b{font-size:14px}.po-polished .po-info-line{font-size:12px;line-height:1.55;color:#34493e;margin-top:3px}
     .po-polished .po-order-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}.po-polished .po-kv{border:1px solid #e1e9e4;border-radius:10px;padding:9px 10px}.po-polished .po-kv span{display:block;font-size:9px;font-weight:850;letter-spacing:.05em;color:#708077;text-transform:uppercase}.po-polished .po-kv b{display:block;font-size:12px;margin-top:4px;line-height:1.35}
     .po-polished .po-items{width:100%;border-collapse:collapse;margin-top:18px}.po-polished .po-items th{background:#174c35;color:#fff;font-size:10px;letter-spacing:.03em;padding:10px 8px;text-align:left}.po-polished .po-items td{padding:10px 8px;border-bottom:1px solid #e4ebe7;font-size:12px;vertical-align:top}.po-polished .po-items th:nth-child(n+3),.po-polished .po-items td:nth-child(n+3){text-align:right}.po-polished .po-item-code{font-size:10px;color:#718178;margin-top:3px}.po-polished .po-sum{display:flex;justify-content:flex-end;margin-top:14px}.po-polished .po-total-box{min-width:260px;background:#f0f7f3;border:1px solid #ccdfd3;border-radius:11px;padding:13px 15px;display:flex;align-items:center;justify-content:space-between;gap:18px}.po-polished .po-total-box span{font-size:11px;font-weight:850;color:#64766c}.po-polished .po-total-box b{font-size:21px;color:#174c35}.po-polished .po-foot{margin-top:17px;padding-top:12px;border-top:1px solid #e1e9e4;font-size:10px;line-height:1.55;color:#687970}
-    @media(max-width:760px){.po-polished .po-top{grid-template-columns:1fr}.po-polished .po-doc{text-align:left}.po-polished .po-company{align-items:flex-start;flex-direction:column}.po-polished .po-info-grid{grid-template-columns:1fr}.po-polished .po-order-grid{grid-template-columns:1fr 1fr}.po-polished .po-logo-wrap{width:145px;height:66px}}
+    @media(max-width:760px){.po-polished .po-top{grid-template-columns:1fr}.po-polished .po-doc{text-align:left}.po-polished .po-company{align-items:flex-start;flex-direction:column}.po-polished .po-info-grid{grid-template-columns:1fr}.po-polished .po-order-grid{grid-template-columns:1fr 1fr}.po-polished .po-logo-wrap{width:190px;min-width:190px;height:68px}.po-polished .po-real-logo{max-width:188px;max-height:66px}}
   `;
   document.head.appendChild(st);
 
@@ -29,7 +30,7 @@
     const detail=document.querySelector('#detailOpenPo')?.textContent||'';const m=detail.match(/OC-[A-Z0-9-]+/i);if(m)return purchaseByPo(m[0]);
     return null;
   }
-  function logoFor(p){const c=company(p.company_id),name=String(c.legal_name||c.name||p.company_name||'').toLowerCase();return name.includes('maqmoveis')?'assets/logo-maqmoveis.jpg':'assets/logo-avh.jpg'}
+  function logoFor(p){const c=company(p.company_id),name=String(c.legal_name||c.name||p.company_name||'').toLowerCase();return name.includes('maqmoveis')?'assets/logo-maqmoveis.jpg':'assets/logo-avh.png'}
   function dest(p){if(p.destination_type==='warehouse')return p.warehouse_name||(typeof whName==='function'?whName(p.warehouse_id):'Depósito');if(p.destination_type==='barge')return p.barge_number?`Barcaza ${p.barge_number}`:(p.barge_id&&typeof bargeNo==='function'?`Barcaza ${bargeNo(p.barge_id)}`:'Barcaza / proyecto');return p.destination_text||'Entrega directa'}
   function polishedHtml(p){
     const c=company(p.company_id),s=supplier(p.supplier_id),rows=items(p.id),total=rows.reduce((a,x)=>a+num(x.quantity)*num(x.unit_price),0);
@@ -53,7 +54,13 @@
   }
   async function fastDownload(p,btn){
     const old=btn?.textContent;if(btn){btn.disabled=true;btn.textContent='Descargando…'}
-    try{const doc=orderDoc(p.id);if(doc)return await downloadStored(doc,p);if(window.AVHSmartPurchase?.downloadPurchaseOrderPdf)return await window.AVHSmartPurchase.downloadPurchaseOrderPdf(p.id);throw Error('Esta compra todavía no tiene PDF de OC archivado.')}finally{if(btn){btn.disabled=false;btn.textContent=old||'⬇ Descargar OC en PDF'}}
+    try{
+      const doc=orderDoc(p.id);
+      if(doc?.source===PDF_SOURCE)return await downloadStored(doc,p);
+      if(window.AVHSmartPurchase?.downloadPurchaseOrderPdf){await window.AVHSmartPurchase.downloadPurchaseOrderPdf(p.id);await loadAll(true);return}
+      if(doc)return await downloadStored(doc,p);
+      throw Error('Esta compra todavía no tiene PDF de OC archivado.');
+    }finally{if(btn){btn.disabled=false;btn.textContent=old||'⬇ Descargar OC en PDF'}}
   }
 
   document.addEventListener('click',e=>{
