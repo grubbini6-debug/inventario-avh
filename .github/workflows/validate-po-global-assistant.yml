@@ -1,0 +1,19 @@
+name: Validate PO and global assistant
+on:
+  push:
+    branches: [feat/po-branding-global-assistant]
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check AVH V3
+        working-directory: v3
+        run: node scripts/check.mjs
+      - name: Check OC assets
+        working-directory: v3
+        run: test -s dist/assets/logo-avh.jpg && test -s dist/assets/logo-maqmoveis.jpg
