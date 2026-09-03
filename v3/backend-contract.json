@@ -63,8 +63,7 @@
   "edge": [
     "admin-create-user",
     "admin-reset-user-password",
-    "avh-user-admin",
-    "purchase-document-ai"
+    "avh-user-admin"
   ],
   "insert": [
     "barges",
