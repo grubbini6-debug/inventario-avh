@@ -36,7 +36,8 @@
     "src/features/purchases/ai-assistant.js",
     "src/features/purchases/smart-purchase-flow.js",
     "src/features/purchases/purchase-lifecycle.js",
-    "src/features/purchases/po-polish.js"
+    "src/features/purchases/po-polish.js",
+    "src/features/inventory/depositor-mobile-ai.js"
   ],
   "bootstrap": "src/core/bootstrap.js",
   "styles": [
