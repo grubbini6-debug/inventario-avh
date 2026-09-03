@@ -15,10 +15,11 @@ jobs:
           cat > /tmp/test.ts <<'TS'
           import { PDFDocument } from 'npm:pdf-lib@1.17.1';
           import { PNG } from 'npm:pngjs@7.0.0';
+          import { Buffer } from 'node:buffer';
           const url='https://grubbini6-debug.github.io/inventario-avh/assets/logo-avh.png';
           const r=await fetch(url); if(!r.ok) throw new Error('logo '+r.status);
           const raw=new Uint8Array(await r.arrayBuffer());
-          const img=PNG.sync.read(raw);
+          const img=PNG.sync.read(Buffer.from(raw));
           for(let i=0;i<img.data.length;i+=4){
             const a=img.data[i+3]/255;
             img.data[i]=Math.round(img.data[i]*a+255*(1-a));
