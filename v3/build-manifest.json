@@ -42,5 +42,9 @@
   "styles": [
     "src/styles/app.css"
   ],
+  "assets": [
+    "src/assets/logo-avh.jpg",
+    "src/assets/logo-maqmoveis.jpg"
+  ],
   "template": "src/index.template.html"
 }
