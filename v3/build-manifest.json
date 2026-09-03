@@ -32,7 +32,9 @@
     "src/features/purchases/contractor-link.js",
     "src/features/purchases/item-editor.js",
     "src/features/purchases/free-text-product.js",
-    "src/features/purchases/delete-purchase.js"
+    "src/features/purchases/delete-purchase.js",
+    "src/features/purchases/ai-assistant.js",
+    "src/features/purchases/smart-purchase-flow.js"
   ],
   "bootstrap": "src/core/bootstrap.js",
   "styles": [
