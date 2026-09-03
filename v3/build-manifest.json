@@ -35,11 +35,16 @@
     "src/features/purchases/delete-purchase.js",
     "src/features/purchases/ai-assistant.js",
     "src/features/purchases/smart-purchase-flow.js",
-    "src/features/purchases/purchase-lifecycle.js"
+    "src/features/purchases/purchase-lifecycle.js",
+    "src/features/purchases/po-polish.js"
   ],
   "bootstrap": "src/core/bootstrap.js",
   "styles": [
     "src/styles/app.css"
+  ],
+  "assets": [
+    "src/assets/logo-avh.jpg",
+    "src/assets/logo-maqmoveis.jpg"
   ],
   "template": "src/index.template.html"
 }
