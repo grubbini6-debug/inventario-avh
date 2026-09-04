@@ -123,3 +123,10 @@
   .top-logout{display:none}
   .nav button span{display:block}
 }
+
+.shell-role-hidden{display:none!important}
+@media(min-width:1024px){
+  #page-more>.section-head:first-child,#page-more>.more-grid{display:none}
+  #page-more>#moduleContent{margin-top:0!important}
+  #page-more>#moduleContent>.section-head:first-child{margin-top:0}
+}
