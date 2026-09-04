@@ -93,7 +93,7 @@
   };
 
   function unitOptions(selected='unidad'){return PURCHASE_UNITS.map(u=>`<option value="${esc(u)}" ${u===selected?'selected':''}>${esc(u)}</option>`).join('')}
-  function openNewPurchase(preselectedSupplierId=null){
+  function openNewPurchase(preselectedSupplierId=null,preselectedProductId=null){
     if(profile?.role!=='admin')return;
     let cart=[];
     openModal('Nueva compra','Solo administrador · sin numeración automática',`<div class="two"><div class="field"><label>Empresa que compra/paga *</label><div class="line" style="gap:6px"><select id="pcCompany" style="flex:1">${D.purchaseCompanies.filter(x=>x.active).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select><button id="pcAddCompany" type="button" class="btn sm soft">+ Empresa</button></div></div><div class="field"><label>Proveedor</label><div class="line" style="gap:6px"><select id="pcSupplier" style="flex:1"><option value="">Sin definir</option>${D.suppliers.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select><button id="pcAddSupplier" type="button" class="btn sm soft">+ Proveedor</button></div></div></div>
@@ -114,6 +114,7 @@
     function destUI(){const d=$('#pcDest').value;$('#pcWhWrap').classList.toggle('hide',d!=='warehouse');$('#pcBargeWrap').classList.toggle('hide',d!=='barge');$('#pcDestTextWrap').classList.toggle('hide',!['direct','service','other','barge'].includes(d));if(d!=='warehouse')$('#pciStock').checked=false}
     $('#pcDest').onchange=destUI;destUI();
     $('#pciProduct').onchange=()=>{const p=product($('#pciProduct').value);if(p){$('#pciDesc').value=p.name;$('#pciUnit').value=PURCHASE_UNITS.includes(p.base_unit)?p.base_unit:'otro';$('#pciFactor').value='1';if($('#pcDest').value==='warehouse')$('#pciStock').checked=true}};
+    if(preselectedProductId&&$('#pciProduct')){$('#pciProduct').value=preselectedProductId;$('#pciProduct').onchange()}
     function drawCart(){const c=$('#pcCurrency').value;$('#pcCart').innerHTML=cart.map((x,i)=>`<div class="cart-line"><div class="purchase-item-line"><div><b>${esc(x.description)}</b><div class="subtext">${fmt(x.quantity)} ${esc(x.unit)} × ${money(x.unit_price,c)}${x.affects_inventory?' · entra a stock':''}</div></div><button type="button" class="btn sm soft remove" data-pc-remove="${i}">Quitar</button></div></div>`).join('')+(cart.length?`<div class="cart-total"><b>Total estimado: ${money(cart.reduce((a,x)=>a+x.quantity*x.unit_price,0),c)}</b></div>`:'<div class="empty">Agregá los ítems de la compra.</div>');$$('[data-pc-remove]').forEach(b=>b.onclick=()=>{cart.splice(Number(b.dataset.pcRemove),1);drawCart()})}
     $('#pcCurrency').onchange=drawCart;drawCart();
     $('#pcAddItem').onclick=()=>{const productId=$('#pciProduct').value,description=$('#pciDesc').value.trim(),quantity=Number($('#pciQty').value),unit=$('#pciUnit').value,unitPrice=Number($('#pciPrice').value||0),factor=Number($('#pciFactor').value||1),affects=$('#pciStock').checked;if(!description)return alert('Escribí la descripción del ítem.');if(!quantity||quantity<=0)return alert('La cantidad debe ser mayor a cero.');if(!factor||factor<=0)return alert('La conversión debe ser mayor a cero.');if(affects&&!productId)return alert('Para ingresar a stock tenés que vincular el ítem a un producto del inventario.');cart.push({product_id:productId||null,description,quantity,unit,factor_to_base:factor,unit_price:unitPrice,affects_inventory:affects});$('#pciProduct').value='';$('#pciDesc').value='';$('#pciQty').value='';$('#pciPrice').value='';$('#pciFactor').value='1';$('#pciStock').checked=false;drawCart()};
@@ -196,7 +197,7 @@
 
       <div class="purchase-record-panel" data-purchase-panel="items">
         <div class="section-head"><div><h2>Ítems comprados</h2><p>Cantidad, recepción, precio y vínculo con inventario</p></div></div>
-        <div class="list">${items.map(x=>{const remain=Math.max(0,Number(x.quantity)-Number(x.received_qty||0));const linePct=Number(x.quantity)>0?Math.min(100,Math.round(Number(x.received_qty||0)/Number(x.quantity)*100)):0;return`<div class="row purchase-record-item"><div class="line"><div class="grow"><div class="title">${esc(x.description)}</div><div class="subtext">Comprado: ${fmt(x.quantity)} ${esc(x.unit)} · Recibido: ${fmt(x.received_qty||0)} · Pendiente: ${fmt(remain)}${x.affects_inventory?' · INGRESA A STOCK':''}</div><div class="purchase-progress"><i style="width:${linePct}%"></i></div></div><div class="purchase-item-money"><b>${money(Number(x.quantity)*Number(x.unit_price||0),p.currency)}</b><small>${money(Number(x.unit_price||0),p.currency)} / ${esc(x.unit)}</small></div></div></div>`}).join('')||'<div class="empty">Sin ítems.</div>'}</div>
+        <div class="list">${items.map(x=>{const remain=Math.max(0,Number(x.quantity)-Number(x.received_qty||0));const linePct=Number(x.quantity)>0?Math.min(100,Math.round(Number(x.received_qty||0)/Number(x.quantity)*100)):0;return`<div class="row purchase-record-item"><div class="line"><div class="grow"><div class="title">${esc(x.description)}</div><div class="subtext">Comprado: ${fmt(x.quantity)} ${esc(x.unit)} · Recibido: ${fmt(x.received_qty||0)} · Pendiente: ${fmt(remain)}${x.affects_inventory?' · INGRESA A STOCK':''}</div><div class="purchase-progress"><i style="width:${linePct}%"></i></div></div><div class="purchase-item-money"><b>${money(Number(x.quantity)*Number(x.unit_price||0),p.currency)}</b><small>${money(Number(x.unit_price||0),p.currency)} / ${esc(x.unit)}</small>${x.product_id?`<button class="btn sm soft purchase-item-product-link" data-purchase-product="${x.product_id}">Ver producto</button>`:''}</div></div></div>`}).join('')||'<div class="empty">Sin ítems.</div>'}</div>
       </div>
 
       <div class="purchase-record-panel" data-purchase-panel="receipts">
@@ -219,14 +220,16 @@
     $('#purchaseBack').onclick=back;$('#purchaseRecordBack').onclick=back;
     bindPurchaseRecordTabs();
     $$('[data-purchase-tab-jump]').forEach(b=>b.onclick=()=>document.querySelector(`[data-purchase-tab="${b.dataset.purchaseTabJump}"]`)?.click());
-    $$('[data-pdoc]').forEach(b=>b.onclick=()=>openPurchaseDocument(b.dataset.pdoc));
+    $('[data-pdoc]').forEach(b=>b.onclick=()=>openPurchaseDocument(b.dataset.pdoc));
+    $('[data-purchase-product]').forEach(b=>b.onclick=e=>{e.stopPropagation();window.openProduct360?.(b.dataset.purchaseProduct)});
     $('#purchaseRecordSupplier')?.addEventListener('click',()=>window.openSupplierProfile?.(p.supplier_id));
     $('#pdSave').onclick=async()=>{const b=$('#pdSave');b.disabled=true;const r=await rpc('admin_update_purchase',{p_purchase_id:id,p_patch:{status:$('#pdStatus').value,invoice_number:$('#pdInvoice').value.trim()||null,expected_date:$('#pdExpected').value||null,order_reference:$('#pdReference').value.trim()||null}});b.disabled=false;if(r.error)return msg($('#pdMsg'),r.error);msg($('#pdMsg'),'Compra actualizada.',true);await loadAll(true);setTimeout(()=>openPurchaseDetail(id),100)};
     $('#pdAddDoc').onclick=()=>{const kind=prompt('Tipo: cotización / orden / factura / remito / pago / otro','factura')||'';const map={cotizacion:'quotation','cotización':'quotation',orden:'order',oc:'order',pedido:'order',factura:'invoice',remito:'remittance',pago:'payment',otro:'other'};const k=map[kind.trim().toLowerCase()]||'other';const inp=document.createElement('input');inp.type='file';inp.accept='application/pdf,image/*';inp.onchange=async()=>{const file=inp.files?.[0];if(!file)return;try{const path=await uploadPurchaseDocument(file,id);const r=await insert('purchase_documents',{purchase_id:id,kind:k,file_path:path,file_name:file.name,uploaded_by:profile.id});if(r.error)throw Error(r.error);await loadAll(true);openPurchaseDetail(id)}catch(e){alert(e.message||String(e))}};inp.click()};
     const title=$('#sectionTitle');if(title)title.textContent=ref;
   };
 
-  window.openNewPurchaseForSupplier=function(supplierId){return openNewPurchase(supplierId||null)};
+  window.openNewPurchaseForSupplier=function(supplierId){return openNewPurchase(supplierId||null,null)};
+  window.openNewPurchaseForProduct=function(productId){return openNewPurchase(null,productId||null)};
   window.renderPurchaseReceipts=function(){
     if(profile?.role!=='depositor')return;
     const pending=(D.purchases||[]).filter(pendingPurchase);

@@ -154,7 +154,7 @@
 
       <div class="supplier-record-panel" data-supplier-panel="products">
         <div class="section-head"><div><h2>Productos y precios</h2><p>Precio normalizado a unidad base por moneda</p></div></div>
-        <div class="supplier-price-list">${recentProducts.map(g=>`<div class="card supplier-price-card"><div class="line"><div class="grow"><div class="title">${esc(g.product_name)}</div><div class="subtext">${g.records} compra${g.records===1?'':'s'} comparable${g.records===1?'':'s'} · ${fmt(g.qty)} ${esc(g.base_unit)}</div></div><button class="btn sm soft" data-supplier-price-product="${g.product_id}">Historial general</button></div><div class="supplier-price-metrics"><div><span>Moneda</span><b>${esc(g.currency)}</b></div><div><span>Último</span><b>${money(g.last.price,g.currency)}</b></div><div><span>Mejor</span><b>${money(g.best.price,g.currency)}</b></div><div><span>Promedio</span><b>${money(g.avg,g.currency)}</b></div></div><div class="subtext" style="margin-top:8px">Última compra: ${date(g.last.date)} · precio por ${esc(g.base_unit)}</div></div>`).join('')||'<div class="empty">No hay productos del catálogo vinculados a este proveedor.</div>'}</div>
+        <div class="supplier-price-list">${recentProducts.map(g=>`<div class="card supplier-price-card"><div class="line"><div class="grow"><div class="title">${esc(g.product_name)}</div><div class="subtext">${g.records} compra${g.records===1?'':'s'} comparable${g.records===1?'':'s'} · ${fmt(g.qty)} ${esc(g.base_unit)}</div></div><div class="split-actions"><button class="btn sm soft" data-supplier-product-record="${g.product_id}">Ver producto</button><button class="btn sm" data-supplier-price-product="${g.product_id}">Precios</button></div></div><div class="supplier-price-metrics"><div><span>Moneda</span><b>${esc(g.currency)}</b></div><div><span>Último</span><b>${money(g.last.price,g.currency)}</b></div><div><span>Mejor</span><b>${money(g.best.price,g.currency)}</b></div><div><span>Promedio</span><b>${money(g.avg,g.currency)}</b></div></div><div class="subtext" style="margin-top:8px">Última compra: ${date(g.last.date)} · precio por ${esc(g.base_unit)}</div></div>`).join('')||'<div class="empty">No hay productos del catálogo vinculados a este proveedor.</div>'}</div>
       </div>
 
       <div class="supplier-record-panel" data-supplier-panel="activity">
@@ -170,6 +170,7 @@
     bindTabs();
     document.querySelectorAll('[data-supplier-tab-jump]').forEach(b=>b.onclick=()=>document.querySelector(`[data-supplier-tab="${b.dataset.supplierTabJump}"]`)?.click());
     document.querySelectorAll('[data-supplier-purchase],[data-supplier-event-purchase]').forEach(x=>x.onclick=()=>window.openPurchaseDetail?.(x.dataset.supplierPurchase||x.dataset.supplierEventPurchase));
+    document.querySelectorAll('[data-supplier-product-record]').forEach(x=>x.onclick=()=>window.openProduct360?.(x.dataset.supplierProductRecord));
     document.querySelectorAll('[data-supplier-price-product]').forEach(x=>x.onclick=()=>window.openPriceAnalysis?.(x.dataset.supplierPriceProduct));
     setTimeout(()=>{window.AVHShell?.syncActive?.('more','admin');const title=$('#sectionTitle');if(title)title.textContent=s.name},0);
   }
