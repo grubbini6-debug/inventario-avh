@@ -1,0 +1,32 @@
+name: Validate AI two-pass review
+on:
+  push:
+    branches: [feat/ai-two-pass-review]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validar frontend AVH
+        working-directory: v3
+        run: |
+          node scripts/check.mjs
+          node --check src/features/purchases/smart-purchase-flow.js
+          grep -q 'product_catalog' src/features/purchases/smart-purchase-flow.js
+          grep -q 'review_signals' src/features/purchases/smart-purchase-flow.js
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Validar IA en dos pasadas
+        run: |
+          deno check v3/edge-functions/purchase-document-ai/index.ts
+          deno check v3/edge-functions/purchase-invoice-control-ai/index.ts
+          grep -q 'avh_purchase_document_reviewed' v3/edge-functions/purchase-document-ai/index.ts
+          grep -q 'avh_invoice_reviewed' v3/edge-functions/purchase-invoice-control-ai/index.ts
+          grep -q 'for(let attempt=0;attempt<2;attempt++)' v3/edge-functions/purchase-document-ai/index.ts
+          grep -q 'for(let attempt=0;attempt<2;attempt++)' v3/edge-functions/purchase-invoice-control-ai/index.ts
+          ! grep -q 'receive_purchase' v3/edge-functions/purchase-invoice-control-ai/index.ts
