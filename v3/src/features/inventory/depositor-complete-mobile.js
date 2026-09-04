@@ -15,6 +15,8 @@
   const receiptsFor=id=>(D.purchaseReceipts||[]).filter(r=>r.purchase_id===id);
   const docsFor=id=>(D.purchaseDocuments||[]).filter(d=>d.purchase_id===id);
   const docPending=()=>ownPurchases().filter(p=>receiptsFor(p.id).length&&!docsFor(p.id).some(d=>d.kind==='invoice'));
+  const openingSession=()=> (D.openingInventorySessions||[]).find(x=>x.warehouse_id===ownWh()&&x.status==='open')||null;
+  const initialButtonHtml=()=>openingSession()?`<button id="depInitial" class="dep-op warn"><span class="ico">🧮</span><b>Inventario inicial</b><small>Cargá todo lo que ya existe. Administración pondrá los precios.</small></button>`:'';
 
   const style=document.createElement('style');
   style.textContent=`
@@ -27,7 +29,8 @@
   document.head.appendChild(style);
 
   function openInitialGuard(){
-    openModal('Cargar stock inicial','Uso excepcional',`<div class="notice">Usá <b>Stock inicial</b> solo para registrar existencia que ya estaba físicamente en el depósito y todavía no figura en AVH. No lo uses para mercadería nueva que llegó por compra, devolución o transferencia.</div><button id="depInitialContinue" class="btn primary" style="width:100%;margin-top:10px">Entiendo · cargar stock inicial</button>`);
+    if(!openingSession())return alert('Administración todavía no abrió el inventario inicial de este depósito.');
+    openModal('Inventario inicial','Conteo físico del depósito',`<div class="notice">Cargá <b>todo lo que ya existe físicamente</b> en el depósito. Indicá producto, cantidad y presentación. <b>No cargás precios:</b> administración los completa después. No uses esta opción para mercadería nueva que llegue por compra, devolución o transferencia.</div><button id="depInitialContinue" class="btn primary" style="width:100%;margin-top:10px">Cargar existencia física</button>`);
     $('#depInitialContinue').onclick=()=>openMovement('initial');
   }
 
@@ -65,6 +68,7 @@
 
   function attentionHtml(){
     const trans=incomingTransfers(),crit=criticalStock(),low=lowStock(),req=myOpenRequests(),docs=docPending();const rows=[];
+    if(openingSession())rows.push(`<div class="dep-attention-row amber"><div class="line"><div class="grow"><div class="title">🧮 Inventario inicial abierto</div><div class="subtext">Seguí cargando toda la existencia física. Los precios los completa administración.</div></div><button class="btn sm primary" id="depOpeningContinue">Cargar</button></div></div>`);
     trans.slice(0,4).forEach(m=>rows.push(`<div class="dep-attention-row amber"><div class="line"><div class="grow"><div class="title">⇄ Transferencia #${m.movement_no} por recibir</div><div class="subtext">${(m.movement_lines||[]).map(l=>`${fmt(l.quantity)} ${safe(l.presentation_label||l.unit)} ${safe(l.products?.name||'')}`).join(' · ')||'Material en tránsito'}</div></div><button class="btn sm primary" data-dep-confirm-transfer="${m.id}">Confirmar llegada</button></div></div>`));
     if(crit.length)rows.push(`<div class="dep-attention-row red"><div class="line"><div class="grow"><div class="title">⚠ ${crit.length} producto${crit.length===1?'':'s'} en stock crítico</div><div class="subtext">Revisá y solicitá reposición si corresponde.</div></div><button class="btn sm soft" data-dep-stock-state="critical">Ver</button></div></div>`);
     if(low.length)rows.push(`<div class="dep-attention-row amber"><div class="line"><div class="grow"><div class="title">Stock bajo: ${low.length} producto${low.length===1?'':'s'}</div><div class="subtext">Todavía hay existencia, pero está cerca del mínimo.</div></div><button class="btn sm soft" data-dep-stock-state="low">Ver</button></div></div>`);
@@ -85,6 +89,7 @@
     $('#depInitial')?.addEventListener('click',openInitialGuard);
     $('#depSupplyRequest')?.addEventListener('click',()=>window.openNewSupplyRequest?.());
     $('#depViewRequests')?.addEventListener('click',openMyRequests);
+    $('#depOpeningContinue')?.addEventListener('click',openInitialGuard);
     $$('[data-dep-confirm-transfer]').forEach(b=>b.onclick=()=>receiveTransfer(b.dataset.depConfirmTransfer,b));
     $$('[data-dep-stock-state]').forEach(b=>b.onclick=()=>goStockState(b.dataset.depStockState));
     $$('[data-dep-complete-docs]').forEach(b=>b.onclick=()=>openCompleteDocs(b.dataset.depCompleteDocs));
@@ -93,7 +98,7 @@
 
   function decorate(){
     if(!isDep())return;const home=$('#page-home .dep-home');if(!home||$('#depCompleteOps'))return;
-    const actions=home.querySelector('.dep-actions');if(actions)actions.insertAdjacentHTML('afterend',`<section id="depCompleteOps" class="dep-complete-section"><div class="dep-complete-head"><div><h2>Otras operaciones</h2><p>Lo necesario para operar el depósito sin menús extra.</p></div></div><div class="dep-ops-grid"><button id="depManualEntry" class="dep-op"><span class="ico">➕</span><b>Entrada manual</b><small>Ingreso que no viene de una OC.</small></button><button id="depTransfer" class="dep-op"><span class="ico">⇄</span><b>Transferir</b><small>Enviar material a otro depósito.</small></button><button id="depReturn" class="dep-op"><span class="ico">↩️</span><b>Devolución</b><small>Material que vuelve al depósito.</small></button><button id="depSupplyRequest" class="dep-op request"><span class="ico">📝</span><b>Solicitar material</b><small>Pedí reposición o algo nuevo a administración.</small></button><button id="depInitial" class="dep-op warn"><span class="ico">🧮</span><b>Stock inicial</b><small>Solo existencia previa que aún no figura en AVH.</small></button></div></section>`);
+    const actions=home.querySelector('.dep-actions');if(actions)actions.insertAdjacentHTML('afterend',`<section id="depCompleteOps" class="dep-complete-section"><div class="dep-complete-head"><div><h2>Otras operaciones</h2><p>Lo necesario para operar el depósito sin menús extra.</p></div></div><div class="dep-ops-grid"><button id="depManualEntry" class="dep-op"><span class="ico">➕</span><b>Entrada manual</b><small>Ingreso que no viene de una OC.</small></button><button id="depTransfer" class="dep-op"><span class="ico">⇄</span><b>Transferir</b><small>Enviar material a otro depósito.</small></button><button id="depReturn" class="dep-op"><span class="ico">↩️</span><b>Devolución</b><small>Material que vuelve al depósito.</small></button><button id="depSupplyRequest" class="dep-op request"><span class="ico">📝</span><b>Solicitar material</b><small>Pedí reposición o algo nuevo a administración.</small></button>${initialButtonHtml()}</div></section>`);
     const kpis=home.querySelector('.dep-kpis');if(kpis)kpis.insertAdjacentHTML('afterend',`<section id="depAttention" class="dep-complete-section"><div class="dep-complete-head"><div><h2>Atención requerida</h2><p>Transferencias, faltantes, solicitudes y documentos.</p></div></div><div class="dep-attention">${attentionHtml()}</div></section>`);
     const heads=[...home.querySelectorAll('.section-head')],activity=heads.find(h=>h.querySelector('h2')?.textContent.trim()==='Actividad de hoy');if(activity){const oldList=activity.nextElementSibling;activity.style.display='none';if(oldList)oldList.style.display='none';activity.insertAdjacentHTML('afterend',`<section id="depRecentManaged" class="dep-complete-section"><div class="dep-complete-head"><div><h2>Mis últimos movimientos</h2><p>Revisá lo cargado y pedí corrección si algo quedó mal.</p></div></div><div class="dep-attention">${recentHtml()}</div></section>`)}
     bind();
