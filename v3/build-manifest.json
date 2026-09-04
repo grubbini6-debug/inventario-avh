@@ -39,6 +39,7 @@
     "src/features/purchases/purchase-lifecycle.js",
     "src/features/purchases/purchase-document-control.js",
     "src/features/purchases/po-polish.js",
+    "src/features/admin/admin-attention-center.js",
     "src/features/inventory/depositor-mobile-ai.js",
     "src/features/inventory/depositor-role-cleanup.js",
     "src/features/inventory/depositor-complete-mobile.js"
