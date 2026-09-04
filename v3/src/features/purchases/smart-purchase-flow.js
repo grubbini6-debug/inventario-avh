@@ -31,12 +31,17 @@
   async function analyzeFile(file){
     if(!file)throw Error('Elegí un presupuesto.');if(file.size>MAX_BYTES)throw Error('El archivo supera 12 MB.');
     const data=await fileToDataUrl(file);
-    const r=await edge(DOC_EDGE,{file_name:file.name,mime_type:file.type||'application/octet-stream',file_data:data});
+    const context={
+      suppliers:(D.suppliers||[]).filter(x=>x.active!==false).slice(0,120).map(x=>({name:x.name,tax_id:x.tax_id||null})),
+      buyer_companies:activeCompanies().slice(0,20).map(x=>({name:x.name,legal_name:x.legal_name||null,tax_id:x.tax_id||null})),
+      product_catalog:(D.products||[]).filter(x=>x.active).slice(0,250).map(x=>({sku:x.sku||x.code||null,name:x.name,base_unit:x.base_unit||null}))
+    };
+    const r=await edge(DOC_EDGE,{file_name:file.name,mime_type:file.type||'application/octet-stream',file_data:data,context});
     if(r.error)throw Error(r.error);
     const d=r.data?.document||{};d.items=Array.isArray(d.items)?d.items.filter(x=>String(x?.description||'').trim()&&num(x?.quantity)>0):[];
     if(!d.items.length)throw Error('La IA no encontró ítems comprables.');
     d.currency=['PYG','USD'].includes(String(d.currency||'').toUpperCase())?String(d.currency).toUpperCase():'PYG';
-    smartState={file,doc:d,meta:{model:r.data?.model,usage:r.data?.usage}};return d;
+    smartState={file,doc:d,meta:{model:r.data?.model,usage:r.data?.usage,reviewed:!!r.data?.reviewed,review_signals:r.data?.review_signals||[],review_error:r.data?.review_error||null}};return d;
   }
 
   function openSmartPurchase(){
