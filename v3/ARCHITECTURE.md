@@ -4,6 +4,12 @@
 
 V3 es la única versión publicada en GitHub Pages. La arquitectura anterior basada en HTML comprimido y `patch1..patch11` queda como referencia histórica y no forma parte del build productivo.
 
+## Alcance funcional
+
+El núcleo de V3 es **Compras + Proveedores + Depósito + Inventario**. Barcazas se usa como dimensión de proyecto/consumo de materiales.
+
+Quedan fuera del producto: contratistas, módulos de fabricación, liquidaciones, descuentos, adelantos y pagos a contratistas. Ese circuito se mantiene en Excel. No se deben agregar features nuevas de ese dominio a V3.
+
 ## Capas
 
 ### Frontend
@@ -45,6 +51,7 @@ GitHub Actions ejecuta además un smoke test real con Chrome antes de publicar.
 5. Auditoría administrativa debe salir de `audit_events`, no de una reconstrucción visual.
 6. Los datos institucionales deben venir de tablas/configuración, no quedar hardcodeados.
 7. Cambios de esquema deben existir como migraciones reproducibles.
+8. Contratistas y módulos no deben volver al flujo activo de V3; solo se conserva compatibilidad histórica de datos cuando sea necesaria.
 
 ## Deuda técnica controlada
 
