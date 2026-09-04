@@ -1,0 +1,21 @@
+name: Validate security admin attention
+on:
+  push:
+    branches: [feat/security-admin-attention]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validar AVH
+        working-directory: v3
+        run: |
+          node scripts/check.mjs
+          node --check src/features/admin/admin-attention-center.js
+          grep -q 'admin-attention-center.js' build-manifest.json
+          grep -q 'purchase_documents' migrations/20260904_security_hardening.sql
+          grep -q 'row level security' migrations/20260904_security_hardening.sql
