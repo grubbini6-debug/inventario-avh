@@ -35,7 +35,6 @@
   "query": [
     "audit_events",
     "barges",
-    "contractors",
     "correction_requests",
     "documents",
     "movements",
@@ -54,7 +53,6 @@
     "suppliers",
     "supply_requests",
     "v_barge_consumption",
-    "v_contractor_consumption",
     "v_inventory_batch_detail",
     "v_large_movements_recent",
     "v_management_consumption_30d",
@@ -77,7 +75,6 @@
   ],
   "insert": [
     "barges",
-    "contractors",
     "documents",
     "product_presentations",
     "products",
