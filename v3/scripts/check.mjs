@@ -14,11 +14,23 @@ const styleModules=(manifest.styles||[]).filter(Boolean);
 const stateSource=fs.readFileSync(path.join(root,'src/core/state.js'),'utf8');
 const adminSource=fs.readFileSync(path.join(root,'src/features/admin/base.js'),'utf8');
 const routerSource=fs.readFileSync(path.join(root,'src/core/router.js'),'utf8');
+const dataViewsSource=fs.readFileSync(path.join(root,'src/core/data-views.js'),'utf8');
+const templateSource=fs.readFileSync(path.join(root,'src/index.template.html'),'utf8');
+const poPolishSource=fs.readFileSync(path.join(root,'src/features/purchases/po-polish.js'),'utf8');
 if(!/\blet\s+activeAdminTab\s*=\s*['"]users['"]/.test(stateSource)||
    !/function\s+renderAdmin\(tab=activeAdminTab\)/.test(adminSource)||
    !/activeAdminTab=tab\|\|['"]users['"]/.test(adminSource)||
    !/renderAdmin\(activeAdminTab\)/.test(routerSource)){
   console.error('Admin tab persistence contract is missing.');failed=true;
+}
+if(!templateSource.includes('Content-Security-Policy')||!templateSource.includes('id="syncState"')){
+  console.error('Frontend hardening contract is missing CSP or sync state.');failed=true;
+}
+if(!dataViewsSource.includes("query('audit_events'")||!routerSource.includes('D.auditEvents')){
+  console.error('Audit UI must use backend audit_events.');failed=true;
+}
+if(/0971\s*800\s*829|gortega@astillerovh\.com/i.test(poPolishSource)){
+  console.error('Purchase order contact data must come from company configuration, not hardcoded fallback.');failed=true;
 }
 
 for(const p of [...sourceModules,...styleModules,manifest.template,'backend-contract.json'].filter(Boolean)){
@@ -32,6 +44,11 @@ for(const p of sourceModules){
 
 const buildSource=fs.readFileSync(path.join(root,'scripts/build.mjs'),'utf8');
 const manifestSource=fs.readFileSync(path.join(root,'build-manifest.json'),'utf8');
+const allSourceText=sourceModules.map(p=>fs.readFileSync(path.join(root,p),'utf8')).join('\n');
+for(const retired of ['avh-publish-static','avh-bootstrap','inventario-avh-v2-app','inventario-avh-v2-web']){
+  if(allSourceText.includes(retired)){console.error('Retired endpoint referenced by V3:',retired);failed=true;}
+}
+
 if(/legacy\/part\d+\.b64|part\$?\{?\w*\}?\.b64|zlib|gunzipSync/.test(buildSource+manifestSource)){
   console.error('Build still references compressed legacy assets.');failed=true;
 }
@@ -123,7 +140,7 @@ if(fs.existsSync(distJs)){
 
 if(fs.existsSync(distHtml)){
   const html=fs.readFileSync(distHtml,'utf8');
-  for(const token of ['<title>Inventario AVH</title>','id="loginForm"','id="main"','id="page-stock"','id="page-moves"','id="page-barges"','id="page-more"','href="app.css"','src="app.js"']){
+  for(const token of ['<title>Inventario AVH</title>','Content-Security-Policy','id="syncState"','id="loginForm"','id="main"','id="page-stock"','id="page-moves"','id="page-barges"','id="page-more"','href="app.css"','src="app.js"']){
     if(!html.includes(token)){console.error('Missing HTML contract:',token);failed=true;}
   }
   if(/<style\b|<script(?![^>]*src=)/i.test(html)){console.error('Inline CSS/JS must not return to V3 template.');failed=true;}

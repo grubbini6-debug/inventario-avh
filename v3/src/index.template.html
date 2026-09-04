@@ -4,11 +4,12 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
 <meta content="#0f5a31" name="theme-color"/>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://tgssxmvsefbmtofngwav.supabase.co wss://tgssxmvsefbmtofngwav.supabase.co; form-action 'self'; upgrade-insecure-requests">
 <title>Inventario AVH</title>
 <link href="app.css" rel="stylesheet"/></head>
 <body>
 <div class="login" id="login"><div class="login-card"><div class="login-logo">AVH</div><h1>Inventario AVH</h1><p>Control operativo de depósitos, barcazas y consumos.</p><form id="loginForm"><div class="field"><label>Usuario</label><input autocapitalize="none" autocomplete="username" id="loginUser" value="admin.avh"/></div><div class="field"><label>Contraseña</label><input autocomplete="current-password" id="loginPass" type="password"/></div><div id="loginMsg"></div><button class="btn primary" style="width:100%">Ingresar</button></form><div class="foot">Astillero Villa Hayes · Sistema privado</div></div></div>
-<div class="hide" id="main"><div class="app"><header class="topbar"><div class="brand"><div class="mark">AVH</div><div><h1>Inventario AVH</h1><small id="who"></small></div></div><div class="top-actions"><span class="live">EN LÍNEA</span><button class="btn icon" id="refreshBtn" title="Actualizar">↻</button><button class="btn sm" id="logoutBtn">Salir</button></div></header>
+<div class="hide" id="main"><div class="app"><header class="topbar"><div class="brand"><div class="mark">AVH</div><div><h1>Inventario AVH</h1><small id="who"></small></div></div><div class="top-actions"><span class="live" id="syncState" title="Estado de sincronización">SINCRONIZANDO</span><button class="btn icon" id="refreshBtn" title="Actualizar">↻</button><button class="btn sm" id="logoutBtn">Salir</button></div></header>
 <nav class="nav"><button class="on" data-page="home"><b>⌂</b>Inicio</button><button data-page="stock"><b>▦</b>Stock</button><button data-page="moves"><b>⇅</b>Movimientos</button><button data-page="barges"><b>⚓</b>Barcazas</button><button data-page="more"><b>☰</b>Más</button></nav>
 <section class="page on" id="page-home">
 <div class="hero"><div><div class="eyebrow">CENTRO DE CONTROL</div><h2>Operación general del astillero</h2><p id="heroDate">Inventario, consumos y pendientes en un solo lugar.</p></div><div class="hero-badge"><span></span> Datos en vivo</div></div>

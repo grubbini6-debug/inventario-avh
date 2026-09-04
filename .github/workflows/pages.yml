@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
   pages: write
   id-token: write
 
@@ -23,6 +24,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Exigir integración por Pull Request
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          COUNT="$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" --jq '[.[] | select(.merged_at != null)] | length')"
+          if [ "$COUNT" -lt 1 ]; then
+            echo "ERROR: producción solo se publica desde cambios integrados mediante Pull Request."
+            exit 1
+          fi
+          echo "Commit asociado a PR mergeado: OK"
+
 
       - name: Validar y construir AVH V3
         working-directory: v3
