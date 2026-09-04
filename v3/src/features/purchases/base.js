@@ -111,13 +111,10 @@
       <button id="pcSave" type="button" class="btn primary" style="width:100%;margin-top:12px">Guardar compra</button><div id="pcMsg"></div>`);
 
     if(preselectedSupplierId&&$('#pcSupplier'))$('#pcSupplier').value=preselectedSupplierId;
-    if(preselectedProductId&&$('#pciProduct')){
-      $('#pciProduct').value=preselectedProductId;
-      $('#pciProduct').dispatchEvent(new Event('change',{bubbles:true}));
-    }
     function destUI(){const d=$('#pcDest').value;$('#pcWhWrap').classList.toggle('hide',d!=='warehouse');$('#pcBargeWrap').classList.toggle('hide',d!=='barge');$('#pcDestTextWrap').classList.toggle('hide',!['direct','service','other','barge'].includes(d));if(d!=='warehouse')$('#pciStock').checked=false}
     $('#pcDest').onchange=destUI;destUI();
     $('#pciProduct').onchange=()=>{const p=product($('#pciProduct').value);if(p){$('#pciDesc').value=p.name;$('#pciUnit').value=PURCHASE_UNITS.includes(p.base_unit)?p.base_unit:'otro';$('#pciFactor').value='1';if($('#pcDest').value==='warehouse')$('#pciStock').checked=true}};
+    if(preselectedProductId&&$('#pciProduct')){$('#pciProduct').value=preselectedProductId;$('#pciProduct').onchange()}
     function drawCart(){const c=$('#pcCurrency').value;$('#pcCart').innerHTML=cart.map((x,i)=>`<div class="cart-line"><div class="purchase-item-line"><div><b>${esc(x.description)}</b><div class="subtext">${fmt(x.quantity)} ${esc(x.unit)} × ${money(x.unit_price,c)}${x.affects_inventory?' · entra a stock':''}</div></div><button type="button" class="btn sm soft remove" data-pc-remove="${i}">Quitar</button></div></div>`).join('')+(cart.length?`<div class="cart-total"><b>Total estimado: ${money(cart.reduce((a,x)=>a+x.quantity*x.unit_price,0),c)}</b></div>`:'<div class="empty">Agregá los ítems de la compra.</div>');$$('[data-pc-remove]').forEach(b=>b.onclick=()=>{cart.splice(Number(b.dataset.pcRemove),1);drawCart()})}
     $('#pcCurrency').onchange=drawCart;drawCart();
     $('#pcAddItem').onclick=()=>{const productId=$('#pciProduct').value,description=$('#pciDesc').value.trim(),quantity=Number($('#pciQty').value),unit=$('#pciUnit').value,unitPrice=Number($('#pciPrice').value||0),factor=Number($('#pciFactor').value||1),affects=$('#pciStock').checked;if(!description)return alert('Escribí la descripción del ítem.');if(!quantity||quantity<=0)return alert('La cantidad debe ser mayor a cero.');if(!factor||factor<=0)return alert('La conversión debe ser mayor a cero.');if(affects&&!productId)return alert('Para ingresar a stock tenés que vincular el ítem a un producto del inventario.');cart.push({product_id:productId||null,description,quantity,unit,factor_to_base:factor,unit_price:unitPrice,affects_inventory:affects});$('#pciProduct').value='';$('#pciDesc').value='';$('#pciQty').value='';$('#pciPrice').value='';$('#pciFactor').value='1';$('#pciStock').checked=false;drawCart()};
