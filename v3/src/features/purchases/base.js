@@ -11,6 +11,7 @@
   const DEST_LABEL={warehouse:'Depósito',barge:'Barcaza / proyecto',direct:'Entrega directa',service:'Servicio',other:'Otro'};
   const URGENCY_LABEL={normal:'Normal',urgent:'Urgente',critical:'Crítico'};
   const PURCHASE_UNITS=['unidad','pieza','kg','tonelada','rollo','bobina','caja','paquete','bolsa','metro','m²','m³','litro','cilindro','tambor','pallet','plancha','barra','tubo','perfil','bidón','servicio','viaje','hora','día','otro'];
+  let activePurchaseRecordId=null;
 
   const st=document.createElement('style');
   st.textContent=`.purchase-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.purchase-row{border-left:4px solid #dfe9e2}.purchase-row.urgent{border-left-color:var(--amber)}.purchase-row.critical{border-left-color:var(--red)}.purchase-item-line{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start}.purchase-money{font-size:17px;font-weight:900}.purchase-progress{height:7px;border-radius:99px;background:#e8efea;overflow:hidden;margin-top:7px}.purchase-progress i{display:block;height:100%;background:var(--green);border-radius:99px}.purchase-form-actions{display:flex;gap:7px;flex-wrap:wrap}.receive-grid{display:grid;grid-template-columns:1fr 120px;gap:8px;align-items:end}.purchase-doc{display:flex;align-items:center;justify-content:space-between;gap:10px}.purchase-destination-fields{display:grid;gap:0}@media(min-width:760px){.purchase-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}.receive-grid{grid-template-columns:1fr 160px}}`;
@@ -63,12 +64,16 @@
     await previousLoadAllPurchases(force);
     if(!profile)return;
     await loadPurchaseData();ensurePurchasePage();
-    if(document.querySelector('#page-purchases')?.classList.contains('on')&&profile.role==='admin')renderPurchases();
+    if(document.querySelector('#page-purchases')?.classList.contains('on')&&profile.role==='admin'){
+      if(activePurchaseRecordId&&(D.purchases||[]).some(x=>x.id===activePurchaseRecordId))window.openPurchaseDetail(activePurchaseRecordId);
+      else renderPurchases();
+    }
     if(activeModule==='purchase-receipts'&&profile.role==='depositor')renderPurchaseReceipts();
   };
 
   window.renderPurchases=function(){
     if(profile?.role!=='admin')return;
+    activePurchaseRecordId=null;
     ensurePurchasePage();
     const page=$('#page-purchases'),rows=D.purchases||[];
     const month=new Date().toISOString().slice(0,7);
@@ -143,6 +148,7 @@
 
   window.openPurchaseDetail=async function(id){
     const p=D.purchases.find(x=>x.id===id);if(!p||profile?.role!=='admin')return;
+    activePurchaseRecordId=id;
     ensurePurchasePage();goPage('purchases');
     const page=$('#page-purchases'),items=purchaseItems(id),receipts=purchaseReceipts(id),docs=purchaseDocs(id),total=purchaseTotal(p);
     const receivedQty=items.reduce((a,x)=>a+Number(x.received_qty||0),0),orderedQty=items.reduce((a,x)=>a+Number(x.quantity||0),0);
