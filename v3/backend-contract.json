@@ -58,6 +58,7 @@
     "v_management_consumption_30d",
     "v_management_daily_30d",
     "v_product_consumption",
+    "v_product_360_consumption",
     "v_purchase_alerts",
     "v_purchase_overview",
     "v_smart_stock_alerts",
