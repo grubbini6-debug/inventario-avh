@@ -45,6 +45,21 @@ for(const p of sourceModules){
 const buildSource=fs.readFileSync(path.join(root,'scripts/build.mjs'),'utf8');
 const manifestSource=fs.readFileSync(path.join(root,'build-manifest.json'),'utf8');
 const allSourceText=sourceModules.map(p=>fs.readFileSync(path.join(root,p),'utf8')).join('\n');
+const retiredContractorUi=[
+  'data-module="contractors"',
+  'id="moveContractor"',
+  'id="moveContractorSel"',
+  'id="pcContractor"',
+  'data-mgmt-contractor',
+  'Contratistas — consumo real',
+  'src/features/purchases/contractor-link.js'
+];
+for(const token of retiredContractorUi){
+  if((allSourceText+manifestSource).includes(token)){
+    console.error('Contractor management UI must stay outside V3:',token);failed=true;
+  }
+}
+
 for(const retired of ['avh-publish-static','avh-bootstrap','inventario-avh-v2-app','inventario-avh-v2-web']){
   if(allSourceText.includes(retired)){console.error('Retired endpoint referenced by V3:',retired);failed=true;}
 }
