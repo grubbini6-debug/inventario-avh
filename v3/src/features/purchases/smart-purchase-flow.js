@@ -80,7 +80,7 @@
   async function uploadQuote(file,purchaseId){
     if(!file)return null;const safeName=file.name.replace(/[^a-zA-Z0-9._-]+/g,'_'),path=`${purchaseId}/${Date.now()}_${safeName}`;
     const r=await request(`/storage/v1/object/purchase-documents/${path}`,{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream','x-upsert':'false'},body:file});if(r.error)throw Error(r.error);
-    const ir=await insert('purchase_documents',{purchase_id:purchaseId,kind:'quotation',file_path:path,file_name:file.name,uploaded_by:profile.id});if(ir.error)throw Error(ir.error);return path;
+    const doc=smartState.doc||{},ir=await insert('purchase_documents',{purchase_id:purchaseId,kind:'quotation',file_path:path,file_name:file.name,document_number:doc.document_number||null,document_date:doc.date||null,analysis_status:'ok',analysis_data:doc,analysis_model:smartState.meta?.model||null,analysis_confidence:num(doc.confidence)||null,analyzed_at:new Date().toISOString(),uploaded_by:profile.id});if(ir.error)throw Error(ir.error);return path;
   }
 
   function decodePdf(b64){const raw=atob(String(b64||'')),bytes=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);return new Blob([bytes],{type:'application/pdf'})}
