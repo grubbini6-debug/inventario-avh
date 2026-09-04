@@ -93,7 +93,7 @@
   };
 
   function unitOptions(selected='unidad'){return PURCHASE_UNITS.map(u=>`<option value="${esc(u)}" ${u===selected?'selected':''}>${esc(u)}</option>`).join('')}
-  function openNewPurchase(preselectedSupplierId=null){
+  function openNewPurchase(preselectedSupplierId=null,preselectedProductId=null){
     if(profile?.role!=='admin')return;
     let cart=[];
     openModal('Nueva compra','Solo administrador · sin numeración automática',`<div class="two"><div class="field"><label>Empresa que compra/paga *</label><div class="line" style="gap:6px"><select id="pcCompany" style="flex:1">${D.purchaseCompanies.filter(x=>x.active).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select><button id="pcAddCompany" type="button" class="btn sm soft">+ Empresa</button></div></div><div class="field"><label>Proveedor</label><div class="line" style="gap:6px"><select id="pcSupplier" style="flex:1"><option value="">Sin definir</option>${D.suppliers.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select><button id="pcAddSupplier" type="button" class="btn sm soft">+ Proveedor</button></div></div></div>
@@ -111,6 +111,10 @@
       <button id="pcSave" type="button" class="btn primary" style="width:100%;margin-top:12px">Guardar compra</button><div id="pcMsg"></div>`);
 
     if(preselectedSupplierId&&$('#pcSupplier'))$('#pcSupplier').value=preselectedSupplierId;
+    if(preselectedProductId&&$('#pciProduct')){
+      $('#pciProduct').value=preselectedProductId;
+      $('#pciProduct').dispatchEvent(new Event('change',{bubbles:true}));
+    }
     function destUI(){const d=$('#pcDest').value;$('#pcWhWrap').classList.toggle('hide',d!=='warehouse');$('#pcBargeWrap').classList.toggle('hide',d!=='barge');$('#pcDestTextWrap').classList.toggle('hide',!['direct','service','other','barge'].includes(d));if(d!=='warehouse')$('#pciStock').checked=false}
     $('#pcDest').onchange=destUI;destUI();
     $('#pciProduct').onchange=()=>{const p=product($('#pciProduct').value);if(p){$('#pciDesc').value=p.name;$('#pciUnit').value=PURCHASE_UNITS.includes(p.base_unit)?p.base_unit:'otro';$('#pciFactor').value='1';if($('#pcDest').value==='warehouse')$('#pciStock').checked=true}};
@@ -226,7 +230,8 @@
     const title=$('#sectionTitle');if(title)title.textContent=ref;
   };
 
-  window.openNewPurchaseForSupplier=function(supplierId){return openNewPurchase(supplierId||null)};
+  window.openNewPurchaseForSupplier=function(supplierId){return openNewPurchase(supplierId||null,null)};
+  window.openNewPurchaseForProduct=function(productId){return openNewPurchase(null,productId||null)};
   window.renderPurchaseReceipts=function(){
     if(profile?.role!=='depositor')return;
     const pending=(D.purchases||[]).filter(pendingPurchase);
