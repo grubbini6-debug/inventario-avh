@@ -36,6 +36,16 @@ if(!dataViewsSource.includes("query('audit_events'")||!routerSource.includes('D.
 }
 const purchaseBaseSource=fs.readFileSync(path.join(root,'src/features/purchases/base.js'),'utf8');
 const supplierRecordSource=fs.readFileSync(path.join(root,'src/features/purchases/supplier-record.js'),'utf8');
+const productRecordSource=fs.readFileSync(path.join(root,'src/features/purchases/product-360.js'),'utf8');
+for(const token of ['product-record-hero','data-product-tab="summary"','data-product-tab="stock"','data-product-tab="consumption"','data-product-tab="purchases"','data-product-tab="prices"','data-product-tab="suppliers"','data-product-tab="lots"','activeProductRecordId','openNewPurchaseForProduct']){
+  if(!(productRecordSource+purchaseBaseSource).includes(token)){console.error('Product record contract missing:',token);failed=true;}
+}
+if(productRecordSource.includes("openModal(p.name,'Ficha 360°")){
+  console.error('Product 360 must remain a dedicated page for admins, not revert to the legacy modal.');failed=true;
+}
+if(!productRecordSource.includes("if(profile?.role!=='admin')")){
+  console.error('Product record must preserve the operational stock detail for non-admin roles.');failed=true;
+}
 for(const token of ['supplier-record-hero','data-supplier-tab="summary"','data-supplier-tab="purchases"','data-supplier-tab="products"','data-supplier-tab="activity"','openNewPurchaseForSupplier','activeSupplierRecordId']){
   if(!(supplierRecordSource+purchaseBaseSource).includes(token)){console.error('Supplier record contract missing:',token);failed=true;}
 }
