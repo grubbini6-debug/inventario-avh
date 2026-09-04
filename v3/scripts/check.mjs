@@ -35,6 +35,13 @@ if(!dataViewsSource.includes("query('audit_events'")||!routerSource.includes('D.
   console.error('Audit UI must use backend audit_events.');failed=true;
 }
 const purchaseBaseSource=fs.readFileSync(path.join(root,'src/features/purchases/base.js'),'utf8');
+const supplierRecordSource=fs.readFileSync(path.join(root,'src/features/purchases/supplier-record.js'),'utf8');
+for(const token of ['supplier-record-hero','data-supplier-tab="summary"','data-supplier-tab="purchases"','data-supplier-tab="products"','data-supplier-tab="activity"','openNewPurchaseForSupplier','activeSupplierRecordId']){
+  if(!(supplierRecordSource+purchaseBaseSource).includes(token)){console.error('Supplier record contract missing:',token);failed=true;}
+}
+if(supplierRecordSource.includes("openModal(s.name,'Ficha 360° del proveedor'")){
+  console.error('Supplier profile must remain a dedicated page, not revert to the legacy modal.');failed=true;
+}
 for(const token of ['purchase-record-hero','data-purchase-tab="summary"','data-purchase-tab="items"','data-purchase-tab="receipts"','data-purchase-tab="documents"','data-purchase-tab="history"','activePurchaseRecordId']){
   if(!purchaseBaseSource.includes(token)){console.error('Purchase record contract missing:',token);failed=true;}
 }

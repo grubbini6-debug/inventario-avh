@@ -190,3 +190,48 @@
   .purchase-record-item .line{display:grid}
   .purchase-item-money{text-align:left}
 }
+
+
+/* Supplier record — dedicated supplier workspace */
+.supplier-record{display:grid;gap:14px;padding-bottom:18px}
+.supplier-record-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)}
+.supplier-record-main{min-width:0}
+.supplier-record-main h2{font-size:25px;letter-spacing:-.035em;margin:4px 0 0}
+.supplier-record-contact{font-weight:850;font-size:13px;margin-top:8px}
+.supplier-record-meta{font-size:11px;color:var(--muted);margin-top:4px}
+.supplier-record-actions{display:flex;gap:7px;flex-wrap:wrap}
+.supplier-record-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.supplier-kpi-date{font-size:18px!important;letter-spacing:-.02em!important}
+.supplier-record-tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line);padding:0 2px}
+.supplier-record-tabs button{border:0;background:transparent;padding:11px 12px;color:var(--muted);font-size:12px;font-weight:850;white-space:nowrap;border-bottom:2px solid transparent}
+.supplier-record-tabs button.on{color:var(--green);border-bottom-color:var(--green)}
+.supplier-record-tabs button span{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#edf3ef;font-size:9px;margin-left:3px}
+.supplier-record-tabs button.on span{background:var(--green3)}
+.supplier-record-panel{display:none}
+.supplier-record-panel.on{display:block}
+.supplier-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.supplier-money-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.supplier-money{font-size:22px;font-weight:930;letter-spacing:-.04em;margin-top:6px}
+.supplier-price-list{display:grid;gap:10px}
+.supplier-price-card{box-shadow:none}
+.supplier-price-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:11px}
+.supplier-price-metrics div{background:#f5f8f6;border-radius:10px;padding:9px}
+.supplier-price-metrics span{display:block;color:var(--muted);font-size:9px;font-weight:780;margin-bottom:4px}
+.supplier-price-metrics b{font-size:12px}
+.supplier-purchase-row:hover{border-color:#b8d3c1}
+@media(min-width:900px){
+  .supplier-record-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .supplier-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .supplier-price-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media(max-width:640px){
+  .supplier-record{gap:11px}
+  .supplier-record-hero{display:grid;align-items:start;padding:14px}
+  .supplier-record-main h2{font-size:21px}
+  .supplier-record-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}
+  .supplier-record-actions .btn{min-width:0;font-size:11px}
+  .supplier-record-tabs button{padding:10px 9px;font-size:11px}
+  .supplier-money-grid{grid-template-columns:1fr}
+  .supplier-price-card .line{display:grid}
+  .supplier-price-card .btn{margin-top:8px}
+}

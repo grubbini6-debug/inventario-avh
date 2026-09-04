@@ -93,7 +93,7 @@
   };
 
   function unitOptions(selected='unidad'){return PURCHASE_UNITS.map(u=>`<option value="${esc(u)}" ${u===selected?'selected':''}>${esc(u)}</option>`).join('')}
-  function openNewPurchase(){
+  function openNewPurchase(preselectedSupplierId=null){
     if(profile?.role!=='admin')return;
     let cart=[];
     openModal('Nueva compra','Solo administrador · sin numeración automática',`<div class="two"><div class="field"><label>Empresa que compra/paga *</label><div class="line" style="gap:6px"><select id="pcCompany" style="flex:1">${D.purchaseCompanies.filter(x=>x.active).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select><button id="pcAddCompany" type="button" class="btn sm soft">+ Empresa</button></div></div><div class="field"><label>Proveedor</label><div class="line" style="gap:6px"><select id="pcSupplier" style="flex:1"><option value="">Sin definir</option>${D.suppliers.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select><button id="pcAddSupplier" type="button" class="btn sm soft">+ Proveedor</button></div></div></div>
@@ -110,6 +110,7 @@
       <div class="card" style="background:#fbfdfb"><div class="field"><label>Producto del inventario</label><select id="pciProduct"><option value="">No vincular / compra libre</option>${D.products.filter(x=>x.active).map(x=>`<option value="${x.id}">${esc(x.name)} · ${esc(x.base_unit)}</option>`).join('')}</select></div><div class="field"><label>Descripción *</label><input id="pciDesc" placeholder="Qué estás comprando"></div><div class="two"><div class="field"><label>Cantidad</label><input id="pciQty" type="number" step="0.001"></div><div class="field"><label>Unidad</label><select id="pciUnit">${unitOptions()}</select></div></div><div class="two"><div class="field"><label>Precio unitario</label><input id="pciPrice" type="number" step="0.0001"></div><div class="field"><label>Conversión a unidad base</label><input id="pciFactor" type="number" step="0.0001" value="1"><div class="hint">Ej.: 1 rollo = 15 kg → poné 15.</div></div></div><label class="line" style="justify-content:flex-start;margin:6px 0 10px"><input id="pciStock" type="checkbox" style="width:18px;height:18px"> <b>Este ítem debe ingresar al inventario cuando lo reciba el depósito</b></label><button id="pcAddItem" type="button" class="btn soft">+ Agregar ítem</button></div><div id="pcCart" style="margin-top:10px"></div>
       <button id="pcSave" type="button" class="btn primary" style="width:100%;margin-top:12px">Guardar compra</button><div id="pcMsg"></div>`);
 
+    if(preselectedSupplierId&&$('#pcSupplier'))$('#pcSupplier').value=preselectedSupplierId;
     function destUI(){const d=$('#pcDest').value;$('#pcWhWrap').classList.toggle('hide',d!=='warehouse');$('#pcBargeWrap').classList.toggle('hide',d!=='barge');$('#pcDestTextWrap').classList.toggle('hide',!['direct','service','other','barge'].includes(d));if(d!=='warehouse')$('#pciStock').checked=false}
     $('#pcDest').onchange=destUI;destUI();
     $('#pciProduct').onchange=()=>{const p=product($('#pciProduct').value);if(p){$('#pciDesc').value=p.name;$('#pciUnit').value=PURCHASE_UNITS.includes(p.base_unit)?p.base_unit:'otro';$('#pciFactor').value='1';if($('#pcDest').value==='warehouse')$('#pciStock').checked=true}};
@@ -219,12 +220,13 @@
     bindPurchaseRecordTabs();
     $$('[data-purchase-tab-jump]').forEach(b=>b.onclick=()=>document.querySelector(`[data-purchase-tab="${b.dataset.purchaseTabJump}"]`)?.click());
     $$('[data-pdoc]').forEach(b=>b.onclick=()=>openPurchaseDocument(b.dataset.pdoc));
-    $('#purchaseRecordSupplier')?.addEventListener('click',()=>window.openSupplier360?.(p.supplier_id));
+    $('#purchaseRecordSupplier')?.addEventListener('click',()=>window.openSupplierProfile?.(p.supplier_id));
     $('#pdSave').onclick=async()=>{const b=$('#pdSave');b.disabled=true;const r=await rpc('admin_update_purchase',{p_purchase_id:id,p_patch:{status:$('#pdStatus').value,invoice_number:$('#pdInvoice').value.trim()||null,expected_date:$('#pdExpected').value||null,order_reference:$('#pdReference').value.trim()||null}});b.disabled=false;if(r.error)return msg($('#pdMsg'),r.error);msg($('#pdMsg'),'Compra actualizada.',true);await loadAll(true);setTimeout(()=>openPurchaseDetail(id),100)};
     $('#pdAddDoc').onclick=()=>{const kind=prompt('Tipo: cotización / orden / factura / remito / pago / otro','factura')||'';const map={cotizacion:'quotation','cotización':'quotation',orden:'order',oc:'order',pedido:'order',factura:'invoice',remito:'remittance',pago:'payment',otro:'other'};const k=map[kind.trim().toLowerCase()]||'other';const inp=document.createElement('input');inp.type='file';inp.accept='application/pdf,image/*';inp.onchange=async()=>{const file=inp.files?.[0];if(!file)return;try{const path=await uploadPurchaseDocument(file,id);const r=await insert('purchase_documents',{purchase_id:id,kind:k,file_path:path,file_name:file.name,uploaded_by:profile.id});if(r.error)throw Error(r.error);await loadAll(true);openPurchaseDetail(id)}catch(e){alert(e.message||String(e))}};inp.click()};
     const title=$('#sectionTitle');if(title)title.textContent=ref;
   };
 
+  window.openNewPurchaseForSupplier=function(supplierId){return openNewPurchase(supplierId||null)};
   window.renderPurchaseReceipts=function(){
     if(profile?.role!=='depositor')return;
     const pending=(D.purchases||[]).filter(pendingPurchase);

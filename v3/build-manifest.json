@@ -25,6 +25,7 @@
     "src/features/purchases/base.js",
     "src/features/purchases/integration.js",
     "src/features/purchases/price-intelligence.js",
+    "src/features/purchases/supplier-record.js",
     "src/features/purchases/pre-purchase-comparator.js",
     "src/features/purchases/product-360.js",
     "src/features/purchases/multi-item-entry.js",
