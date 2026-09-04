@@ -47,7 +47,7 @@ Deno.serve(async(req:Request)=>{
   if(userErr||!userData.user)return json({error:'No autenticado'},401);
   const {data:profile}=await admin.from('profiles').select('role,active,warehouse_id').eq('id',userData.user.id).maybeSingle();
   if(!profile?.active||!['admin','depositor'].includes(profile.role))return json({error:'Usuario no autorizado.'},403);
-  let documentId='';
+  let documentId='',validatedDocumentId='';
   try{
     const body=await req.json(),purchaseId=String(body?.purchase_id||''),docId=String(body?.document_id||'');documentId=docId;
     if(!UUID.test(purchaseId)||!UUID.test(docId))throw Error('Compra o factura inválida.');
@@ -58,6 +58,7 @@ Deno.serve(async(req:Request)=>{
     if(!purchase)throw Error('Compra inexistente.');
     if(!doc||doc.kind!=='invoice')throw Error('El documento no es una factura de esta compra.');
     if(profile.role==='depositor'&&(purchase.destination_type!=='warehouse'||purchase.warehouse_id!==profile.warehouse_id))return json({error:'Esta factura no pertenece a tu depósito.'},403);
+    validatedDocumentId=docId;
     const download=await admin.storage.from('purchase-documents').download(doc.file_path);
     if(download.error||!download.data)throw Error('No pude abrir la factura guardada.');
     const raw=new Uint8Array(await download.data.arrayBuffer());
@@ -82,7 +83,7 @@ Deno.serve(async(req:Request)=>{
     return json({ok:true,document:extracted,model:out.model||model});
   }catch(e){
     const message=e instanceof Error?e.message:'No pude analizar la factura.';
-    if(UUID.test(documentId))await admin.from('purchase_documents').update({analysis_status:'error',analysis_error:message.slice(0,500),analyzed_at:new Date().toISOString()}).eq('id',documentId);
+    if(UUID.test(validatedDocumentId))await admin.from('purchase_documents').update({analysis_status:'error',analysis_error:message.slice(0,500),analyzed_at:new Date().toISOString()}).eq('id',validatedDocumentId);
     return json({error:message},400);
   }
 });
