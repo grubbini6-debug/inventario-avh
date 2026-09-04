@@ -94,7 +94,7 @@
 
   const oldDetail=window.openPurchaseDetail;
   window.openPurchaseDetail=async function(id){
-    await oldDetail?.apply(this,arguments);const p=(D.purchases||[]).find(x=>x.id===id),body=$('#modalBody');if(!p||!body)return;
+    await oldDetail?.apply(this,arguments);const p=(D.purchases||[]).find(x=>x.id===id),body=$('#purchaseRecordEnhancements')||$('#modalBody');if(!p||!body)return;
     const wrap=document.createElement('div');wrap.innerHTML=lifecycleHtml(p);body.prepend(wrap.firstElementChild);$$('[data-life-open]').forEach(b=>b.onclick=()=>openPurchaseDocument(b.dataset.lifeOpen));
   };
 })();
