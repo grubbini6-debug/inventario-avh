@@ -34,6 +34,14 @@ if(!templateSource.includes('Content-Security-Policy')||!templateSource.includes
 if(!dataViewsSource.includes("query('audit_events'")||!routerSource.includes('D.auditEvents')){
   console.error('Audit UI must use backend audit_events.');failed=true;
 }
+const purchaseBaseSource=fs.readFileSync(path.join(root,'src/features/purchases/base.js'),'utf8');
+for(const token of ['purchase-record-hero','data-purchase-tab="summary"','data-purchase-tab="items"','data-purchase-tab="receipts"','data-purchase-tab="documents"','data-purchase-tab="history"','activePurchaseRecordId']){
+  if(!purchaseBaseSource.includes(token)){console.error('Purchase record contract missing:',token);failed=true;}
+}
+if(purchaseBaseSource.includes("openModal(p.supplier_name||supplierName(p.supplier_id)||'Compra'")){
+  console.error('Purchase detail must remain a dedicated page, not revert to the legacy modal.');failed=true;
+}
+
 if(/0971\s*800\s*829|gortega@astillerovh\.com/i.test(poPolishSource)){
   console.error('Purchase order contact data must come from company configuration, not hardcoded fallback.');failed=true;
 }
