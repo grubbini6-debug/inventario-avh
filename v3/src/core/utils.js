@@ -7,7 +7,6 @@ const dt=v=>v?new Date(v).toLocaleString('es-PY',{dateStyle:'short',timeStyle:'s
 const today=v=>new Date(v).toDateString()===new Date().toDateString();
 function msg(el,text,ok=false){el.innerHTML=text?`<div class="${ok?'success':'error'}">${esc(text)}</div>`:''}
 function whName(id){return D.warehouses.find(x=>x.id===id)?.name||''}
-function contractorName(id){return D.contractors.find(x=>x.id===id)?.name||''}
 function bargeNo(id){return D.barges.find(x=>x.id===id)?.number||''}
 function product(id){return D.products.find(x=>x.id===id)}
 function showApp(on){$('#login').classList.toggle('hide',on);$('#main').classList.toggle('hide',!on)}

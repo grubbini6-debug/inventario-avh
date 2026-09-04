@@ -1,6 +1,12 @@
 # Inventario AVH
 
-Sistema interno de control operativo de Astillero Villa Hayes para Compras, Depósito, Inventario, Proveedores, Barcazas, Contratistas y trazabilidad relacionada.
+Sistema interno de control operativo de Astillero Villa Hayes para Compras, Proveedores, Depósito, Inventario, Barcazas como centro de consumo y trazabilidad relacionada.
+
+## Alcance
+
+V3 **no administra contratistas, módulos, liquidaciones, descuentos ni pagos a contratistas**. Ese circuito se gestiona externamente en Excel. Las barcazas permanecen únicamente como proyecto/centro de consumo de materiales y costo FIFO.
+
+Las columnas o tablas históricas vinculadas a contratistas pueden permanecer en backend por compatibilidad, pero no forman parte del flujo activo de V3.
 
 ## Producción
 

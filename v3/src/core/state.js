@@ -7,4 +7,4 @@ let lastSyncAt=null;
 let lastSyncErrors=[];
 let activeModule='';
 let activeAdminTab='users';
-const D={warehouses:[],products:[],presentations:[],contractors:[],barges:[],suppliers:[],stocks:[],stockStatus:[],stockValues:[],minimums:[],moves:[],bargeConsumption:[],contractorConsumption:[],productConsumption:[],warehouseActivity:[],productRequests:[],correctionRequests:[],notifications:[],profiles:[],openingInventorySessions:[],auditEvents:[]};
+const D={warehouses:[],products:[],presentations:[],barges:[],suppliers:[],stocks:[],stockStatus:[],stockValues:[],minimums:[],moves:[],bargeConsumption:[],productConsumption:[],warehouseActivity:[],productRequests:[],correctionRequests:[],notifications:[],profiles:[],openingInventorySessions:[],auditEvents:[]};

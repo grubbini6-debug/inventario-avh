@@ -27,7 +27,7 @@ window.movementRows=function(arr){
     const type=TYPE_LABEL[m.type]||m.type;
     const route=m.type==='transfer'?`${whName(m.warehouse_from_id)} → ${whName(m.warehouse_to_id)}`:whName(m.warehouse_from_id||m.warehouse_to_id);
     const lines=(m.movement_lines||[]).map(l=>`${fmt(l.quantity)} ${esc(l.presentation_label||l.unit)} ${esc(l.products?.name||'')}`).join(' · ');
-    const detail=[m.barge_id?`Barcaza ${bargeNo(m.barge_id)}`:'',m.contractor_id?contractorName(m.contractor_id):'',m.person_receiving||'',m.destination||m.destination_text||''].filter(Boolean).join(' · ');
+    const detail=[m.barge_id?`Barcaza ${bargeNo(m.barge_id)}`:'',m.person_receiving||'',m.destination||m.destination_text||''].filter(Boolean).join(' · ');
     const cancelled=m.status==='cancelled';
     const badgeClass=cancelled?'red':m.status==='in_transit'?'amber':m.type==='entry'?'green':m.type==='exit'?'red':'blue';
     const badgeText=cancelled?'ANULADO':m.status==='in_transit'?'EN TRÁNSITO':type.toUpperCase();
