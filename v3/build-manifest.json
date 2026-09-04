@@ -25,6 +25,7 @@
     "src/features/purchases/base.js",
     "src/features/purchases/integration.js",
     "src/features/purchases/price-intelligence.js",
+    "src/features/purchases/pre-purchase-comparator.js",
     "src/features/purchases/product-360.js",
     "src/features/purchases/multi-item-entry.js",
     "src/features/purchases/import-paste-csv.js",
@@ -41,6 +42,7 @@
     "src/features/purchases/purchase-document-control.js",
     "src/features/purchases/po-polish.js",
     "src/features/admin/admin-attention-center.js",
+    "src/features/admin/data-quality.js",
     "src/features/inventory/depositor-mobile-ai.js",
     "src/features/inventory/depositor-role-cleanup.js",
     "src/features/inventory/depositor-complete-mobile.js"
