@@ -6,6 +6,7 @@ const cors={
   'Access-Control-Allow-Methods':'POST, OPTIONS',
 };
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,'Content-Type':'application/json'}});
+const sleep=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 
 const schema={
   type:'object',additionalProperties:false,
@@ -41,6 +42,52 @@ REGLAS CRÍTICAS:
 
 Devolvé únicamente el objeto que cumple el JSON Schema.`;
 
+
+function approxEqual(a:unknown,b:unknown,tol=.012){
+  const x=Number(a),y=Number(b);
+  if(!Number.isFinite(x)||!Number.isFinite(y))return true;
+  return Math.abs(x-y)<=Math.max(.02,Math.max(Math.abs(x),Math.abs(y))*tol);
+}
+function compact(v:unknown,max=50000){try{return JSON.stringify(v).slice(0,max)}catch{return'{}'}}
+function reviewSignals(doc:any){
+  const signals:string[]=[];
+  if(Number(doc?.confidence||0)<.94)signals.push('La confianza global merece una segunda lectura.');
+  if(!doc?.supplier_name)signals.push('Proveedor no identificado con seguridad.');
+  if(!doc?.currency)signals.push('Moneda no identificada con seguridad.');
+  const items=Array.isArray(doc?.items)?doc.items:[];
+  items.forEach((it:any,i:number)=>{
+    if(Number(it?.confidence||0)<.88)signals.push(`Ítem ${i+1}: confianza baja.`);
+    const q=Number(it?.quantity),p=Number(it?.unit_price),t=Number(it?.line_total);
+    if(Number.isFinite(q)&&Number.isFinite(p)&&Number.isFinite(t)&&q>0&&p>=0&&!approxEqual(q*p,t))
+      signals.push(`Ítem ${i+1}: revisar cantidad, precio y total de línea porque no cierran matemáticamente.`);
+  });
+  const vals=items.map((x:any)=>Number(x?.line_total)).filter((x:number)=>Number.isFinite(x)&&x>=0);
+  if(vals.length===items.length&&vals.length&&Number.isFinite(Number(doc?.subtotal))&&!approxEqual(vals.reduce((a:number,b:number)=>a+b,0),Number(doc.subtotal)))
+    signals.push('La suma de líneas no coincide con el subtotal extraído.');
+  if(Number.isFinite(Number(doc?.subtotal))&&Number.isFinite(Number(doc?.tax))&&Number.isFinite(Number(doc?.total))&&!approxEqual(Number(doc.subtotal)+Number(doc.tax),Number(doc.total)))
+    signals.push('Subtotal más impuesto no coincide con el total extraído.');
+  return signals.slice(0,20);
+}
+function outputText(data:any){return data?.output_text||data?.output?.flatMap((x:any)=>x?.content||[]).find((x:any)=>x?.type==='output_text')?.text}
+async function callStructured(apiKey:string,model:string,promptText:string,attachment:any,name:string){
+  let last:any=null;
+  for(let attempt=0;attempt<2;attempt++){
+    const response=await fetch('https://api.openai.com/v1/responses',{
+      method:'POST',
+      headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json'},
+      body:JSON.stringify({model,store:false,max_output_tokens:6500,input:[{role:'user',content:[{type:'input_text',text:promptText},attachment]}],text:{format:{type:'json_schema',name,strict:true,schema}}})
+    });
+    const data=await response.json();last={response,data};
+    if(response.ok){
+      const text=outputText(data);
+      if(text){try{return{document:JSON.parse(text),data}}catch{}}
+    }
+    if(!(response.status===429||response.status>=500)||attempt===1)break;
+    await sleep(650*(attempt+1));
+  }
+  throw Error(last?.data?.error?.message||'La IA no pudo devolver datos estructurados.');
+}
+
 Deno.serve(async(req:Request)=>{
   if(req.method==='OPTIONS')return new Response('ok',{headers:cors});
   if(req.method!=='POST')return json({error:'Método no permitido'},405);
@@ -63,6 +110,7 @@ Deno.serve(async(req:Request)=>{
     const fileName=String(body.file_name||'documento.pdf').slice(0,180);
     const mime=String(body.mime_type||'application/octet-stream').toLowerCase();
     const fileData=String(body.file_data||'');
+    const businessContext=body?.context&&typeof body.context==='object'?body.context:{};
     if(!fileData.startsWith('data:')||!fileData.includes(';base64,'))throw Error('Archivo inválido.');
     const base64=fileData.slice(fileData.indexOf(',')+1),approxBytes=Math.floor(base64.length*3/4);
     if(approxBytes>12*1024*1024)throw Error('El archivo supera 12 MB.');
@@ -73,26 +121,43 @@ Deno.serve(async(req:Request)=>{
       ?{type:'input_image',image_url:fileData,detail:'high'}
       :{type:'input_file',filename:fileName,file_data:fileData,detail:'high'};
     const model=Deno.env.get('OPENAI_PURCHASE_MODEL')||'gpt-5.6-terra';
-    const response=await fetch('https://api.openai.com/v1/responses',{
-      method:'POST',
-      headers:{'Authorization':`Bearer ${apiKey}`,'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model,store:false,max_output_tokens:6000,
-        input:[{role:'user',content:[{type:'input_text',text:prompt},attachment]}],
-        text:{format:{type:'json_schema',name:'avh_purchase_document',strict:true,schema}}
-      })
-    });
-    const data=await response.json();
-    if(!response.ok){
-      const detail=data?.error?.message||'OpenAI no pudo analizar el documento.';
-      if(response.status===401)return json({error:'La clave de OpenAI configurada no es válida.'},502);
-      return json({error:detail},502);
+    const contextText=compact(businessContext);
+    const primaryPrompt=`${prompt}
+
+CONTEXTO AVH DE REFERENCIA:
+${contextText}
+
+Usá este contexto solamente para reconocer candidatos plausibles. Si el contenido visible del archivo difiere del contexto, conservá lo que muestra el archivo.`;
+    const primary=await callStructured(apiKey,model,primaryPrompt,attachment,'avh_purchase_document_primary');
+    const signals=reviewSignals(primary.document);
+
+    let finalDocument=primary.document,reviewed=false,reviewError:string|null=null,reviewData:any=null;
+    if(signals.length){
+      const reviewerPrompt=`Hacé una segunda lectura completa del archivo original.
+
+La primera lectura es una hipótesis. El contexto AVH y los controles numéricos son referencias para ayudarte a detectar posibles errores de lectura, pero no reemplazan lo que está visible en el archivo.
+
+PRIMERA LECTURA:
+${compact(primary.document,30000)}
+
+PUNTOS QUE CONVIENE VOLVER A MIRAR:
+${signals.map((x,i)=>`${i+1}. ${x}`).join('\n')}
+
+CONTEXTO AVH:
+${contextText}
+
+Devolvé el objeto completo final con el mismo JSON Schema, sin explicaciones adicionales.`;
+      try{
+        const review=await callStructured(apiKey,model,reviewerPrompt,attachment,'avh_purchase_document_reviewed');
+        finalDocument=review.document;reviewed=true;reviewData=review.data;
+      }catch(e){reviewError=e instanceof Error?e.message:String(e)}
     }
-    const outputText=data.output_text||data.output?.flatMap((x:any)=>x?.content||[]).find((x:any)=>x?.type==='output_text')?.text;
-    if(!outputText)throw Error('La IA no devolvió datos estructurados.');
-    let document;
-    try{document=JSON.parse(outputText)}catch{throw Error('La IA devolvió una respuesta que no pude interpretar.')}
-    return json({ok:true,document,model:data.model||model,usage:data.usage||null,response_id:data.id||null});
+    return json({
+      ok:true,document:finalDocument,model:reviewData?.model||primary.data?.model||model,
+      usage:{primary:primary.data?.usage||null,review:reviewData?.usage||null},
+      response_id:reviewData?.id||primary.data?.id||null,
+      reviewed,review_signals:signals,review_error:reviewError,primary_confidence:Number(primary.document?.confidence||0)
+    });
   }catch(e){
     return json({error:e instanceof Error?e.message:'Error analizando documento'},400);
   }
