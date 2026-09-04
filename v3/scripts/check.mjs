@@ -17,6 +17,11 @@ const routerSource=fs.readFileSync(path.join(root,'src/core/router.js'),'utf8');
 const dataViewsSource=fs.readFileSync(path.join(root,'src/core/data-views.js'),'utf8');
 const templateSource=fs.readFileSync(path.join(root,'src/index.template.html'),'utf8');
 const poPolishSource=fs.readFileSync(path.join(root,'src/features/purchases/po-polish.js'),'utf8');
+
+const depositorMobileSource=fs.readFileSync(path.join(root,'src/features/inventory/depositor-mobile-ai.js'),'utf8');
+if(!depositorMobileSource.includes("querySelectorAll('button:not(.nav-user-exit)')")){
+  console.error('Depositor navigation must preserve the logout control.');failed=true;
+}
 if(!/\blet\s+activeAdminTab\s*=\s*['"]users['"]/.test(stateSource)||
    !/function\s+renderAdmin\(tab=activeAdminTab\)/.test(adminSource)||
    !/activeAdminTab=tab\|\|['"]users['"]/.test(adminSource)||
@@ -174,7 +179,8 @@ if(fs.existsSync(distCss)){
     ['desktop sidebar fixed','position:fixed!important;z-index:60;left:0;top:0;bottom:0;right:auto'],
     ['mobile bottom navigation','position:fixed;z-index:40;bottom:0;left:0;right:0'],
     ['mobile compact header','@media(max-width:759px)'],
-    ['mobile logout visible','.top-logout{display:inline-flex']
+    ['mobile logout visible','.top-logout{display:inline-flex'],
+    ['desktop logout visible','  .top-logout{display:inline-flex}']
   ];
   for(const [label,token] of responsiveShellChecks){
     if(!css.includes(token)){console.error('Responsive shell contract missing:',label);failed=true;}
