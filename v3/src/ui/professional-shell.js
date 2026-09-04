@@ -111,6 +111,13 @@
     return r;
   };
 
+  const baseLoadAll=window.loadAll;
+  if(typeof baseLoadAll==='function')window.loadAll=async function(){
+    const r=await baseLoadAll.apply(this,arguments);
+    queueMicrotask(sync);
+    return r;
+  };
+
   const observer=new MutationObserver(()=>{bindDirect();syncRole()});
   observer.observe(document.body,{childList:true,subtree:true});
   window.AVHShell={sync,syncActive};
