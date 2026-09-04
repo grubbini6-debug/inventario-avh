@@ -53,6 +53,7 @@
     "suppliers",
     "supply_requests",
     "v_barge_consumption",
+    "v_data_quality_issues",
     "v_inventory_batch_detail",
     "v_large_movements_recent",
     "v_management_consumption_30d",
