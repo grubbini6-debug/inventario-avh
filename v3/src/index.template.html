@@ -9,8 +9,38 @@
 <link href="app.css" rel="stylesheet"/></head>
 <body>
 <div class="login" id="login"><div class="login-card"><div class="login-logo">AVH</div><h1>Inventario AVH</h1><p>Control operativo de depósitos, barcazas y consumos.</p><form id="loginForm"><div class="field"><label>Usuario</label><input autocapitalize="none" autocomplete="username" id="loginUser" value="admin.avh"/></div><div class="field"><label>Contraseña</label><input autocomplete="current-password" id="loginPass" type="password"/></div><div id="loginMsg"></div><button class="btn primary" style="width:100%">Ingresar</button></form><div class="foot">Astillero Villa Hayes · Sistema privado</div></div></div>
-<div class="hide" id="main"><div class="app"><header class="topbar"><div class="brand"><div class="mark">AVH</div><div><h1>Inventario AVH</h1><small id="who"></small></div></div><div class="top-actions"><span class="live" id="syncState" title="Estado de sincronización">SINCRONIZANDO</span><button class="btn icon" id="refreshBtn" title="Actualizar">↻</button><button class="btn sm" id="logoutBtn">Salir</button></div></header>
-<nav class="nav"><button class="on" data-page="home"><b>⌂</b>Inicio</button><button data-page="stock"><b>▦</b>Stock</button><button data-page="moves"><b>⇅</b>Movimientos</button><button data-page="barges"><b>⚓</b>Barcazas</button><button data-page="more"><b>☰</b>Más</button></nav>
+<div class="hide" id="main"><div class="app">
+<nav class="nav" aria-label="Navegación principal">
+  <div class="nav-brand desktop-nav-only">
+    <div class="nav-brand-mark">AVH</div>
+    <div><strong>AVH</strong><small>Compras e Inventario</small></div>
+  </div>
+  <div class="nav-section desktop-nav-only nav-section-operation">OPERACIÓN</div>
+  <button class="on" data-page="home"><b>⌂</b><span>Inicio</span></button>
+  <button data-page="stock"><b>▦</b><span>Inventario</span></button>
+  <button data-page="moves"><b>⇅</b><span>Movimientos</span></button>
+  <button data-page="barges"><b>⚓</b><span>Barcazas</span></button>
+  <div class="nav-section desktop-nav-only nav-section-management">GESTIÓN</div>
+  <button class="desktop-nav-only nav-direct" data-shell-module="alerts"><b>🔔</b><span>Alertas</span></button>
+  <button class="desktop-nav-only nav-direct" data-shell-module="reports"><b>▥</b><span>Reportes</span></button>
+  <button class="desktop-nav-only nav-direct admin-shell-only" data-shell-admin="suppliers"><b>◉</b><span>Proveedores</span></button>
+  <button class="desktop-nav-only nav-direct admin-shell-only" data-shell-module="data-quality"><b>✓</b><span>Calidad de datos</span></button>
+  <div class="nav-section desktop-nav-only nav-section-config">CONFIGURACIÓN</div>
+  <button class="desktop-nav-only nav-direct admin-shell-only" data-shell-module="admin"><b>⚙</b><span>Administración</span></button>
+  <button data-page="more"><b>☰</b><span>Más</span></button>
+  <div class="nav-user desktop-nav-only">
+    <div class="nav-user-avatar">GO</div>
+    <div class="nav-user-copy"><strong id="sidebarWho">Usuario AVH</strong><small id="sidebarRole">Sesión activa</small></div>
+    <button class="nav-user-exit" id="sidebarLogout" type="button" title="Cerrar sesión">↪</button>
+  </div>
+</nav>
+<header class="topbar">
+  <div class="topbar-title">
+    <div class="mobile-brand-mark">AVH</div>
+    <div><small class="topbar-kicker">AVH · Compras e Inventario</small><h1 id="sectionTitle">Inicio</h1><small id="who"></small></div>
+  </div>
+  <div class="top-actions"><span class="live" id="syncState" title="Estado de sincronización">SINCRONIZANDO</span><button class="btn icon" id="refreshBtn" title="Actualizar">↻</button><button class="btn sm top-logout" id="logoutBtn">Salir</button></div>
+</header>
 <section class="page on" id="page-home">
 <div class="hero"><div><div class="eyebrow">CENTRO DE CONTROL</div><h2>Operación general del astillero</h2><p id="heroDate">Inventario, consumos y pendientes en un solo lugar.</p></div><div class="hero-badge"><span></span> Datos en vivo</div></div>
 <div class="grid kpis" id="kpis"></div><div class="section-head"><div><h2>Movimiento rápido</h2><p>Operaciones frecuentes del depósito</p></div></div><div class="grid quick" id="quickActions"></div><div class="section-head"><div><h2>Estado por depósito</h2><p>Actividad y alertas de hoy</p></div></div><div class="grid warehouses" id="warehouseCards"></div><div class="section-head"><div><h2>Atención requerida</h2><p>Lo que conviene revisar primero</p></div><button class="btn sm soft" data-go="alerts">Ver todo</button></div><div class="list" id="homeAlerts"></div><div class="section-head"><div><h2>Más consumidos</h2><p>Productos con mayor salida acumulada</p></div></div><div class="list" id="topProducts"></div><div class="section-head"><div><h2>Tendencia de 7 días</h2><p>Volumen de movimientos registrados</p></div></div><div class="card" id="homeTrend"></div>
