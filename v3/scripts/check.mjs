@@ -173,7 +173,8 @@ if(fs.existsSync(distCss)){
     ['desktop breakpoint','@media(min-width:1024px)'],
     ['desktop sidebar fixed','position:fixed!important;z-index:60;left:0;top:0;bottom:0;right:auto'],
     ['mobile bottom navigation','position:fixed;z-index:40;bottom:0;left:0;right:0'],
-    ['mobile compact header','@media(max-width:759px)']
+    ['mobile compact header','@media(max-width:759px)'],
+    ['mobile logout visible','.top-logout{display:inline-flex']
   ];
   for(const [label,token] of responsiveShellChecks){
     if(!css.includes(token)){console.error('Responsive shell contract missing:',label);failed=true;}
