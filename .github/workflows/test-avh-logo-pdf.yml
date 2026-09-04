@@ -1,21 +1,13 @@
-name: Test AVH logo PDF
+name: Test AVH vector OC
 on:
   push:
     branches: [fix/oc-avh-logo-jpeg]
   workflow_dispatch:
-permissions:
-  contents: write
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Aplicar corrección JPEG
-        run: |
-          file v3/src/assets/logo-avh-pdf.jpg | grep -q JPEG
-          sed -i "s/generated_professional_header_v3/generated_professional_header_v4_jpeg/g" v3/edge-functions/purchase-order-pdf/index.ts v3/src/features/purchases/po-polish.js
-          sed -i "s/return await pdf.embedPng(await fetchLogoBytes('logo-avh.png'));/return await pdf.embedJpg(await fetchLogoBytes('logo-avh-pdf.jpg'));/" v3/edge-functions/purchase-order-pdf/index.ts
-          sed -i "s/-professional-v3.pdf/-professional-v4-jpeg.pdf/" v3/edge-functions/purchase-order-pdf/index.ts
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -24,39 +16,40 @@ jobs:
         run: |
           node scripts/check.mjs
           node --check src/features/purchases/po-polish.js
-          test -s src/assets/logo-avh-pdf.jpg
+          test -s src/assets/logo-avh.svg
+          grep -q 'assets/logo-avh.svg' src/features/purchases/po-polish.js
+          ! grep -q 'assets/logo-avh.png' src/features/purchases/po-polish.js
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Validar generador y crear PDF real
+      - name: Validar Edge y generar PDF vectorial
         run: |
           deno check v3/edge-functions/purchase-order-pdf/index.ts
-          grep -q "generated_professional_header_v4_jpeg" v3/edge-functions/purchase-order-pdf/index.ts
-          grep -q "logo-avh-pdf.jpg" v3/edge-functions/purchase-order-pdf/index.ts
-          cat > /tmp/test.ts <<'TS'
+          deno check v3/edge-functions/purchase-order-pdf/logo-avh-vector.ts
+          grep -q 'generated_professional_header_v5_vector' v3/edge-functions/purchase-order-pdf/index.ts
+          cat > avh-vector-test.ts <<'TS'
           import { PDFDocument, StandardFonts, rgb } from 'npm:pdf-lib@1.17.1';
-          const jpg=await Deno.readFile('v3/src/assets/logo-avh-pdf.jpg');
-          const pdf=await PDFDocument.create(); const page=pdf.addPage([595.28,841.89]);
-          const bold=await pdf.embedFont(StandardFonts.HelveticaBold), regular=await pdf.embedFont(StandardFonts.Helvetica);
-          const logo=await pdf.embedJpg(jpg), d=logo.scale(1), ratio=Math.min(136/d.width,48/d.height);
-          page.drawImage(logo,{x:36+(136-d.width*ratio)/2,y:768+(48-d.height*ratio)/2,width:d.width*ratio,height:d.height*ratio});
+          import { drawAvhLogoVector } from './v3/edge-functions/purchase-order-pdf/logo-avh-vector.ts';
+          const pdf=await PDFDocument.create(),page=pdf.addPage([595.28,841.89]);
+          const bold=await pdf.embedFont(StandardFonts.HelveticaBold),regular=await pdf.embedFont(StandardFonts.Helvetica);
+          drawAvhLogoVector(page,36,768,136,48);
           page.drawText('COMPRADOR',{x:188,y:812,font:bold,size:6.7,color:rgb(.37,.44,.40)});
           page.drawText('Astillero Villa Hayes S.A.',{x:188,y:798,font:bold,size:9.4,color:rgb(.06,.28,.18)});
           page.drawText('RUC 80091371-0 · Villa Hayes',{x:188,y:784,font:regular,size:6.8,color:rgb(.37,.44,.40)});
           page.drawText('ORDEN DE COMPRA',{x:410,y:801,font:bold,size:13.6,color:rgb(.08,.13,.10)});
-          page.drawText('OC-PRUEBA',{x:410,y:782,font:bold,size:10.8,color:rgb(.06,.28,.18)});
-          page.drawText('Fecha: 03/09/2026',{x:410,y:765,font:regular,size:7.4,color:rgb(.37,.44,.40)});
+          page.drawText('OC-PRUEBA-VECTOR',{x:410,y:782,font:bold,size:10.2,color:rgb(.06,.28,.18)});
+          page.drawText('Fecha: 04/09/2026',{x:410,y:765,font:regular,size:7.4,color:rgb(.37,.44,.40)});
           page.drawLine({start:{x:36,y:746},end:{x:559,y:746},thickness:2,color:rgb(.06,.28,.18)});
-          await Deno.writeFile('avh-logo-test.pdf',await pdf.save());
+          await Deno.writeFile('avh-vector-test.pdf',await pdf.save());
           TS
-          deno run --allow-read --allow-write /tmp/test.ts
-      - name: Guardar corrección en rama
-        run: |
-          git config user.name grubbini6-debug
-          git config user.email grubbini6@gmail.com
-          git add v3/edge-functions/purchase-order-pdf/index.ts v3/src/features/purchases/po-polish.js
-          if ! git diff --cached --quiet; then git commit -m 'fix: usar JPEG válido para logo AVH en OC' && git push; fi
+          deno run --allow-write avh-vector-test.ts
+          if ! command -v pdftoppm >/dev/null 2>&1; then sudo apt-get update -qq && sudo apt-get install -y poppler-utils >/dev/null; fi
+          pdftoppm -png -f 1 -singlefile -r 160 avh-vector-test.pdf avh-vector-test
+          test -s avh-vector-test.pdf
+          test -s avh-vector-test.png
       - uses: actions/upload-artifact@v4
         with:
-          name: avh-logo-test
-          path: avh-logo-test.pdf
+          name: avh-vector-test
+          path: |
+            avh-vector-test.pdf
+            avh-vector-test.png
