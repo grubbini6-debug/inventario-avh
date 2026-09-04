@@ -120,20 +120,103 @@
   async function signedPurchaseDocument(path){if(!path)throw Error('Archivo inexistente.');const encoded=String(path).split('/').map(encodeURIComponent).join('/');const r=await request(`/storage/v1/object/sign/purchase-documents/${encoded}`,{method:'POST',body:{expiresIn:600}});if(r.error)throw Error(r.error);const u=r.data?.signedURL||r.data?.signedUrl;if(!u)throw Error('No se pudo abrir el archivo.');return /^https?:/.test(u)?u:`${API}/storage/v1${u.startsWith('/')?u:'/'+u}`}
   async function openPurchaseDocument(path){const tab=window.open('about:blank','_blank');try{const u=await signedPurchaseDocument(path);if(tab)tab.location.href=u;else location.href=u}catch(e){if(tab)tab.close();alert(e.message||String(e))}}
 
+  function purchaseRecordRef(p){return p.po_number||p.order_reference||('COMPRA-'+String(p.id||'').slice(0,8).toUpperCase())}
+  function purchaseRecordTimeline(p,items,receipts,docs){
+    const events=[];
+    if(p.created_at)events.push({at:p.created_at,title:'Compra creada',meta:[p.supplier_name||supplierName(p.supplier_id),p.company_name||companyName(p.company_id)].filter(Boolean).join(' · ')});
+    if(p.ordered_date)events.push({at:p.ordered_date+'T12:00:00',title:'Pedido registrado',meta:purchaseRecordRef(p)});
+    if(p.purchase_confirmed_at)events.push({at:p.purchase_confirmed_at,title:'Compra confirmada',meta:'Pedido confirmado al proveedor'});
+    docs.forEach(d=>events.push({at:d.created_at||d.document_date,title:'Documento agregado',meta:(({quotation:'Cotización',order:'Pedido / OC',invoice:'Factura',remittance:'Remito',payment:'Comprobante de pago',other:'Otro'})[d.kind]||d.kind)+' · '+(d.document_number||d.file_name||'Archivo')}));
+    receipts.forEach(r=>events.push({at:r.received_at,title:'Recepción registrada',meta:(r.movement_id?'Entrada al inventario':'Recepción sin ingreso a stock')+(r.notes?' · '+r.notes:'')}));
+    const audit=(D.auditEvents||[]).filter(a=>a.entity_type==='purchase'&&String(a.entity_id||'')===String(p.id));
+    audit.forEach(a=>events.push({at:a.created_at,title:'Actualización de compra',meta:a.action||'Cambio registrado'}));
+    return events.filter(x=>x.at).sort((a,b)=>new Date(b.at)-new Date(a.at));
+  }
+  function bindPurchaseRecordTabs(){
+    const tabs=[...document.querySelectorAll('[data-purchase-tab]')];
+    const panels=[...document.querySelectorAll('[data-purchase-panel]')];
+    tabs.forEach(b=>b.onclick=()=>{
+      tabs.forEach(x=>x.classList.toggle('on',x===b));
+      panels.forEach(p=>p.classList.toggle('on',p.dataset.purchasePanel===b.dataset.purchaseTab));
+    });
+  }
+
   window.openPurchaseDetail=async function(id){
-    const p=D.purchases.find(x=>x.id===id);if(!p)return;
-    const items=purchaseItems(id),receipts=purchaseReceipts(id),docs=purchaseDocs(id),total=purchaseTotal(p);
-    openModal(p.supplier_name||supplierName(p.supplier_id)||'Compra',`${p.company_name||companyName(p.company_id)} · ${dateOnly(p.ordered_date)}`,`<div class="detail-grid"><div class="detail-box"><span>Estado</span><b>${esc(PURCHASE_STATUS[p.status]||p.status)}</b></div><div class="detail-box"><span>Total</span><b>${money(total,p.currency)}</b></div><div class="detail-box"><span>Destino</span><b>${esc(purchaseDest(p))}</b></div><div class="detail-box"><span>Urgencia</span><b>${esc(URGENCY_LABEL[p.urgency]||p.urgency)}</b></div><div class="detail-box"><span>Solicitante / sector</span><b>${esc([p.requester,p.sector].filter(Boolean).join(' · ')||'—')}</b></div><div class="detail-box"><span>Pago</span><b>${esc([p.payment_method,p.payment_terms].filter(Boolean).join(' · ')||'—')}</b></div><div class="detail-box"><span>Referencia</span><b>${esc(p.order_reference||'—')}</b></div><div class="detail-box"><span>Entrega prometida</span><b>${p.expected_date?dateOnly(p.expected_date):'—'}</b></div></div>
-      ${p.notes?`<div class="notice" style="margin-top:10px">${esc(p.notes)}</div>`:''}
-      <div class="section-head"><h2>Ítems comprados</h2></div><div class="list">${items.map(x=>{const remain=Math.max(0,Number(x.quantity)-Number(x.received_qty||0));return`<div class="row"><div class="line"><div><div class="title">${esc(x.description)}</div><div class="subtext">Comprado: ${fmt(x.quantity)} ${esc(x.unit)} · Recibido: ${fmt(x.received_qty||0)} · Pendiente: ${fmt(remain)}${x.affects_inventory?' · INGRESA A STOCK':''}</div></div><b>${money(Number(x.quantity)*Number(x.unit_price||0),p.currency)}</b></div></div>`}).join('')}</div>
-      ${profile.role==='admin'?`<div class="section-head"><h2>Gestión</h2></div><div class="card"><div class="two"><div class="field" style="margin:0"><label>Estado</label><select id="pdStatus">${Object.entries(PURCHASE_STATUS).map(([k,v])=>`<option value="${k}" ${k===p.status?'selected':''}>${v}</option>`).join('')}</select></div><div class="field" style="margin:0"><label>Factura</label><input id="pdInvoice" value="${esc(p.invoice_number||'')}" placeholder="Nº factura"></div></div><div class="two" style="margin-top:9px"><div class="field" style="margin:0"><label>Fecha prometida</label><input id="pdExpected" type="date" value="${p.expected_date||''}"></div><div class="field" style="margin:0"><label>Referencia / OC</label><input id="pdReference" value="${esc(p.order_reference||'')}"></div></div><button id="pdSave" class="btn primary" style="margin-top:10px">Guardar cambios</button><div id="pdMsg"></div></div>`:''}
-      <div class="section-head"><div><h2>Documentos de compra</h2><p>Cotización, pedido/OC, factura, pago</p></div>${profile.role==='admin'?'<button id="pdAddDoc" class="btn sm soft">+ Adjuntar</button>':''}</div><div class="list" id="pdDocs">${docs.map(d=>`<div class="row purchase-doc"><div><div class="title">${esc(({quotation:'Cotización',order:'Pedido / OC',invoice:'Factura',remittance:'Remito',payment:'Comprobante de pago',other:'Otro'})[d.kind]||d.kind)}</div><div class="subtext">${esc(d.file_name||'Archivo')} · ${dt(d.created_at)}</div></div><button class="btn sm" data-pdoc="${esc(d.file_path)}">Abrir</button></div>`).join('')||'<div class="empty">Sin documentos adjuntos.</div>'}</div>
-      <div class="section-head"><h2>Recepciones</h2></div><div class="list">${receipts.map(r=>`<div class="row"><div class="title">${dt(r.received_at)} · ${esc(D.profiles.find(x=>x.id===r.received_by)?.username||'Usuario')}</div><div class="subtext">${r.movement_id?'Entrada al inventario generada':'Recepción sin ingreso a stock'}${r.notes?' · '+esc(r.notes):''}</div></div>`).join('')||'<div class="empty">Todavía no hay recepciones.</div>'}</div>`);
+    const p=D.purchases.find(x=>x.id===id);if(!p||profile?.role!=='admin')return;
+    ensurePurchasePage();goPage('purchases');
+    const page=$('#page-purchases'),items=purchaseItems(id),receipts=purchaseReceipts(id),docs=purchaseDocs(id),total=purchaseTotal(p);
+    const receivedQty=items.reduce((a,x)=>a+Number(x.received_qty||0),0),orderedQty=items.reduce((a,x)=>a+Number(x.quantity||0),0);
+    const pct=items.length?Math.min(100,Math.round(items.reduce((a,x)=>a+Math.min(1,Number(x.received_qty||0)/Math.max(Number(x.quantity||0),1e-9)),0)/items.length*100)):0;
+    const timeline=purchaseRecordTimeline(p,items,receipts,docs);
+    const ref=purchaseRecordRef(p);
+    page.innerHTML=`<div class="purchase-record">
+      <div class="purchase-breadcrumb"><button class="purchase-back" id="purchaseBack">← Compras</button><span>›</span><b>${esc(ref)}</b></div>
+      <div class="purchase-record-hero">
+        <div class="purchase-record-main"><div class="eyebrow">EXPEDIENTE DE COMPRA</div><div class="purchase-record-titleline"><h2>${esc(ref)}</h2>${statusBadge(p.status)}</div><div class="purchase-record-supplier">${esc(p.supplier_name||supplierName(p.supplier_id)||'Proveedor sin definir')}</div><div class="purchase-record-meta">${esc(p.company_name||companyName(p.company_id))} · ${dateOnly(p.ordered_date)||'Sin fecha'} · ${esc(purchaseDest(p))}</div></div>
+        <div class="purchase-record-total"><small>Total de compra</small><strong>${money(total,p.currency)}</strong><span>${items.length} ítem${items.length===1?'':'s'} · ${pct}% recibido</span></div>
+      </div>
+      <div class="purchase-record-actions">
+        <button class="btn soft" id="purchaseRecordBack">← Volver</button>
+        ${p.supplier_id?'<button class="btn" id="purchaseRecordSupplier">Ver proveedor</button>':''}
+        <button class="btn" data-purchase-tab-jump="documents">Adjuntar / ver documentos</button>
+        <button class="btn primary" data-purchase-tab-jump="summary">Gestionar compra</button>
+      </div>
+      <div class="purchase-record-tabs">
+        <button class="on" data-purchase-tab="summary">Resumen</button>
+        <button data-purchase-tab="items">Ítems <span>${items.length}</span></button>
+        <button data-purchase-tab="receipts">Recepciones <span>${receipts.length}</span></button>
+        <button data-purchase-tab="documents">Documentos <span>${docs.length}</span></button>
+        <button data-purchase-tab="history">Historial</button>
+      </div>
+
+      <div class="purchase-record-panel on" data-purchase-panel="summary">
+        <div id="purchaseRecordEnhancements"></div>
+        <div class="purchase-summary-grid">
+          <div class="detail-box"><span>Estado</span><b>${esc(PURCHASE_STATUS[p.status]||p.status)}</b></div>
+          <div class="detail-box"><span>Urgencia</span><b>${esc(URGENCY_LABEL[p.urgency]||p.urgency)}</b></div>
+          <div class="detail-box"><span>Destino</span><b>${esc(purchaseDest(p))}</b></div>
+          <div class="detail-box"><span>Entrega prometida</span><b>${p.expected_date?dateOnly(p.expected_date):'—'}</b></div>
+          <div class="detail-box"><span>Solicitante / sector</span><b>${esc([p.requester,p.sector].filter(Boolean).join(' · ')||'—')}</b></div>
+          <div class="detail-box"><span>Pago</span><b>${esc([p.payment_method,p.payment_terms].filter(Boolean).join(' · ')||'—')}</b></div>
+          <div class="detail-box"><span>Factura</span><b>${esc(p.invoice_number||'—')}</b></div>
+          <div class="detail-box"><span>Referencia</span><b>${esc(p.order_reference||p.po_number||'—')}</b></div>
+        </div>
+        <div class="card purchase-receipt-overview"><div class="line"><div><div class="eyebrow">CUMPLIMIENTO</div><div class="title">Recepción de la compra</div><div class="subtext">${fmt(receivedQty)} recibido sobre ${fmt(orderedQty)} registrado en ${items.length} ítem${items.length===1?'':'s'}.</div></div><b>${pct}%</b></div><div class="purchase-progress"><i style="width:${pct}%"></i></div></div>
+        ${p.notes?`<div class="notice">${esc(p.notes)}</div>`:''}
+        <div class="section-head"><div><h2>Gestión</h2><p>Estado y datos principales de la compra</p></div></div>
+        <div class="card"><div class="two"><div class="field" style="margin:0"><label>Estado</label><select id="pdStatus">${Object.entries(PURCHASE_STATUS).map(([k,v])=>`<option value="${k}" ${k===p.status?'selected':''}>${v}</option>`).join('')}</select></div><div class="field" style="margin:0"><label>Factura</label><input id="pdInvoice" value="${esc(p.invoice_number||'')}" placeholder="Nº factura"></div></div><div class="two" style="margin-top:9px"><div class="field" style="margin:0"><label>Fecha prometida</label><input id="pdExpected" type="date" value="${p.expected_date||''}"></div><div class="field" style="margin:0"><label>Referencia / OC</label><input id="pdReference" value="${esc(p.order_reference||'')}"></div></div><button id="pdSave" class="btn primary" style="margin-top:10px">Guardar cambios</button><div id="pdMsg"></div></div>
+      </div>
+
+      <div class="purchase-record-panel" data-purchase-panel="items">
+        <div class="section-head"><div><h2>Ítems comprados</h2><p>Cantidad, recepción, precio y vínculo con inventario</p></div></div>
+        <div class="list">${items.map(x=>{const remain=Math.max(0,Number(x.quantity)-Number(x.received_qty||0));const linePct=Number(x.quantity)>0?Math.min(100,Math.round(Number(x.received_qty||0)/Number(x.quantity)*100)):0;return`<div class="row purchase-record-item"><div class="line"><div class="grow"><div class="title">${esc(x.description)}</div><div class="subtext">Comprado: ${fmt(x.quantity)} ${esc(x.unit)} · Recibido: ${fmt(x.received_qty||0)} · Pendiente: ${fmt(remain)}${x.affects_inventory?' · INGRESA A STOCK':''}</div><div class="purchase-progress"><i style="width:${linePct}%"></i></div></div><div class="purchase-item-money"><b>${money(Number(x.quantity)*Number(x.unit_price||0),p.currency)}</b><small>${money(Number(x.unit_price||0),p.currency)} / ${esc(x.unit)}</small></div></div></div>`}).join('')||'<div class="empty">Sin ítems.</div>'}</div>
+      </div>
+
+      <div class="purchase-record-panel" data-purchase-panel="receipts">
+        <div class="section-head"><div><h2>Recepciones</h2><p>Trazabilidad de lo que llegó físicamente</p></div></div>
+        <div class="list">${receipts.map(r=>`<div class="row purchase-record-event"><div class="purchase-event-dot green"></div><div><div class="title">${dt(r.received_at)}</div><div class="subtext">${esc(D.profiles.find(x=>x.id===r.received_by)?.username||'Usuario')} · ${r.movement_id?'Entrada al inventario generada':'Recepción sin ingreso a stock'}${r.notes?' · '+esc(r.notes):''}</div></div></div>`).join('')||'<div class="empty">Todavía no hay recepciones.</div>'}</div>
+      </div>
+
+      <div class="purchase-record-panel" data-purchase-panel="documents">
+        <div class="section-head"><div><h2>Documentos</h2><p>Cotización, OC, factura, remito y comprobantes</p></div><button id="pdAddDoc" class="btn sm primary">+ Adjuntar documento</button></div>
+        <div class="list" id="pdDocs">${docs.map(d=>`<div class="row purchase-doc"><div><div class="title">${esc(({quotation:'Cotización',order:'Pedido / OC',invoice:'Factura',remittance:'Remito',payment:'Comprobante de pago',other:'Otro'})[d.kind]||d.kind)}</div><div class="subtext">${esc(d.file_name||'Archivo')} · ${dt(d.created_at)}</div></div><button class="btn sm" data-pdoc="${esc(d.file_path)}">Abrir</button></div>`).join('')||'<div class="empty">Sin documentos adjuntos.</div>'}</div>
+      </div>
+
+      <div class="purchase-record-panel" data-purchase-panel="history">
+        <div class="section-head"><div><h2>Historial</h2><p>Vida del expediente de compra</p></div></div>
+        <div class="purchase-timeline">${timeline.map(e=>`<div class="purchase-timeline-row"><div class="purchase-timeline-mark"></div><div><b>${esc(e.title)}</b><div class="subtext">${dt(e.at)}${e.meta?' · '+esc(e.meta):''}</div></div></div>`).join('')||'<div class="empty">Todavía no hay eventos.</div>'}</div>
+      </div>
+    </div>`;
+
+    const back=()=>{renderPurchases();window.AVHShell?.syncActive?.('purchases')};
+    $('#purchaseBack').onclick=back;$('#purchaseRecordBack').onclick=back;
+    bindPurchaseRecordTabs();
+    $$('[data-purchase-tab-jump]').forEach(b=>b.onclick=()=>document.querySelector(`[data-purchase-tab="${b.dataset.purchaseTabJump}"]`)?.click());
     $$('[data-pdoc]').forEach(b=>b.onclick=()=>openPurchaseDocument(b.dataset.pdoc));
-    if(profile.role==='admin'){
-      $('#pdSave').onclick=async()=>{const b=$('#pdSave');b.disabled=true;const r=await rpc('admin_update_purchase',{p_purchase_id:id,p_patch:{status:$('#pdStatus').value,invoice_number:$('#pdInvoice').value.trim()||null,expected_date:$('#pdExpected').value||null,order_reference:$('#pdReference').value.trim()||null}});b.disabled=false;if(r.error)return msg($('#pdMsg'),r.error);msg($('#pdMsg'),'Compra actualizada.',true);await loadAll(true);setTimeout(()=>openPurchaseDetail(id),100)};
-      $('#pdAddDoc').onclick=()=>{const kind=prompt('Tipo: cotización / orden / factura / remito / pago / otro','factura')||'';const map={cotizacion:'quotation','cotización':'quotation',orden:'order',oc:'order',pedido:'order',factura:'invoice',remito:'remittance',pago:'payment',otro:'other'};const k=map[kind.trim().toLowerCase()]||'other';const inp=document.createElement('input');inp.type='file';inp.accept='application/pdf,image/*';inp.onchange=async()=>{const f=inp.files?.[0];if(!f)return;try{const path=await uploadPurchaseDocument(f,id);const r=await insert('purchase_documents',{purchase_id:id,kind:k,file_path:path,file_name:f.name,uploaded_by:profile.id});if(r.error)throw Error(r.error);await loadAll(true);openPurchaseDetail(id)}catch(e){alert(e.message||String(e))}};inp.click()};
-    }
+    $('#purchaseRecordSupplier')?.addEventListener('click',()=>window.openSupplier360?.(p.supplier_id));
+    $('#pdSave').onclick=async()=>{const b=$('#pdSave');b.disabled=true;const r=await rpc('admin_update_purchase',{p_purchase_id:id,p_patch:{status:$('#pdStatus').value,invoice_number:$('#pdInvoice').value.trim()||null,expected_date:$('#pdExpected').value||null,order_reference:$('#pdReference').value.trim()||null}});b.disabled=false;if(r.error)return msg($('#pdMsg'),r.error);msg($('#pdMsg'),'Compra actualizada.',true);await loadAll(true);setTimeout(()=>openPurchaseDetail(id),100)};
+    $('#pdAddDoc').onclick=()=>{const kind=prompt('Tipo: cotización / orden / factura / remito / pago / otro','factura')||'';const map={cotizacion:'quotation','cotización':'quotation',orden:'order',oc:'order',pedido:'order',factura:'invoice',remito:'remittance',pago:'payment',otro:'other'};const k=map[kind.trim().toLowerCase()]||'other';const inp=document.createElement('input');inp.type='file';inp.accept='application/pdf,image/*';inp.onchange=async()=>{const file=inp.files?.[0];if(!file)return;try{const path=await uploadPurchaseDocument(file,id);const r=await insert('purchase_documents',{purchase_id:id,kind:k,file_path:path,file_name:file.name,uploaded_by:profile.id});if(r.error)throw Error(r.error);await loadAll(true);openPurchaseDetail(id)}catch(e){alert(e.message||String(e))}};inp.click()};
+    const title=$('#sectionTitle');if(title)title.textContent=ref;
   };
 
   window.renderPurchaseReceipts=function(){
