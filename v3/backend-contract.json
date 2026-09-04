@@ -49,6 +49,7 @@
     "purchase_documents",
     "purchase_items",
     "purchase_receipts",
+    "purchases",
     "stock_minimums",
     "suppliers",
     "supply_requests",
