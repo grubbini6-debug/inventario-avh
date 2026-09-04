@@ -12,7 +12,7 @@
     return vals.map(x=>`<option value="${esc(x)}" ${x===selected?'selected':''}>${esc(x)}</option>`).join('');
   }
   function findPurchaseItemSection(){
-    const body=document.querySelector('#modalBody');
+    const body=document.querySelector('#purchaseRecordBody')||document.querySelector('#page-purchases')||document.querySelector('#modalBody');
     if(!body)return null;
     const head=[...body.querySelectorAll('.section-head')].find(x=>x.querySelector('h2')?.textContent?.trim()==='Ítems comprados');
     return head?.nextElementSibling?.classList?.contains('list')?head.nextElementSibling:null;
