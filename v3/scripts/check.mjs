@@ -59,6 +59,10 @@ for(const token of retiredContractorUi){
     console.error('Contractor management UI must stay outside V3:',token);failed=true;
   }
 }
+const activeScopeText=(allSourceText+templateSource).replaceAll('p_contractor_id:null','');
+if(/contractor|contratista/i.test(activeScopeText)){
+  console.error('Active V3 source still contains contractor-domain logic outside the nullable RPC compatibility argument.');failed=true;
+}
 
 for(const retired of ['avh-publish-static','avh-bootstrap','inventario-avh-v2-app','inventario-avh-v2-web']){
   if(allSourceText.includes(retired)){console.error('Retired endpoint referenced by V3:',retired);failed=true;}
