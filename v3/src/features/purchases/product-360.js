@@ -319,7 +319,7 @@
     document.querySelectorAll('[data-product-purchase]').forEach(x=>x.onclick=()=>window.openPurchaseDetail?.(x.dataset.productPurchase));
     document.querySelectorAll('[data-p360-supplier]').forEach(x=>x.onclick=e=>{e.stopPropagation();window.openSupplierProfile?.(x.dataset.p360Supplier)});
     document.querySelectorAll('[data-p360-barge]').forEach(x=>x.onclick=()=>openBarge(x.dataset.p360Barge));
-    bindMovementRows?.();
+    if(typeof bindMovementRows==='function')bindMovementRows();
 
     setTimeout(()=>{
       window.AVHShell?.syncActive?.('stock');
