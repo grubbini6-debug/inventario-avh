@@ -29,7 +29,7 @@
   async function registerReceiptFile(receiptId,kind,file,purchaseId,number,date){
     if(!file)return null;const path=await uploadReceiptFile(file,purchaseId,kind);
     const r=await rpc('register_purchase_receipt_document',{p_receipt_id:receiptId,p_kind:kind,p_file_path:path,p_file_name:file.name,p_document_number:String(number||'').trim()||null,p_document_date:date||null});
-    if(r.error)throw Error(r.error);return path;
+    if(r.error)throw Error(r.error);return{path,documentId:r.data||null};
   }
 
   function receiptPurchaseCard(p){
@@ -57,7 +57,7 @@
         const receiptId=r.data;if(!receiptId)throw Error('La recepción se registró pero no recibí su identificador.');
         const docErrors=[];
         const inv=$('#lifeInvoiceFile').files?.[0],rem=$('#lifeRemitFile').files?.[0];
-        if(inv)try{await registerReceiptFile(receiptId,'invoice',inv,id,$('#lifeInvoiceNo').value,$('#lifeInvoiceDate').value)}catch(e){docErrors.push('Factura: '+(e.message||e))}
+        if(inv)try{const saved=await registerReceiptFile(receiptId,'invoice',inv,id,$('#lifeInvoiceNo').value,$('#lifeInvoiceDate').value);if(saved?.documentId&&window.AVHPurchaseControl?.analyzeInvoice)try{await window.AVHPurchaseControl.analyzeInvoice(id,saved.documentId,{reload:false})}catch(e){docErrors.push('Factura guardada; análisis pendiente: '+(e.message||e))}}catch(e){docErrors.push('Factura: '+(e.message||e))}
         if(rem)try{await registerReceiptFile(receiptId,'remittance',rem,id,remitNo,remitDate)}catch(e){docErrors.push('Remito: '+(e.message||e))}
         await loadAll(true);closeModal();activeModule='purchase-receipts';renderPurchaseReceipts();
         if(docErrors.length)setTimeout(()=>alert('La mercadería fue recibida correctamente, pero hubo un problema con documentos: '+docErrors.join(' · ')),100);
@@ -68,7 +68,7 @@
   function openAttachReceiptDocs(purchaseId){
     const p=(D.purchases||[]).find(x=>x.id===purchaseId),receipt=purchaseReceipts(purchaseId)[0];if(!p||!receipt)return alert('No encontré una recepción para esta compra.');
     openModal('Completar documentos',`${p.po_number||'Compra'} · ${p.supplier_name||'Proveedor'}`,`<div class="notice">La mercadería ya fue recibida. Acá podés completar factura o remito sin volver a tocar el stock.</div><div class="receive-doc-grid"><div class="receive-doc-box"><h3>🧾 Factura</h3><div class="field"><label>Nº factura</label><input id="lateInvoiceNo" value="${safe(p.invoice_number||'')}"></div><div class="field"><label>Fecha</label><input id="lateInvoiceDate" type="date" value="${p.invoice_date||nowDate()}"></div><div class="field"><label>Archivo</label><input id="lateInvoiceFile" type="file" accept="application/pdf,image/*" capture="environment"></div></div><div class="receive-doc-box"><h3>📄 Remito</h3><div class="field"><label>Nº remito</label><input id="lateRemitNo"></div><div class="field"><label>Fecha</label><input id="lateRemitDate" type="date" value="${nowDate()}"></div><div class="field"><label>Archivo</label><input id="lateRemitFile" type="file" accept="application/pdf,image/*" capture="environment"></div></div></div><button id="lateSaveDocs" class="btn primary" style="width:100%">Guardar documentos</button><div id="lateDocsMsg"></div>`);
-    $('#lateSaveDocs').onclick=async()=>{const inv=$('#lateInvoiceFile').files?.[0],rem=$('#lateRemitFile').files?.[0];if(!inv&&!rem)return msg($('#lateDocsMsg'),'Elegí al menos un archivo.');const b=$('#lateSaveDocs');b.disabled=true;try{if(inv)await registerReceiptFile(receipt.id,'invoice',inv,purchaseId,$('#lateInvoiceNo').value,$('#lateInvoiceDate').value);if(rem)await registerReceiptFile(receipt.id,'remittance',rem,purchaseId,$('#lateRemitNo').value,$('#lateRemitDate').value);await loadAll(true);closeModal();activeModule='purchase-receipts';renderPurchaseReceipts()}catch(e){msg($('#lateDocsMsg'),e.message||String(e))}finally{b.disabled=false}};
+    $('#lateSaveDocs').onclick=async()=>{const inv=$('#lateInvoiceFile').files?.[0],rem=$('#lateRemitFile').files?.[0];if(!inv&&!rem)return msg($('#lateDocsMsg'),'Elegí al menos un archivo.');const b=$('#lateSaveDocs');b.disabled=true;try{if(inv){const saved=await registerReceiptFile(receipt.id,'invoice',inv,purchaseId,$('#lateInvoiceNo').value,$('#lateInvoiceDate').value);if(saved?.documentId&&window.AVHPurchaseControl?.analyzeInvoice)try{await window.AVHPurchaseControl.analyzeInvoice(purchaseId,saved.documentId,{reload:false})}catch(e){console.warn('Análisis de factura pendiente',e)}}if(rem)await registerReceiptFile(receipt.id,'remittance',rem,purchaseId,$('#lateRemitNo').value,$('#lateRemitDate').value);await loadAll(true);closeModal();activeModule='purchase-receipts';renderPurchaseReceipts()}catch(e){msg($('#lateDocsMsg'),e.message||String(e))}finally{b.disabled=false}};
   }
 
   window.renderPurchaseReceipts=function(){
