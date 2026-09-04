@@ -1,26 +1,51 @@
-# Inventario AVH V3 — Refactor técnico
+# Inventario AVH V3 — Arquitectura productiva
 
-## Objetivo
-Mantener exactamente los flujos ya validados de AVH, pero reemplazar la estructura de HTML comprimido + archivos `patch1..patch11` por una fuente ordenada y construible.
+## Estado actual
 
-## Seguridad de la transición
-- `main` sigue siendo producción.
-- `refactor-v3` es una rama aislada.
-- Esta refactorización no modifica Supabase ni datos productivos.
-- Las reglas críticas siguen en backend: permisos por depósito, FIFO, recepción, correcciones, auditoría y compras.
+V3 es la única versión publicada en GitHub Pages. La arquitectura anterior basada en HTML comprimido y `patch1..patch11` queda como referencia histórica y no forma parte del build productivo.
 
-## Estructura
-- `legacy/`: copia inmutable del núcleo productivo actual durante la fase de compatibilidad.
-- `src/features/inventory/`: movimientos, presentaciones y gobierno de inventario.
-- `src/features/admin/`: catálogos, solicitudes, depositarios y contraseñas.
-- `src/features/management/`: realtime, auditoría, documentos, alertas y panel gerencial.
-- `src/features/purchases/`: compras, recepción, contratistas, edición parcial y producto/concepto libre.
-- `build-manifest.json`: único lugar donde se define el orden compatible de las funciones.
-- `scripts/build.mjs`: genera un artefacto limpio `dist/index.html + app.css + app.js`.
-- `scripts/check.mjs`: valida sintaxis, artefactos y contratos críticos.
+## Capas
 
-## Fases
-1. **Consolidación segura:** quitar nombres `patchN` del nuevo árbol y generar un único bundle reproducible conservando semántica.
-2. **Refactor profundo:** extraer el núcleo comprimido a `core/`, `ui/` y módulos de dominio; eliminar overrides detectados.
-3. **Pruebas de comportamiento:** entrada, FIFO, salida, transferencia, recepción, compra parcial, edición de saldo y permisos por depósito.
-4. **Sustitución:** recién después de paridad funcional y prueba real admin/depositario se reemplaza el root productivo.
+### Frontend
+- `src/core/`: configuración, estado, API, autenticación, carga de datos y router.
+- `src/ui/`: navegación y vistas compartidas.
+- `src/features/inventory/`: entradas, salidas, transferencias, FIFO, presentaciones y experiencia depositario.
+- `src/features/admin/`: usuarios, catálogos, mínimos e inventario inicial.
+- `src/features/purchases/`: compras, OC, recepción, documentos, precios, IA y control factura/OC.
+- `src/features/management/`: alertas, solicitudes, auditoría y reportes.
+
+### Backend
+- PostgreSQL es la autoridad para reglas de negocio.
+- RLS limita datos por rol y depósito.
+- RPC controla operaciones sensibles y evita que la seguridad dependa de botones o rutas.
+- Las vistas expuestas usan `security_invoker=true`.
+- Storage de inventario y compras es privado y utiliza policies.
+- Edge Functions se reservan para operaciones que requieren privilegios o integraciones externas.
+
+## Build y despliegue
+
+`build-manifest.json` define el orden de compatibilidad de módulos.
+
+`scripts/check.mjs` valida:
+1. archivos fuente;
+2. sintaxis;
+3. contrato frontend/backend;
+4. ausencia de arquitectura legacy en el artefacto;
+5. controles mínimos de hardening;
+6. construcción de `dist`.
+
+GitHub Actions ejecuta además un smoke test real con Chrome antes de publicar.
+
+## Principios de mantenimiento
+
+1. No agregar nuevas capas de patches.
+2. No mover reglas de stock, permisos o recepción al frontend.
+3. No borrar historial para corregir una operación; utilizar corrección/anulación trazable.
+4. Toda carga parcial debe ser visible al usuario.
+5. Auditoría administrativa debe salir de `audit_events`, no de una reconstrucción visual.
+6. Los datos institucionales deben venir de tablas/configuración, no quedar hardcodeados.
+7. Cambios de esquema deben existir como migraciones reproducibles.
+
+## Deuda técnica controlada
+
+V3 todavía utiliza algunas funciones globales y wrappers `window.*` para compatibilidad. Se pueden reducir gradualmente, pero no se debe hacer una reescritura masiva junto con cambios de negocio críticos.
