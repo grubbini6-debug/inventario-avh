@@ -1,13 +1,40 @@
 // AVH V3 — Carga de datos y vistas principales.
-async function safeLoad(key,promise){const r=await promise;if(!r.error)D[key]=r.data||[];return r.error}
+async function safeLoad(key,promise){
+  try{
+    const r=await promise;
+    if(!r.error){D[key]=r.data||[];return null}
+    console.warn('AVH sync error',key,r.error);
+    return {key,error:r.error};
+  }catch(error){
+    console.warn('AVH sync exception',key,error);
+    return {key,error:error?.message||String(error)};
+  }
+}
+function updateSyncState(errors=[]){
+  lastSyncAt=new Date();
+  lastSyncErrors=errors;
+  const el=$('#syncState');if(!el)return;
+  if(errors.length){
+    el.textContent='DATOS PARCIALES';
+    el.title=`Última sincronización ${lastSyncAt.toLocaleTimeString('es-PY')} · ${errors.length} consulta(s) no actualizaron`;
+    el.style.opacity='1';
+    el.style.borderColor='#c4881f';
+  }else{
+    el.textContent=`ACTUALIZADO ${lastSyncAt.toLocaleTimeString('es-PY',{hour:'2-digit',minute:'2-digit'})}`;
+    el.title='Todos los datos visibles se sincronizaron correctamente.';
+    el.style.opacity='';
+    el.style.borderColor='';
+  }
+}
 async function loadAll(force=false){
   if(loading)return;
   loading=true;
   try{
     const jobs=[safeLoad('warehouses',query('warehouses','*','order=name.asc')),safeLoad('products',query('products','*','order=name.asc')),safeLoad('presentations',query('product_presentations','*','order=label.asc')),safeLoad('contractors',query('contractors','*','order=name.asc')),safeLoad('barges',query('barges','*','order=number.asc')),safeLoad('suppliers',query('suppliers','*','order=name.asc')),safeLoad('stocks',query('v_stock_by_warehouse')),safeLoad('stockStatus',query('v_stock_status')),safeLoad('stockValues',query('v_stock_value_by_warehouse')),safeLoad('minimums',query('stock_minimums')),safeLoad('moves',query('movements','*,movement_lines(*,products(name,base_unit))','order=created_at.desc&limit=400')),safeLoad('bargeConsumption',query('v_barge_consumption','*','order=barge_number.asc')),safeLoad('contractorConsumption',query('v_contractor_consumption','*','order=contractor_name.asc')),safeLoad('productConsumption',query('v_product_consumption','*','order=base_quantity.desc')),safeLoad('warehouseActivity',query('v_warehouse_activity_today')),safeLoad('openingInventorySessions',query('warehouse_opening_inventory','*','order=opened_at.desc'))];
-    if(profile.role==='admin'){jobs.push(safeLoad('productRequests',query('product_requests','*','order=created_at.desc&limit=100')),safeLoad('correctionRequests',query('correction_requests','*','order=created_at.desc&limit=100')),safeLoad('profiles',query('profiles','*','order=username.asc')))}
+    if(profile.role==='admin'){jobs.push(safeLoad('productRequests',query('product_requests','*','order=created_at.desc&limit=100')),safeLoad('correctionRequests',query('correction_requests','*','order=created_at.desc&limit=100')),safeLoad('profiles',query('profiles','*','order=username.asc')),safeLoad('auditEvents',query('audit_events','*','order=created_at.desc&limit=300')))}
     jobs.push(safeLoad('notifications',query('notifications','*','order=created_at.desc&limit=80')));
-    await Promise.all(jobs);
+    const results=await Promise.all(jobs);
+    updateSyncState(results.filter(Boolean));
     renderAll();
   }finally{
     loading=false;
