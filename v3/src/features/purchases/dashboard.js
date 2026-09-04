@@ -106,8 +106,24 @@
     document.querySelectorAll('[data-price-product]').forEach(x=>x.onclick=()=>window.openPriceAnalysis?.(x.dataset.priceProduct));
   }
 
+  function enhanceAlerts(){
+    const heading=[...document.querySelectorAll('#moduleContent .section-head h2')].find(x=>x.textContent.trim()==='Riesgo de stock');
+    if(heading){
+      heading.textContent='Alertas inteligentes de compras';
+      const p=heading.parentElement?.querySelector('p');if(p)p.textContent='Stock + consumo 30d + compras en camino + fecha prometida';
+    }
+    document.querySelectorAll('[data-smart-stock]').forEach(row=>{
+      const [warehouseId,productId]=row.dataset.smartStock.split('|');
+      const x=(D.smartAlerts||[]).find(a=>a.warehouse_id===warehouseId&&a.product_id===productId);if(!x)return;
+      const sub=row.querySelector('.subtext');if(!sub)return;
+      const inbound=n(x.inbound_qty),recommended=n(x.recommended_buy_qty);
+      sub.innerHTML=`<b>${esc(x.risk_reason||'Revisar abastecimiento')}</b><br>${esc(x.warehouse_name)} · stock ${fmt(x.stock_qty)} ${esc(x.base_unit)} · consumo ${fmt(x.avg_daily_30d)} ${esc(x.base_unit)}/día · cobertura ${x.coverage_days==null?'—':fmt(x.coverage_days)+' días'}${inbound>0?`<br>En camino: <b>${fmt(inbound)} ${esc(x.base_unit)}</b>${x.next_expected_date?` · próxima recepción ${shortDate(x.next_expected_date)}`:''}${x.next_supplier_name?` · ${esc(x.next_supplier_name)}`:''}`:''}${recommended>0?`<br>Compra sugerida: <b>${fmt(recommended)} ${esc(x.base_unit)}</b>`:''}`;
+      const badge=row.querySelector('.badge');if(badge)badge.textContent=x.alert_level==='critical'?'CRÍTICO':'REVISAR';
+    });
+  }
+
   const style=document.createElement('style');
   style.textContent=`.purchase-dashboard-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.purchase-dashboard-grid{display:grid;gap:10px}.purchase-dashboard-list{display:grid;gap:0}.purchase-dash-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #e7eee9}.purchase-dash-row:last-child{border-bottom:0}.purchase-dash-money{font-size:15px!important}.purchase-dash-small{font-size:11px!important;text-align:right}@media(min-width:900px){.purchase-dashboard-kpis{grid-template-columns:repeat(5,minmax(0,1fr))}.purchase-dashboard-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.purchase-dashboard-grid .card:last-child:nth-child(odd){grid-column:span 2}}`;
   document.head.appendChild(style);
-  window.AVHPurchaseDashboard={html,bind};
+  window.AVHPurchaseDashboard={html,bind,enhanceAlerts};
 })();
