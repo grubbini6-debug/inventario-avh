@@ -168,6 +168,16 @@ if(fs.existsSync(distHtml)){
 if(fs.existsSync(distCss)){
   const css=fs.readFileSync(distCss,'utf8');
   for(const token of [':root{','.nav{','.modal{','.login{','.hero{']) if(!css.includes(token)){console.error('Missing CSS contract:',token);failed=true;}
+  const responsiveShellChecks=[
+    ['desktop-only hidden by default','.desktop-nav-only{display:none!important}'],
+    ['desktop breakpoint','@media(min-width:1024px)'],
+    ['desktop sidebar fixed','position:fixed!important;z-index:60;left:0;top:0;bottom:0;right:auto'],
+    ['mobile bottom navigation','position:fixed;z-index:40;bottom:0;left:0;right:0'],
+    ['mobile compact header','@media(max-width:759px)']
+  ];
+  for(const [label,token] of responsiveShellChecks){
+    if(!css.includes(token)){console.error('Responsive shell contract missing:',label);failed=true;}
+  }
 }
 
 if(failed)process.exit(1);
