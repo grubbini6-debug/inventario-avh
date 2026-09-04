@@ -114,14 +114,18 @@
 
 @media(max-width:759px){
   .topbar{margin-top:0}
-  .topbar-title{max-width:58%}
+  .topbar-title{max-width:52%}
   .topbar-title h1{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .topbar-title #who{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .top-actions{gap:5px}
   .top-actions .live{font-size:9px;padding:6px 7px}
   .top-actions .btn{min-height:38px}
-  .top-logout{display:none}
+  .top-logout{display:inline-flex;align-items:center;justify-content:center;min-width:43px;padding:6px 8px;font-size:11px}
   .nav button span{display:block}
+}
+@media(max-width:430px){
+  .topbar-title{max-width:60%}
+  .top-actions .live{display:none}
 }
 
 .shell-role-hidden{display:none!important}
