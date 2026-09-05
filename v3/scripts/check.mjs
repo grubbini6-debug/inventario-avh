@@ -37,6 +37,13 @@ if(!dataViewsSource.includes("query('audit_events'")||!routerSource.includes('D.
 const purchaseBaseSource=fs.readFileSync(path.join(root,'src/features/purchases/base.js'),'utf8');
 const supplierRecordSource=fs.readFileSync(path.join(root,'src/features/purchases/supplier-record.js'),'utf8');
 const productRecordSource=fs.readFileSync(path.join(root,'src/features/purchases/product-360.js'),'utf8');
+for(const token of ['data-product-tab="supply"','openSupplyPolicyEditor','target_coverage_days','preferred_supplier_id','order_multiple_qty','recommended_buy_qty','data-buy-supply-policy']){
+  if(!(productRecordSource+purchaseBaseSource).includes(token)){console.error('Supply policy contract missing:',token);failed=true;}
+}
+const supplyMigration=fs.readFileSync(path.join(root,'migrations/20260905122123_supply_policy.sql'),'utf8');
+for(const token of ['security_invoker = true','target_coverage_days','lead_time_days','min_order_qty','order_multiple_qty','preferred_supplier_id','raw_recommended_buy_qty']){
+  if(!supplyMigration.includes(token)){console.error('Supply policy migration missing:',token);failed=true;}
+}
 for(const token of ['product-record-hero','data-product-tab="summary"','data-product-tab="stock"','data-product-tab="consumption"','data-product-tab="purchases"','data-product-tab="prices"','data-product-tab="suppliers"','data-product-tab="lots"','activeProductRecordId','openNewPurchaseForProduct']){
   if(!(productRecordSource+purchaseBaseSource).includes(token)){console.error('Product record contract missing:',token);failed=true;}
 }
