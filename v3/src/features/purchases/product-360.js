@@ -125,8 +125,65 @@
   function stockHtml(rows,focusId){
     return rows.map(x=>`<div class="p360-stock ${x.warehouse_id===focusId?'focus':''}">
       <div class="line"><div><b>${esc(x.warehouse_name||whName(x.warehouse_id))}</b><div class="subtext">Mínimo ${x.minimum_qty==null?'no definido':fmt(x.minimum_qty)+' '+esc(x.base_unit||'')}</div></div><div style="text-align:right"><div class="num">${fmt(x.stock_qty)} ${esc(x.base_unit||'')}</div><span class="badge ${x.alert_level==='critical'?'red':x.alert_level==='low'?'amber':'green'}">${x.alert_level==='critical'?'CRÍTICO':x.alert_level==='low'?'REVISAR':'NORMAL'}</span></div></div>
-      <div class="metric-pills">${x.coverage_days!=null?`<span>${fmt(x.coverage_days)} días cobertura</span>`:''}${n(x.inbound_qty)>0?`<span>${fmt(x.inbound_qty)} ${esc(x.base_unit||'')} en camino</span>`:''}${x.next_expected_date?`<span>llega ${d(x.next_expected_date)}</span>`:''}</div>
+      <div class="metric-pills">${x.coverage_days!=null?`<span>${fmt(x.coverage_days)} días cobertura</span>`:''}${x.policy_configured?`<span>objetivo ${fmt(x.target_coverage_days)} días</span>`:''}${n(x.inbound_qty)>0?`<span>${fmt(x.inbound_qty)} ${esc(x.base_unit||'')} en camino</span>`:''}${x.next_expected_date?`<span>llega ${d(x.next_expected_date)}</span>`:''}${x.preferred_supplier_name?`<span>preferido: ${esc(x.preferred_supplier_name)}</span>`:''}</div>
     </div>`).join('')||'<div class="empty">Sin stock ni parámetros registrados en depósitos.</div>';
+  }
+
+  function minimumPolicy(productId,warehouseId){
+    return (D.minimums||[]).find(x=>x.product_id===productId&&x.warehouse_id===warehouseId)||null;
+  }
+
+  function smartPolicy(productId,warehouseId){
+    return (D.smartAlerts||[]).find(x=>x.product_id===productId&&x.warehouse_id===warehouseId)||null;
+  }
+
+  function criticalityLabel(v){return v==='critical'?'Crítico':v==='important'?'Importante':'Normal'}
+
+  function supplyPolicyHtml(productId,p){
+    const warehouses=(D.warehouses||[]).filter(x=>x.active);
+    return warehouses.map(w=>{
+      const policy=minimumPolicy(productId,w.id),smart=smartPolicy(productId,w.id)||{};
+      const configured=Boolean(policy);
+      const preferred=policy?.preferred_supplier_id?supplier(policy.preferred_supplier_id):null;
+      const recommended=n(smart.recommended_buy_qty);
+      return `<div class="card supply-policy-card ${configured?'configured':'empty-policy'}">
+        <div class="line"><div class="grow"><div class="eyebrow">DEPÓSITO</div><div class="title">${esc(w.name)}</div><div class="subtext">${configured?`Política activa · ${esc(criticalityLabel(policy.criticality))}`:'Sin política definida'}</div></div><span class="badge ${configured?'green':''}">${configured?'CONFIGURADA':'PENDIENTE'}</span></div>
+        <div class="supply-policy-metrics">
+          <div><span>Stock</span><b>${fmt(smart.stock_qty||0)} ${esc(p.base_unit)}</b></div>
+          <div><span>Cobertura</span><b>${smart.coverage_days==null?'—':fmt(smart.coverage_days)+' días'}</b></div>
+          <div><span>Objetivo</span><b>${configured?fmt(policy.target_coverage_days)+' días':'—'}</b></div>
+          <div><span>Seguridad</span><b>${configured?fmt(policy.safety_stock_qty)+' '+esc(p.base_unit):'—'}</b></div>
+          <div><span>Lead time</span><b>${configured?fmt(policy.lead_time_days)+' días':'—'}</b></div>
+          <div><span>MOQ</span><b>${configured?fmt(policy.min_order_qty)+' '+esc(p.base_unit):'—'}</b></div>
+          <div><span>Múltiplo</span><b>${configured&&policy.order_multiple_qty?fmt(policy.order_multiple_qty)+' '+esc(p.base_unit):'—'}</b></div>
+          <div><span>Proveedor</span><b>${esc(preferred?.name||'—')}</b></div>
+        </div>
+        ${recommended>0?`<div class="notice supply-policy-recommend">Compra sugerida: <b>${fmt(recommended)} ${esc(p.base_unit)}</b>${smart.raw_recommended_buy_qty!=null&&Number(smart.raw_recommended_buy_qty)!==recommended?` · necesidad calculada ${fmt(smart.raw_recommended_buy_qty)}`:''}</div>`:''}
+        <div class="split-actions" style="margin-top:10px"><button class="btn sm soft" data-edit-supply-policy="${w.id}">${configured?'Editar política':'Definir política'}</button>${recommended>0?`<button class="btn sm primary" data-buy-supply-policy="${w.id}">Crear compra sugerida</button>`:''}</div>
+      </div>`;
+    }).join('')||'<div class="empty">No hay depósitos activos.</div>';
+  }
+
+  function openSupplyPolicyEditor(productId,warehouseId){
+    if(profile?.role!=='admin')return;
+    const p=prod(productId),w=(D.warehouses||[]).find(x=>x.id===warehouseId);if(!p||!w)return;
+    const row=minimumPolicy(productId,warehouseId)||{};
+    openModal('Política de abastecimiento',`${p.name} · ${w.name}`,`
+      <div class="notice">La política se aplica por producto y depósito. La recomendación usa consumo real de 30 días, stock disponible y compras en camino.</div>
+      <div class="two"><div class="field"><label>Mínimo duro</label><input id="spMinimum" type="number" min="0" step="any" value="${n(row.minimum_qty)}"><div class="hint">Nivel que nunca debería perforarse.</div></div><div class="field"><label>Stock de seguridad</label><input id="spSafety" type="number" min="0" step="any" value="${n(row.safety_stock_qty)}"></div></div>
+      <div class="two"><div class="field"><label>Cobertura objetivo (días)</label><input id="spTarget" type="number" min="0" step="any" value="${row.target_coverage_days==null?14:n(row.target_coverage_days)}"></div><div class="field"><label>Lead time (días)</label><input id="spLead" type="number" min="0" step="1" value="${n(row.lead_time_days)}"></div></div>
+      <div class="two"><div class="field"><label>Compra mínima / MOQ</label><input id="spMoq" type="number" min="0" step="any" value="${n(row.min_order_qty)}"></div><div class="field"><label>Múltiplo de compra</label><input id="spMultiple" type="number" min="0" step="any" value="${row.order_multiple_qty==null?'':n(row.order_multiple_qty)}" placeholder="Ej. 1080 kg por pallet"></div></div>
+      <div class="two"><div class="field"><label>Proveedor preferido</label><select id="spSupplier"><option value="">Sin preferido</option>${(D.suppliers||[]).map(s=>`<option value="${s.id}" ${s.id===row.preferred_supplier_id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div><div class="field"><label>Criticidad</label><select id="spCriticality"><option value="normal" ${row.criticality==='normal'||!row.criticality?'selected':''}>Normal</option><option value="important" ${row.criticality==='important'?'selected':''}>Importante</option><option value="critical" ${row.criticality==='critical'?'selected':''}>Crítico</option></select></div></div>
+      <label class="check-line"><input id="spActive" type="checkbox" ${row.policy_active===false?'':'checked'}> Política activa</label>
+      <div class="field"><label>Notas</label><textarea id="spNotes" rows="3" placeholder="Ej. compra por pallet completo, proveedor con 180 días de crédito…">${esc(row.policy_notes||'')}</textarea></div>
+      <button id="spSave" class="btn primary" style="width:100%">Guardar política</button><div id="spMsg"></div>`);
+    $('#spSave').onclick=async()=>{
+      const numericIds=['spMinimum','spSafety','spTarget','spLead','spMoq'],vals={};for(const id of numericIds){vals[id]=Number($('#'+id).value||0);if(vals[id]<0||!Number.isFinite(vals[id]))return msg($('#spMsg'),'Los valores numéricos deben ser cero o mayores.')}
+      const mult=$('#spMultiple').value.trim()===''?null:Number($('#spMultiple').value);if(mult!==null&&(!(mult>0)||!Number.isFinite(mult)))return msg($('#spMsg'),'El múltiplo debe ser mayor a cero o quedar vacío.');
+      const body={warehouse_id:warehouseId,product_id:productId,minimum_qty:vals.spMinimum,safety_stock_qty:vals.spSafety,target_coverage_days:vals.spTarget,lead_time_days:Math.round(vals.spLead),min_order_qty:vals.spMoq,order_multiple_qty:mult,preferred_supplier_id:$('#spSupplier').value||null,criticality:$('#spCriticality').value,policy_active:$('#spActive').checked,policy_notes:$('#spNotes').value.trim()||null,updated_by:profile.id,updated_at:new Date().toISOString()};
+      const b=$('#spSave');b.disabled=true;b.textContent='Guardando…';const r=await upsert('stock_minimums',body);if(r.error){b.disabled=false;b.textContent='Guardar política';return msg($('#spMsg'),r.error)}
+      msg($('#spMsg'),'Política guardada.',true);await loadAll(true);closeModal();
+    };
   }
 
   function priceHtml(groups,unit){
@@ -212,6 +269,7 @@
     const latestPurchase=prs[0]||null;
     const openPurchases=purchaseList.filter(x=>!['closed','cancelled'].includes(x.purchase.status)).length;
     const lotValue=lots.reduce((acc,l)=>{if(l.unit_cost==null||!l.currency)return acc;acc[l.currency]=(acc[l.currency]||0)+n(l.quantity_remaining)*n(l.unit_cost);return acc},{});
+    const configuredPolicies=(D.minimums||[]).filter(x=>x.product_id===productId&&x.policy_active!==false).length;
 
     page.innerHTML=`<div class="product-record">
       <div class="purchase-breadcrumb"><button class="purchase-back" id="productBack">← Inventario</button><span>›</span><b>${esc(p.name)}</b></div>
@@ -244,6 +302,7 @@
       <div class="product-record-tabs">
         <button class="on" data-product-tab="summary">Resumen</button>
         <button data-product-tab="stock">Stock <span>${stocks.length}</span></button>
+        <button data-product-tab="supply">Abastecimiento <span>${configuredPolicies}</span></button>
         <button data-product-tab="consumption">Consumo</button>
         <button data-product-tab="purchases">Compras <span>${purchaseList.length}</span></button>
         <button data-product-tab="prices">Precios <span>${groups.length}</span></button>
@@ -264,6 +323,8 @@
         </div>
         <div class="section-head"><div><h2>Stock por depósito</h2><p>Resumen de existencia, cobertura y mercadería en camino</p></div><button class="btn sm soft" data-product-tab-jump="stock">Ver detalle</button></div>
         <div class="p360-stock-grid">${stockHtml(stocks,activeProductFocusWarehouseId)}</div>
+        <div class="section-head"><div><h2>Política de abastecimiento</h2><p>${configuredPolicies} depósito${configuredPolicies===1?'':'s'} con política activa</p></div><button class="btn sm soft" data-product-tab-jump="supply">Configurar</button></div>
+        <div class="card supply-policy-summary"><div class="line"><div><b>Reposición inteligente</b><div class="subtext">Objetivo de cobertura + seguridad + lead time + MOQ/múltiplos + proveedor preferido.</div></div><span class="badge ${configuredPolicies?'green':''}">${configuredPolicies?'ACTIVA':'SIN CONFIGURAR'}</span></div></div>
         <div class="section-head"><div><h2>Últimos precios</h2><p>Último y mejor precio histórico por moneda</p></div><button class="btn sm soft" data-product-tab-jump="prices">Ver precios</button></div>
         <div class="p360-price-grid">${priceHtml(groups,p.base_unit)}</div>
       </div>
@@ -271,6 +332,11 @@
       <div class="product-record-panel" data-product-panel="stock">
         <div class="section-head"><div><h2>Stock por depósito</h2><p>Existencia, mínimo, cobertura, riesgo y compras en camino</p></div></div>
         <div class="p360-stock-grid">${stockHtml(stocks,activeProductFocusWarehouseId)}</div>
+      </div>
+
+      <div class="product-record-panel" data-product-panel="supply">
+        <div class="section-head"><div><h2>Política de abastecimiento</h2><p>Definí cómo comprar este producto en cada depósito</p></div></div>
+        <div class="supply-policy-grid">${supplyPolicyHtml(productId,p)}</div>
       </div>
 
       <div class="product-record-panel" data-product-panel="consumption">
@@ -318,6 +384,8 @@
     document.querySelectorAll('[data-product-tab-jump]').forEach(b=>b.onclick=()=>document.querySelector(`[data-product-tab="${b.dataset.productTabJump}"]`)?.click());
     document.querySelectorAll('[data-product-purchase]').forEach(x=>x.onclick=()=>window.openPurchaseDetail?.(x.dataset.productPurchase));
     document.querySelectorAll('[data-p360-supplier]').forEach(x=>x.onclick=e=>{e.stopPropagation();window.openSupplierProfile?.(x.dataset.p360Supplier)});
+    document.querySelectorAll('[data-edit-supply-policy]').forEach(x=>x.onclick=()=>openSupplyPolicyEditor(productId,x.dataset.editSupplyPolicy));
+    document.querySelectorAll('[data-buy-supply-policy]').forEach(x=>x.onclick=()=>{const wh=x.dataset.buySupplyPolicy,smart=smartPolicy(productId,wh),policy=minimumPolicy(productId,wh);window.openNewPurchaseForProduct?.(productId,policy?.preferred_supplier_id||null,smart?.recommended_buy_qty||null)});
     document.querySelectorAll('[data-p360-barge]').forEach(x=>x.onclick=()=>openBarge(x.dataset.p360Barge));
     if(typeof bindMovementRows==='function')bindMovementRows();
 
@@ -363,9 +431,9 @@
   const style=document.createElement('style');
   style.textContent=`
     .p360-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border:1px solid #dfe9e2;border-left:5px solid var(--green);border-radius:14px;padding:14px;background:#fbfdfb}.p360-hero.critical{border-left-color:var(--red);background:#fff7f6}.p360-hero.low{border-left-color:var(--amber);background:#fffaf0}.p360-hero h3{font-size:16px;margin:3px 0 5px}.p360-recommend{margin-top:10px}.p360-stock-grid,.p360-price-grid{display:grid;gap:8px}.p360-stock,.p360-price-card{border:1px solid #dfe9e2;border-radius:12px;padding:11px;background:#fff}.p360-stock.focus{box-shadow:0 0 0 2px rgba(15,90,49,.14);border-color:#8bb99d}.p360-price-main{font-size:18px;font-weight:900;margin-top:4px}.p360-price-main small{font-size:11px;font-weight:600}.p360-price-meta{display:grid;gap:3px;margin-top:7px;font-size:11px;color:#607268}.p360-chip{font-weight:800;color:var(--green)}
-    .product-record{display:grid;gap:14px;padding-bottom:18px}.product-record-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)}.product-record-main{min-width:0}.product-record-titleline{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px}.product-record-titleline h2{font-size:25px;letter-spacing:-.035em;margin:0}.product-record-meta{font-size:11px;color:var(--muted);margin-top:7px}.product-record-actions{display:flex;gap:7px;flex-wrap:wrap}.product-record-kpis,.product-consumption-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.product-record-tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line);padding:0 2px}.product-record-tabs button{border:0;background:transparent;padding:11px 12px;color:var(--muted);font-size:12px;font-weight:850;white-space:nowrap;border-bottom:2px solid transparent}.product-record-tabs button.on{color:var(--green);border-bottom-color:var(--green)}.product-record-tabs button span{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#edf3ef;font-size:9px;margin-left:3px}.product-record-tabs button.on span{background:var(--green3)}.product-record-panel{display:none}.product-record-panel.on{display:block}.product-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.product-lot-value{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.product-purchase-row:hover{border-color:#b8d3c1}
+    .product-record{display:grid;gap:14px;padding-bottom:18px}.product-record-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)}.product-record-main{min-width:0}.product-record-titleline{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px}.product-record-titleline h2{font-size:25px;letter-spacing:-.035em;margin:0}.product-record-meta{font-size:11px;color:var(--muted);margin-top:7px}.product-record-actions{display:flex;gap:7px;flex-wrap:wrap}.product-record-kpis,.product-consumption-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.product-record-tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line);padding:0 2px}.product-record-tabs button{border:0;background:transparent;padding:11px 12px;color:var(--muted);font-size:12px;font-weight:850;white-space:nowrap;border-bottom:2px solid transparent}.product-record-tabs button.on{color:var(--green);border-bottom-color:var(--green)}.product-record-tabs button span{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#edf3ef;font-size:9px;margin-left:3px}.product-record-tabs button.on span{background:var(--green3)}.product-record-panel{display:none}.product-record-panel.on{display:block}.product-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.product-lot-value{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.product-purchase-row:hover{border-color:#b8d3c1}.supply-policy-grid{display:grid;gap:10px}.supply-policy-card.empty-policy{border-style:dashed}.supply-policy-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:11px}.supply-policy-metrics div{background:#f5f8f6;border-radius:10px;padding:9px}.supply-policy-metrics span{display:block;color:var(--muted);font-size:9px;font-weight:780;margin-bottom:4px}.supply-policy-metrics b{font-size:11px}.supply-policy-recommend{margin-top:10px}.supply-policy-summary{box-shadow:none}
     @media(min-width:760px){.p360-stock-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.p360-price-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-    @media(min-width:900px){.product-record-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}.product-consumption-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.product-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+    @media(min-width:900px){.supply-policy-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.supply-policy-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.product-record-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}.product-consumption-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.product-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
     @media(max-width:640px){.product-record{gap:11px}.product-record-hero{display:grid;align-items:start;padding:14px}.product-record-titleline h2{font-size:21px}.product-record-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}.product-record-actions .btn{min-width:0;font-size:11px}.product-record-tabs button{padding:10px 9px;font-size:11px}.product-lot-value{grid-template-columns:1fr}.p360-hero{display:grid}}
   `;
   document.head.appendChild(style);
