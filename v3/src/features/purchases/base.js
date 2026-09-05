@@ -93,7 +93,7 @@
   };
 
   function unitOptions(selected='unidad'){return PURCHASE_UNITS.map(u=>`<option value="${esc(u)}" ${u===selected?'selected':''}>${esc(u)}</option>`).join('')}
-  function openNewPurchase(preselectedSupplierId=null,preselectedProductId=null){
+  function openNewPurchase(preselectedSupplierId=null,preselectedProductId=null,preselectedQty=null){
     if(profile?.role!=='admin')return;
     let cart=[];
     openModal('Nueva compra','Solo administrador · sin numeración automática',`<div class="two"><div class="field"><label>Empresa que compra/paga *</label><div class="line" style="gap:6px"><select id="pcCompany" style="flex:1">${D.purchaseCompanies.filter(x=>x.active).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select><button id="pcAddCompany" type="button" class="btn sm soft">+ Empresa</button></div></div><div class="field"><label>Proveedor</label><div class="line" style="gap:6px"><select id="pcSupplier" style="flex:1"><option value="">Sin definir</option>${D.suppliers.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select><button id="pcAddSupplier" type="button" class="btn sm soft">+ Proveedor</button></div></div></div>
@@ -115,6 +115,7 @@
     $('#pcDest').onchange=destUI;destUI();
     $('#pciProduct').onchange=()=>{const p=product($('#pciProduct').value);if(p){$('#pciDesc').value=p.name;$('#pciUnit').value=PURCHASE_UNITS.includes(p.base_unit)?p.base_unit:'otro';$('#pciFactor').value='1';if($('#pcDest').value==='warehouse')$('#pciStock').checked=true}};
     if(preselectedProductId&&$('#pciProduct')){$('#pciProduct').value=preselectedProductId;$('#pciProduct').onchange()}
+    if(preselectedQty!=null&&Number(preselectedQty)>0&&$('#pciQty'))$('#pciQty').value=Number(preselectedQty);
     function drawCart(){const c=$('#pcCurrency').value;$('#pcCart').innerHTML=cart.map((x,i)=>`<div class="cart-line"><div class="purchase-item-line"><div><b>${esc(x.description)}</b><div class="subtext">${fmt(x.quantity)} ${esc(x.unit)} × ${money(x.unit_price,c)}${x.affects_inventory?' · entra a stock':''}</div></div><button type="button" class="btn sm soft remove" data-pc-remove="${i}">Quitar</button></div></div>`).join('')+(cart.length?`<div class="cart-total"><b>Total estimado: ${money(cart.reduce((a,x)=>a+x.quantity*x.unit_price,0),c)}</b></div>`:'<div class="empty">Agregá los ítems de la compra.</div>');$$('[data-pc-remove]').forEach(b=>b.onclick=()=>{cart.splice(Number(b.dataset.pcRemove),1);drawCart()})}
     $('#pcCurrency').onchange=drawCart;drawCart();
     $('#pcAddItem').onclick=()=>{const productId=$('#pciProduct').value,description=$('#pciDesc').value.trim(),quantity=Number($('#pciQty').value),unit=$('#pciUnit').value,unitPrice=Number($('#pciPrice').value||0),factor=Number($('#pciFactor').value||1),affects=$('#pciStock').checked;if(!description)return alert('Escribí la descripción del ítem.');if(!quantity||quantity<=0)return alert('La cantidad debe ser mayor a cero.');if(!factor||factor<=0)return alert('La conversión debe ser mayor a cero.');if(affects&&!productId)return alert('Para ingresar a stock tenés que vincular el ítem a un producto del inventario.');cart.push({product_id:productId||null,description,quantity,unit,factor_to_base:factor,unit_price:unitPrice,affects_inventory:affects});$('#pciProduct').value='';$('#pciDesc').value='';$('#pciQty').value='';$('#pciPrice').value='';$('#pciFactor').value='1';$('#pciStock').checked=false;drawCart()};
@@ -228,8 +229,8 @@
     const title=$('#sectionTitle');if(title)title.textContent=ref;
   };
 
-  window.openNewPurchaseForSupplier=function(supplierId){return openNewPurchase(supplierId||null,null)};
-  window.openNewPurchaseForProduct=function(productId){return openNewPurchase(null,productId||null)};
+  window.openNewPurchaseForSupplier=function(supplierId){return openNewPurchase(supplierId||null,null,null)};
+  window.openNewPurchaseForProduct=function(productId,supplierId=null,qty=null){return openNewPurchase(supplierId||null,productId||null,qty)};
   window.renderPurchaseReceipts=function(){
     if(profile?.role!=='depositor')return;
     const pending=(D.purchases||[]).filter(pendingPurchase);
