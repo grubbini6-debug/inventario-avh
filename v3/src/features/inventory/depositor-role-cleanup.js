@@ -9,7 +9,7 @@
     });
     if(nav)nav.style.gridTemplateColumns='';
     const sw=document.querySelector('#stockWarehouse');if(sw)sw.style.display='';
-    document.querySelector('#depStockAI')?.remove();
+    document.querySelector('#depStockExit')?.remove();
   }
   const previousLoad=window.loadAll;
   window.loadAll=async function(force=false){await previousLoad(force);syncRoleUI()};

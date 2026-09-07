@@ -19,6 +19,8 @@ const templateSource=fs.readFileSync(path.join(root,'src/index.template.html'),'
 const poPolishSource=fs.readFileSync(path.join(root,'src/features/purchases/po-polish.js'),'utf8');
 
 const depositorMobileSource=fs.readFileSync(path.join(root,'src/features/inventory/depositor-mobile-ai.js'),'utf8');
+const depositorRoleCleanupSource=fs.readFileSync(path.join(root,'src/features/inventory/depositor-role-cleanup.js'),'utf8');
+const depositorPhotoEdgeSource=fs.readFileSync(path.join(root,'edge-functions/depositor-photo-ai/index.ts'),'utf8');
 if(!depositorMobileSource.includes("querySelectorAll('button:not(.nav-user-exit)')")){
   console.error('Depositor navigation must preserve the logout control.');failed=true;
 }
@@ -28,6 +30,15 @@ for(const token of ['openManualExit','openReceiptPhotoFlow',"analyzePhoto('recei
 }
 for(const retired of ["openPhotoFlow('exit')",'renderExitConfirm','saveAIExit','Sacar con IA','Foto → IA propone']){
   if(depositorMobileSource.includes(retired)){console.error('Depositor exit must stay manual; retired AI exit token found:',retired);failed=true;}
+}
+if(!depositorRoleCleanupSource.includes("querySelector('#depStockExit')?.remove()")){
+  console.error('Depositor role cleanup must remove the current manual-exit stock button.');failed=true;
+}
+for(const token of ["enum:['receipt']","mode!=='receipt'","pending_purchases","Esta IA está habilitada únicamente para recepción de órdenes de compra"]){
+  if(!depositorPhotoEdgeSource.includes(token)){console.error('Depositor receipt-only Edge Function contract missing:',token);failed=true;}
+}
+for(const retired of ["enum:['exit','receipt']","mode==='exit'","context.stock","SALIR del depósito"]){
+  if(depositorPhotoEdgeSource.includes(retired)){console.error('Depositor photo Edge Function must not support AI exits:',retired);failed=true;}
 }
 if(!/\blet\s+activeAdminTab\s*=\s*['"]users['"]/.test(stateSource)||
    !/function\s+renderAdmin\(tab=activeAdminTab\)/.test(adminSource)||
