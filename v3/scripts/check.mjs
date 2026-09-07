@@ -22,6 +22,13 @@ const depositorMobileSource=fs.readFileSync(path.join(root,'src/features/invento
 if(!depositorMobileSource.includes("querySelectorAll('button:not(.nav-user-exit)')")){
   console.error('Depositor navigation must preserve the logout control.');failed=true;
 }
+
+for(const token of ['openManualExit','openReceiptPhotoFlow',"analyzePhoto('receipt'",'depManualExit','depStockExit','Confirmar salida · descontar stock']){
+  if(!depositorMobileSource.includes(token)){console.error('Depositor manual exit / receipt AI contract missing:',token);failed=true;}
+}
+for(const retired of ["openPhotoFlow('exit')",'renderExitConfirm','saveAIExit','Sacar con IA','Foto → IA propone']){
+  if(depositorMobileSource.includes(retired)){console.error('Depositor exit must stay manual; retired AI exit token found:',retired);failed=true;}
+}
 if(!/\blet\s+activeAdminTab\s*=\s*['"]users['"]/.test(stateSource)||
    !/function\s+renderAdmin\(tab=activeAdminTab\)/.test(adminSource)||
    !/activeAdminTab=tab\|\|['"]users['"]/.test(adminSource)||
