@@ -37,6 +37,13 @@ if(!dataViewsSource.includes("query('audit_events'")||!routerSource.includes('D.
 const purchaseBaseSource=fs.readFileSync(path.join(root,'src/features/purchases/base.js'),'utf8');
 const supplierRecordSource=fs.readFileSync(path.join(root,'src/features/purchases/supplier-record.js'),'utf8');
 const productRecordSource=fs.readFileSync(path.join(root,'src/features/purchases/product-360.js'),'utf8');
+const globalSearchSource=fs.readFileSync(path.join(root,'src/ui/global-search.js'),'utf8');
+for(const token of ['globalSearchBtn','globalSearchOverlay','AVHGlobalSearch','data-global-result','openProduct360','openSupplierProfile','openPurchaseDetail']){
+  if(!(globalSearchSource+templateSource).includes(token)){console.error('Global search contract missing:',token);failed=true;}
+}
+if(!globalSearchSource.includes("profile?.role==='admin'")){
+  console.error('Global search must preserve role-aware administrative results.');failed=true;
+}
 for(const token of ['data-product-tab="supply"','openSupplyPolicyEditor','target_coverage_days','preferred_supplier_id','order_multiple_qty','recommended_buy_qty','data-buy-supply-policy']){
   if(!(productRecordSource+purchaseBaseSource).includes(token)){console.error('Supply policy contract missing:',token);failed=true;}
 }
