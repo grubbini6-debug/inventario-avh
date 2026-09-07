@@ -44,6 +44,7 @@
     "src/features/purchases/po-polish.js",
     "src/features/admin/admin-attention-center.js",
     "src/features/admin/data-quality.js",
+    "src/ui/global-search.js",
     "src/ui/professional-shell.js",
     "src/features/inventory/depositor-mobile-ai.js",
     "src/features/inventory/depositor-role-cleanup.js",
