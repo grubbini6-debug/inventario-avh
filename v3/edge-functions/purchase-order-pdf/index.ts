@@ -9,7 +9,7 @@ const cors={
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,'Content-Type':'application/json'}});
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const green=rgb(0.06,0.28,0.18),dark=rgb(0.08,0.13,0.10),muted=rgb(0.37,0.44,0.40),line=rgb(0.84,0.88,0.85),pale=rgb(0.95,0.98,0.96),white=rgb(1,1,1);
-const PDF_SOURCE='generated_professional_header_v6_no_logo';
+const PDF_SOURCE='generated_professional_header_v7_delivery_mode';
 const safe=(v:unknown)=>String(v??'').replace(/[\u0000-\u001f]/g,' ').trim();
 const n=(v:unknown)=>{const x=Number(v);return Number.isFinite(x)?x:0};
 const money=(v:number,currency:string)=>currency==='USD'?`USD ${v.toLocaleString('es-PY',{minimumFractionDigits:2,maximumFractionDigits:2})}`:`Gs. ${Math.round(v).toLocaleString('es-PY')}`;
@@ -60,11 +60,12 @@ Deno.serve(async(req:Request)=>{
     const company=companyR.data||{},supplier=supplierR.data||{},items=itemsR.data||[];
     const destination=p.destination_type==='warehouse'?(warehouseR.data?.name||'Depósito'):p.destination_type==='barge'?`Barcaza ${bargeR.data?.number||''}`:(p.destination_text||'Entrega directa');
     const project=p.barge_id?`Barcaza ${bargeR.data?.number||''}`:'—';
+    const deliveryMode=p.delivery_mode==='partial'?'Entregas parciales / liberaciones':'Entrega única';
     const pdf=await PDFDocument.create(),regular=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold),docDate=datePY(p.po_generated_at||p.created_at);
     let page=pageBase(pdf,company,bold,regular,p.po_number,docDate),y=726;
     box(page,'Proveedor',supplier.name||'Proveedor sin definir',36,y,252,bold,regular);box(page,'RUC proveedor',supplier.tax_id||'—',307,y,122,bold,regular);box(page,'Contacto',[supplier.phone,supplier.email].filter(Boolean).join(' · ')||'—',437,y,122,bold,regular);y-=55;
     box(page,'Presupuesto / referencia',p.source_document_number||p.order_reference||'—',36,y,175,bold,regular);box(page,'Condición de pago',paymentText(p.payment_terms),219,y,150,bold,regular);box(page,'Moneda',p.currency||'PYG',377,y,82,bold,regular);box(page,'Proyecto',project,467,y,92,bold,regular);y-=55;
-    box(page,'Lugar de entrega',destination||'—',36,y,340,bold,regular);box(page,'Entrega prevista',p.expected_date?datePY(p.expected_date):'Según coordinación',384,y,175,bold,regular);y-=62;
+    box(page,'Lugar de entrega',`${destination||'—'} · ${deliveryMode}`,36,y,340,bold,regular);box(page,'Entrega prevista',p.expected_date?datePY(p.expected_date):'Según coordinación',384,y,175,bold,regular);y-=62;
 
     const cols={desc:39,unit:350,qty:401,price:455,total:518};
     const head=()=>{page.drawRectangle({x:36,y:y-20,width:523,height:20,color:green});page.drawText('DESCRIPCIÓN TÉCNICA',{x:cols.desc,y:y-14,font:bold,size:7,color:white});page.drawText('UNIDAD',{x:cols.unit,y:y-14,font:bold,size:7,color:white});page.drawText('CANT.',{x:cols.qty,y:y-14,font:bold,size:7,color:white});page.drawText('PRECIO',{x:cols.price,y:y-14,font:bold,size:7,color:white});page.drawText('TOTAL',{x:cols.total,y:y-14,font:bold,size:7,color:white});y-=25};
@@ -74,7 +75,7 @@ Deno.serve(async(req:Request)=>{
     drawText(page,`Contacto de Compras: Gabriel Ortega · ${company.phone||'0971 800 829'} · ${company.email||'gortega@astillerovh.com'}`,36,y,regular,8,muted,523);
     drawText(page,'OC asociada al presupuesto/referencia indicado y registrada en AVH.',36,y-17,regular,7.3,muted,523);
 
-    const pdfBytes=await pdf.save(),filename=`${p.po_number}-${safe(supplier.name||'PROVEEDOR').replace(/[^A-Za-z0-9_-]+/g,'_').slice(0,40)}.pdf`,path=`${purchaseId}/${p.po_number}-professional-v6-no-logo.pdf`;
+    const pdfBytes=await pdf.save(),filename=`${p.po_number}-${safe(supplier.name||'PROVEEDOR').replace(/[^A-Za-z0-9_-]+/g,'_').slice(0,40)}.pdf`,path=`${purchaseId}/${p.po_number}-professional-v7-delivery-mode.pdf`;
     const up=await admin.storage.from('purchase-documents').upload(path,pdfBytes,{contentType:'application/pdf',upsert:true});if(up.error)throw Error(`No pude archivar la OC: ${up.error.message}`);
     await admin.from('purchase_documents').insert({purchase_id:purchaseId,kind:'order',file_path:path,file_name:filename,document_number:p.po_number,document_date:String(p.po_generated_at||p.created_at).slice(0,10),source:PDF_SOURCE,uploaded_by:userData.user.id});
     await admin.from('audit_events').insert({entity_type:'purchase',entity_id:purchaseId,purchase_id:purchaseId,action:'purchase_order_pdf_generated',actor_id:userData.user.id,detail:{po_number:p.po_number,file_name:filename,source:PDF_SOURCE}});
