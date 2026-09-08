@@ -157,6 +157,8 @@
     const page=$('#page-purchases'),items=purchaseItems(id),receipts=purchaseReceipts(id),docs=purchaseDocs(id),total=purchaseTotal(p);
     const receivedQty=items.reduce((a,x)=>a+Number(x.received_qty||0),0),orderedQty=items.reduce((a,x)=>a+Number(x.quantity||0),0);
     const pct=items.length?Math.min(100,Math.round(items.reduce((a,x)=>a+Math.min(1,Number(x.received_qty||0)/Math.max(Number(x.quantity||0),1e-9)),0)/items.length*100)):0;
+    const receivedValue=Number(p.received_amount||items.reduce((a,x)=>a+Number(x.received_qty||0)*Number(x.unit_price||0),0)),pendingValue=Math.max(0,total-receivedValue);
+    const invoiceDoc=docs.find(d=>d.kind==='invoice'),hasInvoice=!!p.invoice_number||!!invoiceDoc,deliveryMode=p.delivery_mode||'single',deliveryLabel=DELIVERY_MODE[deliveryMode]||deliveryMode;
     const timeline=purchaseRecordTimeline(p,items,receipts,docs);
     const ref=purchaseRecordRef(p);
     page.innerHTML=`<div class="purchase-record">
@@ -185,6 +187,7 @@
           <div class="detail-box"><span>Estado</span><b>${esc(PURCHASE_STATUS[p.status]||p.status)}</b></div>
           <div class="detail-box"><span>Urgencia</span><b>${esc(URGENCY_LABEL[p.urgency]||p.urgency)}</b></div>
           <div class="detail-box"><span>Destino</span><b>${esc(purchaseDest(p))}</b></div>
+          <div class="detail-box"><span>Modalidad de entrega</span><b>${esc(deliveryLabel)}</b></div>
           <div class="detail-box"><span>Entrega prometida</span><b>${p.expected_date?dateOnly(p.expected_date):'—'}</b></div>
           <div class="detail-box"><span>Solicitante / sector</span><b>${esc([p.requester,p.sector].filter(Boolean).join(' · ')||'—')}</b></div>
           <div class="detail-box"><span>Pago</span><b>${esc([p.payment_method,p.payment_terms].filter(Boolean).join(' · ')||'—')}</b></div>
