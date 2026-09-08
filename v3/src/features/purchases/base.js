@@ -159,6 +159,7 @@
     const pct=items.length?Math.min(100,Math.round(items.reduce((a,x)=>a+Math.min(1,Number(x.received_qty||0)/Math.max(Number(x.quantity||0),1e-9)),0)/items.length*100)):0;
     const receivedValue=Number(p.received_amount||items.reduce((a,x)=>a+Number(x.received_qty||0)*Number(x.unit_price||0),0)),pendingValue=Math.max(0,total-receivedValue);
     const invoiceDoc=docs.find(d=>d.kind==='invoice'),hasInvoice=!!p.invoice_number||!!invoiceDoc,deliveryMode=p.delivery_mode||'single',deliveryLabel=DELIVERY_MODE[deliveryMode]||deliveryMode;
+    const deliveryTrackingHtml=p.destination_type==='warehouse'?`${deliveryTrackingHtml}`:'';
     const timeline=purchaseRecordTimeline(p,items,receipts,docs);
     const ref=purchaseRecordRef(p);
     page.innerHTML=`<div class="purchase-record">
