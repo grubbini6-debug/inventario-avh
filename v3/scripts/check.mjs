@@ -68,7 +68,7 @@ const deliveryMigration=fs.readFileSync(path.join(root,'migrations/2026090819413
 for(const token of ['delivery_mode',"check (delivery_mode in ('single','partial'))",'security_invoker = true','v_delivery_mode']){
   if(!deliveryMigration.includes(token)){console.error('Purchase delivery-mode migration missing:',token);failed=true;}
 }
-for(const token of ['pcDeliveryMode','pdDeliveryMode','DELIVERY_MODE','Compra, factura y entrega','Pendiente de entregar',"p.delivery_mode==='partial'?'':'"]){
+for(const token of ['pcDeliveryMode','pdDeliveryMode','DELIVERY_MODE','Compra, factura y entrega','Pendiente de entregar',"p.delivery_mode==='partial'","$('[data-receive-qty]').forEach"]){
   if(!purchaseBaseSource.includes(token)){console.error('Purchase delivery-mode UI contract missing:',token);failed=true;}
 }
 for(const token of ['smartDeliveryMode','delivery_mode',"Entregas parciales / liberaciones"]){
