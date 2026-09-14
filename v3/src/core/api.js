@@ -7,5 +7,7 @@ async function query(table,select='*',extra=''){return request(`/rest/v1/${table
 async function insert(table,body,object=false){return request(`/rest/v1/${table}`,{method:'POST',headers:{Prefer:object?'return=representation':'return=minimal',...(object?{Accept:'application/vnd.pgrst.object+json'}:{})},body})}
 async function patch(table,filter,body){return request(`/rest/v1/${table}?${filter}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body})}
 async function upsert(table,body){return request(`/rest/v1/${table}`,{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body})}
-async function rpc(name,args={}){return request(`/rest/v1/rpc/${name}`,{method:'POST',body:args})}
+const STOCK_MUTATION_RPCS=new Set(['record_initial_inventory','record_entry','record_exit','record_transfer','record_return','receive_purchase']);
+function withOperationRequestId(name,args){if(!STOCK_MUTATION_RPCS.has(name)||!Array.isArray(args?.p_items)||!args.p_items.length||args.p_items[0]?.request_id)return args;const requestId=crypto.randomUUID();return{...args,p_items:args.p_items.map((item,index)=>index===0?{...item,request_id:requestId}:item)}}
+async function rpc(name,args={}){const body=withOperationRequestId(name,args);return request(`/rest/v1/rpc/${name}`,{method:'POST',body})}
 async function edge(name,args){return request(`/functions/v1/${name}`,{method:'POST',body:args})}
