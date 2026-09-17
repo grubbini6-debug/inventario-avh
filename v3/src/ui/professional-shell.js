@@ -17,7 +17,8 @@
     admin:'Administración',
     'admin-attention':'Centro de atención',
     'data-quality':'Calidad de datos',
-    'purchase-receipts':'Recepciones de compras'
+    'purchase-receipts':'Recepciones de compras',
+    'purchase-intelligence':'Inteligencia de Compras'
   };
 
   function visiblePage(){
