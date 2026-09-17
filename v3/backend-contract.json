@@ -35,6 +35,8 @@
   "query": [
     "audit_events",
     "barges",
+    "bi_purchase_facts",
+    "bi_purchase_item_facts",
     "correction_requests",
     "documents",
     "movements",
