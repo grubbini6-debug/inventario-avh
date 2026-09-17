@@ -22,6 +22,7 @@
     "src/features/management/realtime-audit-reports.js",
     "src/features/management/supply-requests.js",
     "src/features/purchases/dashboard.js",
+    "src/features/purchases/intelligence.js",
     "src/features/purchases/base.js",
     "src/features/purchases/integration.js",
     "src/features/purchases/price-intelligence.js",
