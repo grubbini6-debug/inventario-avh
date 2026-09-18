@@ -122,6 +122,17 @@ for(const p of sourceModules){
 const buildSource=fs.readFileSync(path.join(root,'scripts/build.mjs'),'utf8');
 const manifestSource=fs.readFileSync(path.join(root,'build-manifest.json'),'utf8');
 const allSourceText=sourceModules.map(p=>fs.readFileSync(path.join(root,p),'utf8')).join('\n');
+const invalidSingleSelectorLoops=[];
+for(const p of sourceModules){
+  const code=fs.readFileSync(path.join(root,p),'utf8');
+  code.split('\n').forEach((line,index)=>{
+    if(/(^|[^$])\$\([^\n;]*\)\.forEach\s*\(/.test(line)) invalidSingleSelectorLoops.push(`${p}:${index+1}`);
+  });
+}
+if(invalidSingleSelectorLoops.length){
+  console.error('Single-element selector used with forEach; use $() / querySelectorAll():',invalidSingleSelectorLoops);
+  failed=true;
+}
 const retiredContractorUi=[
   'data-module="contractors"',
   'id="moveContractor"',
