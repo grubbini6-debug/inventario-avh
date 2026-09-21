@@ -14,6 +14,7 @@ const styleModules=(manifest.styles||[]).filter(Boolean);
 const stateSource=fs.readFileSync(path.join(root,'src/core/state.js'),'utf8');
 const adminSource=fs.readFileSync(path.join(root,'src/features/admin/base.js'),'utf8');
 const routerSource=fs.readFileSync(path.join(root,'src/core/router.js'),'utf8');
+const authSource=fs.readFileSync(path.join(root,'src/core/auth.js'),'utf8');
 const dataViewsSource=fs.readFileSync(path.join(root,'src/core/data-views.js'),'utf8');
 const templateSource=fs.readFileSync(path.join(root,'src/index.template.html'),'utf8');
 const poPolishSource=fs.readFileSync(path.join(root,'src/features/purchases/po-polish.js'),'utf8');
@@ -21,6 +22,25 @@ const poPolishSource=fs.readFileSync(path.join(root,'src/features/purchases/po-p
 const depositorMobileSource=fs.readFileSync(path.join(root,'src/features/inventory/depositor-mobile-ai.js'),'utf8');
 const depositorRoleCleanupSource=fs.readFileSync(path.join(root,'src/features/inventory/depositor-role-cleanup.js'),'utf8');
 const depositorPhotoEdgeSource=fs.readFileSync(path.join(root,'edge-functions/depositor-photo-ai/index.ts'),'utf8');
+const adminRecoverEdgeSource=fs.readFileSync(path.join(root,'edge-functions/avh-admin-recover/index.ts'),'utf8');
+const retiredTempResetEdgeSource=fs.readFileSync(path.join(root,'edge-functions/avh-admin-temp-reset/index.ts'),'utf8');
+const receiptDocumentGuardMigration=fs.readFileSync(path.join(root,'migrations/20260921172000_receipt_document_path_guard.sql'),'utf8');
+
+if(!authSource.includes("finally{saveSession(null);session=null;location.reload()}")){
+  console.error('Logout must clear any session re-created during token refresh.');failed=true;
+}
+if(!routerSource.includes("if(isAdmin)return;")||!routerSource.includes("las altas directas se gestionan desde Catálogos")){
+  console.error('Admin product-request UI must not invoke the depositor-only request RPC.');failed=true;
+}
+for(const token of ["v_expected_prefix:=v_purchase.id::text||'/receipts/'","bucket_id='purchase-documents'","o.name=p_file_path"]){
+  if(!receiptDocumentGuardMigration.includes(token)){console.error('Receipt document path guard missing:',token);failed=true;}
+}
+for(const token of ["Referrer-Policy","Cache-Control","Content-Security-Policy","form-action 'self'"]){
+  if(!adminRecoverEdgeSource.includes(token)){console.error('Admin recovery hardening missing:',token);failed=true;}
+}
+if(!retiredTempResetEdgeSource.includes("status:410")||retiredTempResetEdgeSource.includes("updateUserById")){
+  console.error('Temporary admin reset endpoint must remain retired.');failed=true;
+}
 if(!depositorMobileSource.includes("querySelectorAll('button:not(.nav-user-exit)')")){
   console.error('Depositor navigation must preserve the logout control.');failed=true;
 }
