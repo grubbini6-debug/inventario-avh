@@ -28,6 +28,7 @@ const retiredTempResetEdgeSource=fs.readFileSync(path.join(root,'edge-functions/
 const receiptDocumentGuardMigration=fs.readFileSync(path.join(root,'migrations/20260921172000_receipt_document_path_guard.sql'),'utf8');
 const manualEntryCostMigration=fs.readFileSync(path.join(root,'migrations/20260921174500_manual_entry_cost_admin_only.sql'),'utf8');
 const inventoryPurchaseInvariantsMigration=fs.readFileSync(path.join(root,'migrations/20260921181500_inventory_purchase_invariants.sql'),'utf8');
+const openingInventoryConcurrencyMigration=fs.readFileSync(path.join(root,'migrations/20260921183000_opening_inventory_concurrency.sql'),'utf8');
 
 if(!authSource.includes("finally{saveSession(null);session=null;location.reload()}")){
   console.error('Logout must clear any session re-created during token refresh.');failed=true;
@@ -52,6 +53,9 @@ for(const token of ["v_role <> 'admin'","Solo Administración puede asignar cost
 }
 for(const token of ["inventory_batches_remaining_lte_received","purchase_items_received_lte_quantity","movements_location_by_type","validate constraint"]){
   if(!inventoryPurchaseInvariantsMigration.includes(token)){console.error('Inventory/purchase invariant missing:',token);failed=true;}
+}
+for(const token of ["warehouse_opening_inventory","status='open'","for update"]){
+  if(!openingInventoryConcurrencyMigration.toLowerCase().includes(token.toLowerCase())){console.error('Opening inventory concurrency guard missing:',token);failed=true;}
 }
 if(!depositorMobileSource.includes("querySelectorAll('button:not(.nav-user-exit)')")){
   console.error('Depositor navigation must preserve the logout control.');failed=true;
