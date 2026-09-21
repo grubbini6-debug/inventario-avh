@@ -18,6 +18,7 @@ const authSource=fs.readFileSync(path.join(root,'src/core/auth.js'),'utf8');
 const dataViewsSource=fs.readFileSync(path.join(root,'src/core/data-views.js'),'utf8');
 const templateSource=fs.readFileSync(path.join(root,'src/index.template.html'),'utf8');
 const poPolishSource=fs.readFileSync(path.join(root,'src/features/purchases/po-polish.js'),'utf8');
+const inventoryFormsSource=fs.readFileSync(path.join(root,'src/features/inventory/forms-and-presentations.js'),'utf8');
 
 const depositorMobileSource=fs.readFileSync(path.join(root,'src/features/inventory/depositor-mobile-ai.js'),'utf8');
 const depositorRoleCleanupSource=fs.readFileSync(path.join(root,'src/features/inventory/depositor-role-cleanup.js'),'utf8');
@@ -25,6 +26,7 @@ const depositorPhotoEdgeSource=fs.readFileSync(path.join(root,'edge-functions/de
 const adminRecoverEdgeSource=fs.readFileSync(path.join(root,'edge-functions/avh-admin-recover/index.ts'),'utf8');
 const retiredTempResetEdgeSource=fs.readFileSync(path.join(root,'edge-functions/avh-admin-temp-reset/index.ts'),'utf8');
 const receiptDocumentGuardMigration=fs.readFileSync(path.join(root,'migrations/20260921172000_receipt_document_path_guard.sql'),'utf8');
+const manualEntryCostMigration=fs.readFileSync(path.join(root,'migrations/20260921174500_manual_entry_cost_admin_only.sql'),'utf8');
 
 if(!authSource.includes("finally{saveSession(null);session=null;location.reload()}")){
   console.error('Logout must clear any session re-created during token refresh.');failed=true;
@@ -40,6 +42,12 @@ for(const token of ["Referrer-Policy","Cache-Control","Content-Security-Policy",
 }
 if(!retiredTempResetEdgeSource.includes("status:410")||retiredTempResetEdgeSource.includes("updateUserById")){
   console.error('Temporary admin reset endpoint must remain retired.');failed=true;
+}
+if(!inventoryFormsSource.includes("moveType==='return'||profile.role==='admin'")){
+  console.error('Manual entry cost fields must be admin-only in the UI.');failed=true;
+}
+for(const token of ["v_role <> 'admin'","Solo Administración puede asignar costos a una entrada manual.","item->>'unit_cost'","item->>'currency'","item->>'exchange_rate'"]){
+  if(!manualEntryCostMigration.includes(token)){console.error('Manual entry cost authorization missing:',token);failed=true;}
 }
 if(!depositorMobileSource.includes("querySelectorAll('button:not(.nav-user-exit)')")){
   console.error('Depositor navigation must preserve the logout control.');failed=true;
