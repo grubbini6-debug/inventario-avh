@@ -27,6 +27,7 @@ const adminRecoverEdgeSource=fs.readFileSync(path.join(root,'edge-functions/avh-
 const retiredTempResetEdgeSource=fs.readFileSync(path.join(root,'edge-functions/avh-admin-temp-reset/index.ts'),'utf8');
 const receiptDocumentGuardMigration=fs.readFileSync(path.join(root,'migrations/20260921172000_receipt_document_path_guard.sql'),'utf8');
 const manualEntryCostMigration=fs.readFileSync(path.join(root,'migrations/20260921174500_manual_entry_cost_admin_only.sql'),'utf8');
+const inventoryPurchaseInvariantsMigration=fs.readFileSync(path.join(root,'migrations/20260921181500_inventory_purchase_invariants.sql'),'utf8');
 
 if(!authSource.includes("finally{saveSession(null);session=null;location.reload()}")){
   console.error('Logout must clear any session re-created during token refresh.');failed=true;
@@ -46,8 +47,11 @@ if(!retiredTempResetEdgeSource.includes("status:410")||retiredTempResetEdgeSourc
 if(!inventoryFormsSource.includes("moveType==='return'||profile.role==='admin'")){
   console.error('Manual entry cost fields must be admin-only in the UI.');failed=true;
 }
-for(const token of ["v_role <> 'admin'","Solo Administración puede asignar costos a una entrada manual.","item->>'unit_cost'","item->>'currency'","item->>'exchange_rate'"]){
-  if(!manualEntryCostMigration.includes(token)){console.error('Manual entry cost authorization missing:',token);failed=true;}
+for(const token of ["v_role <> 'admin'","Solo Administración puede asignar costos a una entrada manual.","item->>'unit_cost'","item->>'currency'","item->>'exchange_rate'","purchase_receipt_id","pr.movement_id is null","create or replace function public.receive_purchase"]){
+  if(!manualEntryCostMigration.includes(token)){console.error('Manual entry cost authorization / purchase receipt bridge missing:',token);failed=true;}
+}
+for(const token of ["inventory_batches_remaining_lte_received","purchase_items_received_lte_quantity","movements_location_by_type","validate constraint"]){
+  if(!inventoryPurchaseInvariantsMigration.includes(token)){console.error('Inventory/purchase invariant missing:',token);failed=true;}
 }
 if(!depositorMobileSource.includes("querySelectorAll('button:not(.nav-user-exit)')")){
   console.error('Depositor navigation must preserve the logout control.');failed=true;
