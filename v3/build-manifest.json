@@ -57,6 +57,7 @@
     "src/styles/visual-refresh.css"
   ],
   "assets": [
+    "src/assets/logo-avh.jpg",
     "src/assets/logo-avh.png",
     "src/assets/logo-maqmoveis.jpg"
   ],
