@@ -1,6 +1,6 @@
 // AVH V3 — Autenticación y cambio obligatorio de contraseña.
 async function signIn(user,password){const email=user.includes('@')?user:`${user}@avh.local`;const r=await request('/auth/v1/token?grant_type=password',{method:'POST',body:{email,password}});if(r.error)return r;saveSession({...r.data,expires_at:Date.now()+Number(r.data.expires_in||3600)*1000});return r}
-async function signOut(){const old=session;saveSession(null);profile=null;clearInterval(refreshTimer);showApp(false);const pass=$('#loginPass');if(pass)pass.value='';try{if(old?.access_token){session=old;await request('/auth/v1/logout',{method:'POST'},false)}}catch{}session=null;location.reload()}
+async function signOut(){const old=session;saveSession(null);profile=null;clearInterval(refreshTimer);showApp(false);const pass=$('#loginPass');if(pass)pass.value='';try{if(old?.access_token){session=old;await request('/auth/v1/logout',{method:'POST'},false)}}catch{}finally{saveSession(null);session=null;location.reload()}}
 function forcePassword(){
   const login=$('#login'),main=$('#main');
   if(main)main.classList.add('hide');
