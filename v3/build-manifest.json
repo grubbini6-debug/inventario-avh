@@ -53,7 +53,8 @@
   ],
   "bootstrap": "src/core/bootstrap.js",
   "styles": [
-    "src/styles/app.css"
+    "src/styles/app.css",
+    "src/styles/visual-refresh.css"
   ],
   "assets": [
     "src/assets/logo-avh.png",
