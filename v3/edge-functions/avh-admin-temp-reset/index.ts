@@ -14,12 +14,18 @@ function randomPassword(){
   for(let i=3;i<a.length;i++) s+=all[a[i]%all.length];
   return s;
 }
+const page=(token:string)=>new Response(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Restablecer acceso AVH</title></head><body><main style="max-width:520px;margin:48px auto;font-family:system-ui;padding:20px"><h2>Restablecer acceso AVH</h2><p>Confirmá el restablecimiento. La contraseña se cambiará recién al enviar este formulario.</p><form method="post"><input type="hidden" name="token" value="${token.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]||c))}"><button type="submit">Confirmar restablecimiento</button></form></main></body></html>`,{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}});
 Deno.serve(async(req)=>{
-  if(req.method!=='GET') return new Response('Metodo no permitido',{status:405,headers:{'Content-Type':'text/plain; charset=utf-8'}});
   const u=new URL(req.url);
-  const token=u.searchParams.get('token')||'';
-  const confirm=u.searchParams.get('confirm')||'';
-  if(!token||confirm!=='RESET') return new Response('Enlace invalido.',{status:400,headers:{'Content-Type':'text/plain; charset=utf-8'}});
+  if(req.method==='GET'){
+    const token=u.searchParams.get('token')||'';
+    if(!token) return new Response('Enlace invalido.',{status:400,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}});
+    return page(token);
+  }
+  if(req.method!=='POST') return new Response('Metodo no permitido',{status:405,headers:{'Content-Type':'text/plain; charset=utf-8','Allow':'GET, POST'}});
+  const form=await req.formData();
+  const token=String(form.get('token')||'');
+  if(!token) return new Response('Enlace invalido.',{status:400,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}});
   const url=Deno.env.get('SUPABASE_URL')!;
   const service=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const admin=createClient(url,service,{auth:{persistSession:false}});
