@@ -1,7 +1,24 @@
 // AVH V3 — Cliente HTTP/Supabase y persistencia de sesión.
 function saveSession(s){session=s;if(s)localStorage.setItem(SESSION_KEY,JSON.stringify(s));else localStorage.removeItem(SESSION_KEY)}
 function readSession(){try{return JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch{return null}}
-async function refreshSession(){if(!session?.refresh_token)return false;try{const r=await fetch(`${API}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:session.refresh_token})});if(!r.ok){saveSession(null);return false}const d=await r.json();saveSession({...d,expires_at:Date.now()+Number(d.expires_in||3600)*1000});return true}catch{return false}}
+let sessionRefreshPromise=null;
+async function refreshSession(){
+  if(sessionRefreshPromise)return sessionRefreshPromise;
+  if(!session?.refresh_token)return false;
+  const original=session;
+  sessionRefreshPromise=(async()=>{
+    try{
+      const r=await fetch(`${API}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:original.refresh_token})});
+      // A logout or a different login must win over an older refresh response.
+      if(session!==original)return false;
+      if(!r.ok){if(r.status===400||r.status===401)saveSession(null);return false}
+      const d=await r.json();
+      if(session!==original)return false;
+      saveSession({...d,expires_at:Date.now()+Number(d.expires_in||3600)*1000});return true;
+    }catch{return false}
+  })();
+  try{return await sessionRefreshPromise}finally{sessionRefreshPromise=null}
+}
 async function request(path,opt={},retry=true){if(session?.expires_at&&Date.now()>session.expires_at-45000)await refreshSession();const headers={apikey:KEY,...(opt.headers||{})};if(session?.access_token)headers.Authorization=`Bearer ${session.access_token}`;if(opt.body!==undefined&&!headers['Content-Type'])headers['Content-Type']='application/json';try{const r=await fetch(API+path,{method:opt.method||'GET',headers,body:opt.body===undefined?undefined:(headers['Content-Type']==='application/json'?JSON.stringify(opt.body):opt.body)});if(r.status===401&&retry&&session?.refresh_token&&await refreshSession())return request(path,opt,false);const text=await r.text();let data=null;try{data=text?JSON.parse(text):null}catch{data=text}if(!r.ok)return{error:(data&&typeof data==='object'&&(data.message||data.msg||data.error))||`Error ${r.status}`,status:r.status};return{data,status:r.status,headers:r.headers}}catch{return{error:'No se pudo conectar con el servidor. Revisá tu conexión.',network:true}}}
 async function query(table,select='*',extra=''){return request(`/rest/v1/${table}?select=${encodeURIComponent(select)}${extra?'&'+extra:''}`)}
 async function insert(table,body,object=false){return request(`/rest/v1/${table}`,{method:'POST',headers:{Prefer:object?'return=representation':'return=minimal',...(object?{Accept:'application/vnd.pgrst.object+json'}:{})},body})}

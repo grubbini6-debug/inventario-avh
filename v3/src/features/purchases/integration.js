@@ -20,7 +20,8 @@
   window.loadAll=async function(force=false){
     await prevLoadAllV6(force);
     if(!profile)return;
-    try{const a=await query('v_purchase_alerts','*','order=days_late.desc');D.purchaseAlerts=a.data||[]}catch{D.purchaseAlerts=[]}
+    const alertError=await safeLoad('purchaseAlerts',query('v_purchase_alerts','*','order=days_late.desc'));
+    updateSyncState([...(lastSyncErrors||[]).filter(x=>x.key!=='purchaseAlerts'),...(alertError?[alertError]:[])]);
     if(activeModule==='alerts'&&profile.role==='admin')try{window.renderAlerts()}catch{}
     if(activeModule==='reports'&&profile.role==='admin')try{window.renderReports()}catch{}
     if(activeModule==='audit'&&profile.role==='admin')try{window.renderAudit()}catch{}
