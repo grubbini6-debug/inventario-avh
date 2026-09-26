@@ -1,4 +1,51 @@
--- Auditoría AVH: endurecimiento RLS para cuentas desactivadas.\n-- Mantiene frontend_assets como recurso público intencional.\n\ndrop policy if exists barges_read on public.barges;\ncreate policy barges_read on public.barges for select to authenticated using (exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true));\n\ndrop policy if exists contractors_read on public.contractors;\ncreate policy contractors_read on public.contractors for select to authenticated using (exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true));\n\ndrop policy if exists presentations_read on public.product_presentations;\ncreate policy presentations_read on public.product_presentations for select to authenticated using (exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true));\n\ndrop policy if exists suppliers_read on public.suppliers;\ncreate policy suppliers_read on public.suppliers for select to authenticated using (exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true));\n\ndrop policy if exists warehouses_read on public.warehouses;\ncreate policy warehouses_read on public.warehouses for select to authenticated using (exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true));\n\ndrop policy if exists products_read on public.products;\ncreate policy products_read on public.products for select to authenticated using (\n  exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true)\n  and (active=true or public.current_profile_role()='admin')\n);\n\ndrop policy if exists documents_insert on public.documents;\ncreate policy documents_insert on public.documents for insert to authenticated with check (\n  uploaded_by=(select auth.uid()) and exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true)\n);\n\ndrop policy if exists suppliers_insert on public.suppliers;\ncreate policy suppliers_insert on public.suppliers for insert to authenticated with check (\n  created_by=(select auth.uid()) and exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true)\n);\n\ndrop policy if exists notifications_read on public.notifications;\ncreate policy notifications_read on public.notifications for select to authenticated using (\n  user_id=(select auth.uid()) and exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true)\n);\n\ndrop policy if exists notifications_update on public.notifications;\ncreate policy notifications_update on public.notifications for update to authenticated\nusing (user_id=(select auth.uid()) and exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true))\nwith check (user_id=(select auth.uid()) and exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true));\n\n\n-- Concurrencia: inventario inicial y recepción de compras.\n\ncreate or replace function public.record_initial_inventory(
+-- Auditoría AVH: endurecimiento RLS para cuentas desactivadas.
+-- Mantiene frontend_assets como recurso público intencional.
+
+drop policy if exists barges_read on public.barges;
+create policy barges_read on public.barges for select to authenticated using (exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true));
+
+drop policy if exists contractors_read on public.contractors;
+create policy contractors_read on public.contractors for select to authenticated using (exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true));
+
+drop policy if exists presentations_read on public.product_presentations;
+create policy presentations_read on public.product_presentations for select to authenticated using (exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true));
+
+drop policy if exists suppliers_read on public.suppliers;
+create policy suppliers_read on public.suppliers for select to authenticated using (exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true));
+
+drop policy if exists warehouses_read on public.warehouses;
+create policy warehouses_read on public.warehouses for select to authenticated using (exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true));
+
+drop policy if exists products_read on public.products;
+create policy products_read on public.products for select to authenticated using (
+  exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true)
+  and (active=true or public.current_profile_role()='admin')
+);
+
+drop policy if exists documents_insert on public.documents;
+create policy documents_insert on public.documents for insert to authenticated with check (
+  uploaded_by=(select auth.uid()) and exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true)
+);
+
+drop policy if exists suppliers_insert on public.suppliers;
+create policy suppliers_insert on public.suppliers for insert to authenticated with check (
+  created_by=(select auth.uid()) and exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true)
+);
+
+drop policy if exists notifications_read on public.notifications;
+create policy notifications_read on public.notifications for select to authenticated using (
+  user_id=(select auth.uid()) and exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true)
+);
+
+drop policy if exists notifications_update on public.notifications;
+create policy notifications_update on public.notifications for update to authenticated
+using (user_id=(select auth.uid()) and exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true))
+with check (user_id=(select auth.uid()) and exists (select 1 from public.profiles pr where pr.id=(select auth.uid()) and pr.active=true));
+
+
+-- Concurrencia: inventario inicial y recepción de compras.
+
+create or replace function public.record_initial_inventory(
   p_warehouse_id uuid,
   p_items jsonb,
   p_notes text default null::text
@@ -23,7 +70,8 @@ begin
   perform public.assert_can_access_warehouse(p_warehouse_id);
   select id into v_session
   from public.warehouse_opening_inventory
-  where warehouse_id=p_warehouse_id and status='open'\n  for update;
+  where warehouse_id=p_warehouse_id and status='open'
+  for update;
   if v_session is null then raise exception 'El inventario inicial de este depósito no está abierto por administración.'; end if;
   if p_items is null or jsonb_typeof(p_items)<>'array' or jsonb_array_length(p_items)=0 then raise exception 'Agregá al menos un producto.'; end if;
   v_request_id := nullif(p_items->0->>'request_id','')::uuid;
@@ -61,7 +109,9 @@ begin
     jsonb_build_object('movement_id',v_movement,'line_count',jsonb_array_length(p_items)));
   return v_movement;
 end
-$function$;\n\ncreate or replace function public.receive_purchase(
+$function$;
+
+create or replace function public.receive_purchase(
   p_purchase_id uuid,
   p_items jsonb,
   p_notes text default null::text,
@@ -101,7 +151,19 @@ begin
     end if;
   end if;
 
-  -- Lock submitted items first, in a deterministic order, then the purchase.\n  -- This matches admin_update_purchase_item (item -> purchase) and avoids lock inversion.\n  perform 1\n  from public.purchase_items pi\n  where pi.purchase_id=p_purchase_id\n    and pi.id in (\n      select distinct (x->>'purchase_item_id')::uuid\n      from jsonb_array_elements(p_items) x\n    )\n  order by pi.id\n  for update;\n\n  select * into v_p from public.purchases where id=p_purchase_id for update;
+  -- Lock submitted items first, in a deterministic order, then the purchase.
+  -- This matches admin_update_purchase_item (item -> purchase) and avoids lock inversion.
+  perform 1
+  from public.purchase_items pi
+  where pi.purchase_id=p_purchase_id
+    and pi.id in (
+      select distinct (x->>'purchase_item_id')::uuid
+      from jsonb_array_elements(p_items) x
+    )
+  order by pi.id
+  for update;
+
+  select * into v_p from public.purchases where id=p_purchase_id for update;
   if not found then raise exception 'Compra inexistente.'; end if;
 
   if v_request_id is not null then
@@ -176,4 +238,4 @@ begin
   where id=p_purchase_id;
   return v_receipt;
 end
-$function$;\n
+$function$;
