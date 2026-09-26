@@ -41,8 +41,26 @@ for(const slug of ['avh-admin-recover','avh-admin-temp-reset']){
     const source=read(`edge-functions/${slug}/index.ts`).replace(/^import .*;\n/m,'');
     const c=vm.createContext({Deno:{env:{get:()=> 'test'},serve:fn=>handler=fn},createClient:()=>admin,Response,URL,crypto,TextEncoder,Uint8Array,Uint32Array,Date});
     vm.runInContext(stripTypeScriptTypes(source),c);
-    const request=()=>slug==='avh-admin-recover'?new Request('https://example.invalid',{method:'POST',body:new URLSearchParams({token:'test-token',password:'StrongPass123',confirm:'StrongPass123'})}):new Request('https://example.invalid?token=test-token&confirm=RESET');
+    const request=()=>slug==='avh-admin-recover'?new Request('https://example.invalid',{method:'POST',body:new URLSearchParams({token:'test-token',password:'StrongPass123',confirm:'StrongPass123'})}):new Request('https://example.invalid',{method:'POST',body:new URLSearchParams({token:'test-token'})});
     const results=await Promise.all([handler(request()),handler(request())]);
     assert.equal(resets,1);assert.deepEqual(results.map(x=>x.status).sort(),[200,403]);
   });
 }
+
+
+test('temp reset GET only renders confirmation and performs no password reset',async()=>{
+  let handler,resets=0;
+  const admin={from(){throw new Error('GET must not touch database')},auth:{admin:{async updateUserById(){resets++;return {error:null}}}}};
+  const source=read('edge-functions/avh-admin-temp-reset/index.ts').replace(/^import .*;\n/m,'');
+  const c=vm.createContext({Deno:{env:{get:()=> 'test'},serve:fn=>handler=fn},createClient:()=>admin,Response,Request,URL,URLSearchParams,crypto,TextEncoder,Uint8Array,Uint32Array,Date});
+  vm.runInContext(stripTypeScriptTypes(source),c);
+  const r=await handler(new Request('https://example.invalid?token=test-token'));
+  assert.equal(r.status,200);assert.equal(resets,0);assert.match(await r.text(),/Confirmar restablecimiento/);
+});
+
+test('hardening migration guards inactive profiles and aligns locks',()=>{
+  const sql=read('migrations/20260926170000_active_profile_rls_and_lock_order.sql');
+  assert.match(sql,/pr\.active=true/);
+  assert.match(sql,/order by pi\.id\s+for update;[\s\S]*select \* into v_p from public\.purchases/);
+  assert.match(sql,/warehouse_id=p_warehouse_id and status='open'\s+for update;/);
+});
