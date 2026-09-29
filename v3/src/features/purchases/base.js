@@ -38,7 +38,14 @@
       query('purchase_receipts','*','order=received_at.desc'),
       query('purchase_documents','*','order=created_at.desc')
     ]);
-    D.purchaseCompanies=c.data||[];D.purchases=p.data||[];D.purchaseItems=i.data||[];D.purchaseReceipts=r.data||[];D.purchaseDocuments=d.data||[];
+    const results=[['purchaseCompanies',c],['purchases',p],['purchaseItems',i],['purchaseReceipts',r],['purchaseDocuments',d]];
+    const errors=[];
+    for(const [key,result] of results){
+      if(result.error)errors.push({key,error:result.error});
+      else D[key]=result.data||[];
+    }
+    const keys=new Set(results.map(([key])=>key));
+    updateSyncState([...(lastSyncErrors||[]).filter(x=>!keys.has(x.key)),...errors]);
   }
 
   function ensurePurchasePage(){
