@@ -32,7 +32,7 @@ async function queryAll(table,select='*',extra='',pageSize=1000,maxRows=100000){
     if(page.length<pageSize)return{data:rows,status:r.status,headers:r.headers,complete:true};
     offset+=page.length;
   }
-  return{data:rows,status:last?.status,headers:last?.headers,complete:false,truncated:true};
+  return{data:rows,status:last?.status,headers:last?.headers,complete:false,truncated:true,error:`La consulta de ${table} superó el límite de seguridad de ${maxRows} filas.`};
 }
 async function insert(table,body,object=false){return request(`/rest/v1/${table}`,{method:'POST',headers:{Prefer:object?'return=representation':'return=minimal',...(object?{Accept:'application/vnd.pgrst.object+json'}:{})},body})}
 async function patch(table,filter,body){return request(`/rest/v1/${table}?${filter}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body})}
