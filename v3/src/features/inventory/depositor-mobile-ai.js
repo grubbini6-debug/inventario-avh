@@ -7,7 +7,7 @@
   const st=document.createElement('style');
   st.textContent=`
     body.depositor-mode .nav{grid-template-columns:repeat(2,minmax(0,1fr))!important;max-width:540px;margin-left:auto;margin-right:auto}body.depositor-mode .nav button:not([data-page="home"]):not([data-page="stock"]){display:none!important}body.depositor-mode #fabExit{display:none!important}
-    .dep-home{display:grid;gap:14px}.dep-welcome{background:linear-gradient(135deg,#104b31,#176742);color:#fff;border-radius:20px;padding:20px}.dep-welcome .eyebrow{color:#cbe5d6}.dep-welcome h2{margin:4px 0;font-size:23px}.dep-welcome p{margin:0;color:#dbece2}.dep-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.dep-action{border:0;border-radius:18px;padding:18px 14px;text-align:left;min-height:108px;background:#fff;box-shadow:0 5px 20px rgba(25,60,42,.09);cursor:pointer}.dep-action.primary{background:#16613f;color:#fff}.dep-action .ico{font-size:27px;display:block;margin-bottom:9px}.dep-action b{display:block;font-size:16px}.dep-action small{display:block;margin-top:5px;opacity:.78;line-height:1.35}.dep-stock-link{width:100%;border:1px solid #dce8e0;background:#fff;border-radius:14px;padding:12px 14px;font-weight:800;text-align:left;cursor:pointer}.dep-today{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.dep-today-card{border:1px solid #dce8e0;background:#fff;border-radius:14px;padding:11px;text-align:left;min-height:75px}.dep-today-card.wide{grid-column:1/-1}.dep-today-card.clickable{cursor:pointer}.dep-today-card span{display:block;font-size:10px;color:#6b7b72}.dep-today-card b{display:block;font-size:20px;margin:3px 0 1px}.dep-today-card small{display:block;color:#6b7b72;font-size:10px}.dep-purchase{border-left:4px solid #dea42b}.dep-activity{display:flex;justify-content:space-between;gap:10px;align-items:center}.dep-activity .what{font-weight:850}.dep-activity .when{font-size:11px;color:#718078}
+    .dep-home{display:grid;gap:14px}.dep-welcome{background:linear-gradient(135deg,#104b31,#176742);color:#fff;border-radius:20px;padding:20px}.dep-welcome .eyebrow{color:#cbe5d6}.dep-welcome h2{margin:4px 0;font-size:23px}.dep-welcome p{margin:0;color:#dbece2}.dep-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.dep-action{border:0;border-radius:18px;padding:18px 14px;text-align:left;min-height:108px;background:#fff;box-shadow:0 5px 20px rgba(25,60,42,.09);cursor:pointer}.dep-action.primary{background:#16613f;color:#fff}.dep-action .ico{font-size:27px;display:block;margin-bottom:9px}.dep-action b{display:block;font-size:16px}.dep-action small{display:block;margin-top:5px;opacity:.78;line-height:1.35}.dep-stock-link{width:100%;border:1px solid #dce8e0;background:#fff;border-radius:14px;padding:12px 14px;font-weight:800;text-align:left;cursor:pointer}.dep-today{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.dep-today-card{border:1px solid #dce8e0;background:#fff;border-radius:14px;padding:11px;text-align:left;min-height:75px}.dep-today-card.wide{grid-column:1/-1}.dep-today-card.clickable{cursor:pointer}.dep-today-card span{display:block;font-size:10px;color:#6b7b72}.dep-today-card b{display:block;font-size:20px;margin:3px 0 1px}.dep-today-card small{display:block;color:#6b7b72;font-size:10px}.dep-purchase{border-left:4px solid #dea42b}.dep-activity{display:flex;justify-content:space-between;gap:10px;align-items:center}.dep-activity .what{font-weight:850}.dep-activity .when{font-size:11px;color:#718078}.dep-actions-main{margin-top:-2px}.dep-initial-priority{display:flex;align-items:center;gap:12px;width:100%;border:1px solid #e8c866;background:#fff8df;border-radius:17px;padding:14px;text-align:left;cursor:pointer}.dep-initial-priority .ico{font-size:27px}.dep-initial-priority b{display:block;font-size:15px;color:#4f3a00}.dep-initial-priority small{display:block;margin-top:3px;color:#7b651f}.dep-initial-priority .arrow{font-size:30px;color:#80691e}.dep-initial-hero{display:grid;grid-template-columns:1fr 1fr;gap:8px}.dep-initial-hero>div{border:1px solid #dfe8e2;border-radius:13px;padding:11px;background:#f9fbfa}.dep-initial-hero span{display:block;font-size:9px;color:#718078;font-weight:800}.dep-initial-hero b{display:block;font-size:24px;margin:2px 0}.dep-initial-hero small{display:block;font-size:10px;color:#718078}.dep-initial-recent{margin-top:14px}
     .dep-ai-drop{border:2px dashed #b9cebf;border-radius:18px;padding:24px;text-align:center;background:#f8fbf9}.dep-ai-drop input{display:none}.dep-ai-preview{max-width:100%;max-height:260px;border-radius:14px;margin-top:12px}.dep-ai-result{border:1px solid #d8e5dc;border-radius:14px;background:#f9fcfa;padding:12px;margin:10px 0}.dep-ai-result.low{border-color:#e6c66b;background:#fff9e9}.dep-line{border:1px solid #dfe8e2;border-radius:13px;padding:11px;margin-top:8px;background:#fff}.dep-line-grid{display:grid;grid-template-columns:minmax(0,1fr) 120px;gap:8px;align-items:end}.dep-confirm-title{font-size:17px;font-weight:900;margin-bottom:3px}.dep-warning{font-size:11px;color:#8a5a00;background:#fff7df;border-radius:8px;padding:7px 8px;margin-top:7px}
     @media(max-width:640px){body.depositor-mode .app{padding-bottom:80px}body.depositor-mode .topbar{padding:10px 12px}body.depositor-mode .topbar .live{display:none}.dep-action{min-height:112px;padding:15px 12px}.dep-kpi{padding:9px}.dep-kpi b{font-size:18px}.dep-line-grid{grid-template-columns:1fr}.sheet{width:min(100%,560px);max-height:94vh}.sheet-head{position:sticky;top:0;background:#fff;z-index:4}.field input,.field select,.field textarea{font-size:16px}}
   `;
@@ -20,6 +20,10 @@
   const incomingTransfers=()=> (D.moves||[]).filter(m=>m.type==='transfer'&&m.status==='in_transit'&&m.warehouse_to_id===profile?.warehouse_id);
   const stockAlerts=()=> (D.stockStatus||[]).filter(x=>x.warehouse_id===profile?.warehouse_id&&(x.is_critical||(x.minimum_qty!==null&&num(x.minimum_qty)>0&&num(x.stock_qty)<=num(x.minimum_qty)*1.25)));
   const openingInventory=()=> (D.openingInventorySessions||[]).find(x=>x.warehouse_id===profile?.warehouse_id&&x.status==='open')||null;
+  const ownMoves=()=> (D.moves||[]).filter(m=>m.warehouse_from_id===profile?.warehouse_id||m.warehouse_to_id===profile?.warehouse_id);
+  const initialSessionMoves=()=>{const s=openingInventory();if(!s)return[];const since=s.opened_at?new Date(s.opened_at).getTime():0;return ownMoves().filter(m=>m.type==='initial'&&new Date(m.created_at).getTime()>=since)};
+  const initialProgress=()=>{const moves=initialSessionMoves(),products=new Set;let lines=0;moves.forEach(m=>(m.movement_lines||[]).forEach(l=>{lines++;if(l.product_id)products.add(l.product_id)}));return{moves:moves.length,lines,products:products.size}};
+  const initialChoices=productId=>{const p=product(productId),base={label:p?.base_unit||'unidad',unit:p?.base_unit||'unidad',factor:1,presentation_label:null},extra=(D.presentations||[]).filter(x=>x.product_id===productId).map(x=>({label:x.label,unit:x.unit,factor:num(x.factor_to_base)||1,presentation_label:x.label}));return[base,...extra]};
   const pItems=id=>(D.purchaseItems||[]).filter(x=>x.purchase_id===id&&num(x.received_qty)<num(x.quantity));
   const product=id=>(D.products||[]).find(x=>x.id===id);
   const purchase=id=>(D.purchases||[]).find(x=>x.id===id);
@@ -32,34 +36,70 @@
 
   function applyDepositorMode(){document.body.classList.toggle('depositor-mode',isDep());if(!isDep())return;const nav=document.querySelector('.nav');nav?.querySelectorAll('button:not(.nav-user-exit)').forEach(b=>b.style.display=['home','stock'].includes(b.dataset.page||'')?'':'none');if(nav)nav.style.gridTemplateColumns='repeat(2,1fr)';const sw=$('#stockWarehouse');if(sw){sw.value=profile.warehouse_id;sw.style.display='none'}const stockHead=$('#page-stock .section-head');if(stockHead&&!$('#depStockExit')){const b=document.createElement('button');b.id='depStockExit';b.className='btn primary sm';b.textContent='− Sacar material';b.onclick=openManualExit;stockHead.appendChild(b)}const active=[...document.querySelectorAll('.page.on')][0]?.id?.replace('page-','');if(active&&!['home','stock'].includes(active))goPage('home')}
 
+  function openInitialMobile(savedMessage=''){
+    const session=openingInventory();
+    if(!session)return alert('Administración todavía no abrió el inventario inicial de este depósito.');
+    const progress=initialProgress(),products=(D.products||[]).filter(x=>x.active);
+    if(!products.length)return alert('No hay productos activos para cargar.');
+    openModal('Inventario inicial',`${safe(ownWarehouse()?.name||'Mi depósito')} · conteo físico`,`
+      <div class="dep-initial-hero">
+        <div><span>SESIÓN ABIERTA</span><b>${progress.products}</b><small>productos diferentes cargados</small></div>
+        <div><span>REGISTROS</span><b>${progress.lines}</b><small>líneas cargadas en esta sesión</small></div>
+      </div>
+      ${savedMessage?`<div class="success" style="margin-top:10px">${safe(savedMessage)}</div>`:''}
+      <div class="notice" style="margin-top:10px">Contá lo que <b>ya existe físicamente</b> en el depósito. No cargues precios: administración los completa después.</div>
+      <div class="field"><label>Producto *</label><select id="depInitialProduct">${products.map(p=>`<option value="${p.id}">${safe(p.name)} · ${safe(p.base_unit)}</option>`).join('')}</select></div>
+      <div class="two">
+        <div class="field"><label>Cantidad *</label><input id="depInitialQty" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></div>
+        <div class="field"><label>Unidad / presentación</label><select id="depInitialPresentation"></select></div>
+      </div>
+      <div class="field"><label>Lote / referencia</label><input id="depInitialLot" placeholder="Opcional"></div>
+      <div class="field"><label>Observación</label><textarea id="depInitialNotes" placeholder="Opcional"></textarea></div>
+      <button id="depInitialSaveNext" class="btn primary" style="width:100%">Guardar y cargar otro</button>
+      <div id="depInitialMsg"></div>
+      <div class="dep-initial-recent">
+        <div class="section-head"><div><h2>Último cargado</h2><p>Solo esta sesión de inventario inicial</p></div></div>
+        <div class="list">${initialSessionMoves().slice(0,4).map(m=>`<div class="row"><div class="title">#${safe(m.movement_no)}</div><div class="subtext">${(m.movement_lines||[]).map(l=>`${fmt(l.quantity)} ${safe(l.presentation_label||l.unit)} ${safe(l.products?.name||'')}`).join(' · ')||'Sin detalle'} · ${dt(m.created_at)}</div></div>`).join('')||'<div class="empty">Todavía no cargaste productos en esta sesión.</div>'}</div>
+      </div>`);
+    const drawPresentations=()=>{const pid=$('#depInitialProduct').value,choices=initialChoices(pid);$('#depInitialPresentation').innerHTML=choices.map((x,i)=>`<option value="${i}">${safe(x.label)}${x.factor!==1?` · 1 = ${fmt(x.factor)} ${safe(product(pid)?.base_unit||'')}`:''}</option>`).join('')};
+    drawPresentations();$('#depInitialProduct').onchange=drawPresentations;
+    $('#depInitialSaveNext').onclick=async()=>{const out=$('#depInitialMsg'),pid=$('#depInitialProduct').value,q=num($('#depInitialQty').value);if(!pid||q<=0)return msg(out,'Ingresá un producto y una cantidad mayor a cero.');const choices=initialChoices(pid),choice=choices[Number($('#depInitialPresentation').value)]||choices[0],b=$('#depInitialSaveNext');b.disabled=true;b.textContent='Guardando…';try{const r=await rpc('record_initial_inventory',{p_warehouse_id:profile.warehouse_id,p_items:[{product_id:pid,quantity:q,unit:choice.unit,factor_to_base:choice.factor,presentation_label:choice.presentation_label,unit_cost:'',currency:'',lot_reference:$('#depInitialLot').value.trim()||''}],p_notes:$('#depInitialNotes').value.trim()||null});if(r.error)throw Error(r.error);await loadAll(true);openInitialMobile('Guardado correctamente. Podés seguir con el siguiente producto.')}catch(e){msg(out,e.message||String(e))}finally{b.disabled=false;b.textContent='Guardar y cargar otro'}};
+  }
+
   function renderDepositorHome(){
-    const host=$('#page-home'),wh=ownWarehouse(),pending=pendingPurchases(),todayMoves=(D.moves||[]).filter(m=>new Date(m.created_at).toDateString()===new Date().toDateString()&&(m.warehouse_from_id===profile.warehouse_id||m.warehouse_to_id===profile.warehouse_id)),exits=todayMoves.filter(x=>x.type==='exit'),transfers=incomingTransfers(),alerts=stockAlerts(),opening=openingInventory();
+    const host=$('#page-home'),wh=ownWarehouse(),pending=pendingPurchases(),todayMoves=ownMoves().filter(m=>new Date(m.created_at).toDateString()===new Date().toDateString()),exits=todayMoves.filter(x=>x.type==='exit'),transfers=incomingTransfers(),alerts=stockAlerts(),opening=openingInventory(),initial=initialProgress();
     host.innerHTML=`<div class="dep-home">
-      <div class="dep-welcome"><div class="eyebrow">HOY EN MI DEPÓSITO</div><h2>${safe(wh?.name||'Depósito')}</h2><p>${new Date().toLocaleDateString('es-PY',{weekday:'long',day:'numeric',month:'long'})}</p></div>
+      <div class="dep-welcome"><div class="eyebrow">MI DEPÓSITO</div><h2>${safe(wh?.name||'Depósito')}</h2><p>${safe(profile?.username||'Depositario')} · ${new Date().toLocaleDateString('es-PY',{weekday:'long',day:'numeric',month:'long'})}</p></div>
+
+      ${opening?`<button id="depInitialPriority" class="dep-initial-priority"><span class="ico">🧮</span><div class="grow"><b>Continuar inventario inicial</b><small>${initial.products} productos cargados · seguí con el conteo físico</small></div><span class="arrow">›</span></button>`:''}
+
+      <div class="dep-actions dep-actions-main">
+        <button id="depPhotoReceipt" class="dep-action primary"><span class="ico">📦</span><b>Recibir compra</b><small>OC, cantidades y documento.</small></button>
+        <button id="depManualExit" class="dep-action"><span class="ico">−</span><b>Dar salida</b><small>Material, cantidad y quién retira.</small></button>
+        <button id="depQuickTransfer" class="dep-action"><span class="ico">⇄</span><b>Transferir</b><small>Enviar a otro depósito.</small></button>
+        <button id="depQuickReturn" class="dep-action"><span class="ico">↩</span><b>Devolución</b><small>Material que vuelve al depósito.</small></button>
+      </div>
+
+      <button id="depGoStock" class="dep-stock-link">🔎 Ver inventario de ${safe(wh?.name||'mi depósito')}</button>
 
       <div class="dep-today">
         <button type="button" class="dep-today-card clickable" id="depTodayPurchases"><span>Compras</span><b>${pending.length}</b><small>por recibir</small></button>
-        <div class="dep-today-card"><span>Salidas</span><b>${exits.length}</b><small>realizadas hoy</small></div>
+        <div class="dep-today-card"><span>Salidas hoy</span><b>${exits.length}</b><small>confirmadas</small></div>
         <div class="dep-today-card"><span>Transferencias</span><b>${transfers.length}</b><small>por recibir</small></div>
         <button type="button" class="dep-today-card clickable" id="depTodayStock"><span>Stock bajo</span><b>${alerts.length}</b><small>para revisar</small></button>
-        <div class="dep-today-card wide"><span>Inventario inicial</span><b style="font-size:15px">${opening?'En curso':'Sin pendiente'}</b><small>${opening?'Seguí cargando existencia física':'No requiere acción ahora'}</small></div>
       </div>
 
-      <div class="dep-actions">
-        <button id="depPhotoReceipt" class="dep-action primary"><span class="ico">📦</span><b>Recibir compra</b><small>Elegí o identificá la OC y confirmá lo que llegó.</small></button>
-        <button id="depManualExit" class="dep-action"><span class="ico">−</span><b>Registrar salida</b><small>Elegí material, cantidad y quién retira.</small></button>
-      </div>
-
-      <button id="depGoStock" class="dep-stock-link">🔎 Consultar stock</button>
-
-      <div id="depPendingList" class="section-head"><div><h2>Compras pendientes</h2><p>Solo lo que todavía debe llegar a ${safe(wh?.name||'tu depósito')}</p></div></div>
+      <div id="depPendingList" class="section-head"><div><h2>Compras pendientes</h2><p>Lo que todavía debe llegar a ${safe(wh?.name||'tu depósito')}</p></div></div>
       <div class="list">${pending.slice(0,6).map(p=>`<div class="row dep-purchase"><div class="line"><div class="grow"><div class="title">${safe(p.po_number||'Compra')} · ${safe(p.supplier_name||'Proveedor')}</div><div class="subtext">${p.expected_date?'Previsto '+dateOnly(p.expected_date)+' · ':''}${pItems(p.id).length} ítem${pItems(p.id).length===1?'':'s'} pendiente${pItems(p.id).length===1?'':'s'}</div></div><button class="btn sm soft" data-dep-receive="${p.id}">Recibir</button></div></div>`).join('')||'<div class="empty">No hay compras pendientes.</div>'}</div>
 
-      <div class="section-head"><div><h2>Último de hoy</h2><p>Movimientos recientes del depósito</p></div></div>
-      <div class="list">${todayMoves.slice(0,3).map(m=>`<div class="row"><div class="dep-activity"><div><div class="what">${safe(moveLabel(m))} #${m.movement_no}</div><div class="subtext">${(m.movement_lines||[]).map(l=>`${fmt(l.quantity)} ${safe(l.presentation_label||l.unit)} ${safe(l.products?.name||'')}`).join(' · ')||'Sin detalle'}</div></div><div class="when">${new Date(m.created_at).toLocaleTimeString('es-PY',{hour:'2-digit',minute:'2-digit'})}</div></div></div>`).join('')||'<div class="empty">Sin actividad hoy.</div>'}</div>
+      <div class="section-head"><div><h2>Actividad de hoy</h2><p>Últimos movimientos de tu depósito</p></div></div>
+      <div class="list">${todayMoves.slice(0,4).map(m=>`<div class="row"><div class="dep-activity"><div><div class="what">${safe(moveLabel(m))} #${m.movement_no}</div><div class="subtext">${(m.movement_lines||[]).map(l=>`${fmt(l.quantity)} ${safe(l.presentation_label||l.unit)} ${safe(l.products?.name||'')}`).join(' · ')||'Sin detalle'}</div></div><div class="when">${new Date(m.created_at).toLocaleTimeString('es-PY',{hour:'2-digit',minute:'2-digit'})}</div></div></div>`).join('')||'<div class="empty">Sin actividad hoy.</div>'}</div>
     </div>`;
     $('#depManualExit').onclick=openManualExit;
     $('#depPhotoReceipt').onclick=openReceiptPhotoFlow;
+    $('#depQuickTransfer').onclick=()=>{if((D.warehouses||[]).filter(x=>x.active&&x.id!==profile.warehouse_id).length)openMovement('transfer');else alert('No hay otro depósito activo para transferir.')};
+    $('#depQuickReturn').onclick=()=>openMovement('return');
+    $('#depInitialPriority')?.addEventListener('click',()=>openInitialMobile());
     $('#depGoStock').onclick=()=>{goPage('stock');const sw=$('#stockWarehouse');if(sw)sw.value=profile.warehouse_id;renderStock()};
     $('#depTodayPurchases').onclick=()=>$('#depPendingList')?.scrollIntoView({behavior:'smooth',block:'start'});
     $('#depTodayStock').onclick=()=>{goPage('stock');const sw=$('#stockWarehouse'),ss=$('#stockState');if(sw)sw.value=profile.warehouse_id;if(ss)ss.value=alerts.some(x=>x.is_critical)?'critical':'low';renderStock()};
