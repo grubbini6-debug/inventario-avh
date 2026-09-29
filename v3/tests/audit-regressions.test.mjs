@@ -30,7 +30,7 @@ test('purchase loading retains previous data and reports failures',async()=>{
   vm.runInContext(source.slice(start,end),c);await vm.runInContext('loadPurchaseData()',c);
   assert.equal(c.D.purchases[0].id,'existing');assert.equal(errors[0].key,'purchases');
 });
-for(const slug of ['avh-admin-recover','avh-admin-temp-reset']){
+for(const slug of ['avh-admin-recover']){
   test(`${slug}: concurrent token submissions perform exactly one password reset`,async()=>{
     let handler,consumed=false,resets=0;
     const admin={from(table){const q={update(){q.claim=table==='admin_recovery_tokens';return q},eq(){return q},is(){return q},gt(){return q},select(){return q},async maybeSingle(){
@@ -41,21 +41,23 @@ for(const slug of ['avh-admin-recover','avh-admin-temp-reset']){
     const source=read(`edge-functions/${slug}/index.ts`).replace(/^import .*;\n/m,'');
     const c=vm.createContext({Deno:{env:{get:()=> 'test'},serve:fn=>handler=fn},createClient:()=>admin,Response,URL,crypto,TextEncoder,Uint8Array,Uint32Array,Date});
     vm.runInContext(stripTypeScriptTypes(source),c);
-    const request=()=>slug==='avh-admin-recover'?new Request('https://example.invalid',{method:'POST',body:new URLSearchParams({token:'test-token',password:'StrongPass123',confirm:'StrongPass123'})}):new Request('https://example.invalid',{method:'POST',body:new URLSearchParams({token:'test-token'})});
+    const request=()=>new Request('https://example.invalid',{method:'POST',body:new URLSearchParams({token:'test-token',password:'StrongPass123',confirm:'StrongPass123'})});
     const results=await Promise.all([handler(request()),handler(request())]);
     assert.equal(resets,1);assert.deepEqual(results.map(x=>x.status).sort(),[200,403]);
   });
 }
 
 
-test('temp reset GET only renders confirmation and performs no password reset',async()=>{
-  let handler,resets=0;
-  const admin={from(){throw new Error('GET must not touch database')},auth:{admin:{async updateUserById(){resets++;return {error:null}}}}};
-  const source=read('edge-functions/avh-admin-temp-reset/index.ts').replace(/^import .*;\n/m,'');
-  const c=vm.createContext({Deno:{env:{get:()=> 'test'},serve:fn=>handler=fn},createClient:()=>admin,Response,Request,URL,URLSearchParams,crypto,TextEncoder,Uint8Array,Uint32Array,Date});
+test('legacy temp reset redirects to hardened recovery and never changes credentials',async()=>{
+  let handler;
+  const source=read('edge-functions/avh-admin-temp-reset/index.ts');
+  const c=vm.createContext({Deno:{env:{get:()=> 'https://project.supabase.co'},serve:fn=>handler=fn},Response,Request,URL});
   vm.runInContext(stripTypeScriptTypes(source),c);
   const r=await handler(new Request('https://example.invalid?token=test-token'));
-  assert.equal(r.status,200);assert.equal(resets,0);assert.match(await r.text(),/Confirmar restablecimiento/);
+  assert.equal(r.status,303);
+  assert.equal(r.headers.get('location'),'https://project.supabase.co/functions/v1/avh-admin-recover?token=test-token');
+  const post=await handler(new Request('https://example.invalid',{method:'POST'}));
+  assert.equal(post.status,405);
 });
 
 test('hardening migration guards inactive profiles and aligns locks',()=>{
