@@ -13,6 +13,7 @@
     "admin_update_purchase",
     "admin_update_purchase_item",
     "admin_void_movement",
+    "admin_void_purchase_receipt",
     "approve_product_request",
     "complete_password_change",
     "create_product_request",
