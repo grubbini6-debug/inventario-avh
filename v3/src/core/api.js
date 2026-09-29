@@ -25,6 +25,26 @@ async function insert(table,body,object=false){return request(`/rest/v1/${table}
 async function patch(table,filter,body){return request(`/rest/v1/${table}?${filter}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body})}
 async function upsert(table,body){return request(`/rest/v1/${table}`,{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body})}
 const STOCK_MUTATION_RPCS=new Set(['record_initial_inventory','record_entry','record_exit','record_transfer','record_return','receive_purchase']);
-function withOperationRequestId(name,args){if(!STOCK_MUTATION_RPCS.has(name)||!Array.isArray(args?.p_items)||!args.p_items.length||args.p_items[0]?.request_id)return args;const requestId=crypto.randomUUID();return{...args,p_items:args.p_items.map((item,index)=>index===0?{...item,request_id:requestId}:item)}}
-async function rpc(name,args={}){const body=withOperationRequestId(name,args);return request(`/rest/v1/rpc/${name}`,{method:'POST',body})}
+const OPERATION_REQUEST_IDS_KEY='avh_operation_request_ids_v1',OPERATION_REQUEST_ID_TTL=24*60*60*1000;
+function canonicalOperationValue(v){if(Array.isArray(v))return v.map(canonicalOperationValue);if(v&&typeof v==='object'){const o={};for(const k of Object.keys(v).sort()){if(k!=='request_id')o[k]=canonicalOperationValue(v[k])}return o}return v}
+function operationFingerprint(name,args){return name+':'+JSON.stringify(canonicalOperationValue(args))}
+function readOperationRequestIds(){try{const v=JSON.parse(localStorage.getItem(OPERATION_REQUEST_IDS_KEY)||'{}');return v&&typeof v==='object'?v:{}}catch{return{}}}
+function writeOperationRequestIds(v){try{localStorage.setItem(OPERATION_REQUEST_IDS_KEY,JSON.stringify(v))}catch{}}
+function prepareOperationRequest(name,args){
+  if(!STOCK_MUTATION_RPCS.has(name)||!Array.isArray(args?.p_items)||!args.p_items.length)return{body:args};
+  if(args.p_items[0]?.request_id)return{body:args};
+  const now=Date.now(),store=readOperationRequestIds();
+  for(const [k,v] of Object.entries(store))if(!v?.created_at||now-v.created_at>OPERATION_REQUEST_ID_TTL)delete store[k];
+  const key=operationFingerprint(name,args),requestId=store[key]?.id||crypto.randomUUID();
+  store[key]={id:requestId,created_at:store[key]?.created_at||now};writeOperationRequestIds(store);
+  return{key,requestId,body:{...args,p_items:args.p_items.map((item,index)=>index===0?{...item,request_id:requestId}:item)}};
+}
+function clearOperationRequestId(key,requestId){if(!key)return;const store=readOperationRequestIds();if(store[key]?.id===requestId){delete store[key];writeOperationRequestIds(store)}}
+async function rpc(name,args={}){
+  const op=prepareOperationRequest(name,args);
+  const result=await request(`/rest/v1/rpc/${name}`,{method:'POST',body:op.body});
+  const uncertain=result?.network||result?.status===408||result?.status===429||Number(result?.status)>=500;
+  if(op.key&&!uncertain)clearOperationRequestId(op.key,op.requestId);
+  return result;
+}
 async function edge(name,args){return request(`/functions/v1/${name}`,{method:'POST',body:args})}
