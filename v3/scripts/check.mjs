@@ -239,7 +239,7 @@ if(fs.existsSync(distJs)){
   else console.log('Global function collisions: 0');
 
   compareContract('rpc',uniqueMatches(js,/\brpc\(\s*['"]([^'"]+)/g));
-  compareContract('query',uniqueMatches(js,/\bquery\(\s*['"]([^'"]+)/g));
+  compareContract('query',uniqueMatches(js,/\b(?:query|queryAll)\(\s*['"]([^'"]+)/g));
   compareContract('edge',uniqueMatches(js,/\bedge\(\s*['"]([^'"]+)/g));
   compareContract('insert',uniqueMatches(js,/\binsert\(\s*['"]([^'"]+)/g));
   compareContract('upsert',uniqueMatches(js,/\bupsert\(\s*['"]([^'"]+)/g));
