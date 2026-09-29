@@ -17,9 +17,9 @@
     if(loadingPromise)return loadingPromise;
     loadingPromise=(async()=>{
       const [facts,items,risks]=await Promise.all([
-        query('bi_purchase_facts','*','order=ordered_date.desc&limit=1000'),
-        query('bi_purchase_item_facts','*','order=ordered_date.desc&limit=1000'),
-        query('v_smart_stock_alerts','*','order=warehouse_name.asc&limit=1000')
+        queryAll('bi_purchase_facts','*','order=ordered_date.desc'),
+        queryAll('bi_purchase_item_facts','*','order=ordered_date.desc'),
+        queryAll('v_smart_stock_alerts','*','order=warehouse_name.asc')
       ]);
       const errors=[facts,items,risks].filter(x=>x.error).map(x=>x.error);
       if(errors.length)return {error:errors.join(' · ')};
