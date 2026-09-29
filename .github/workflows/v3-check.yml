@@ -15,9 +15,39 @@ permissions:
 jobs:
   check-v3:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: avh-test-only
+          POSTGRES_DB: avh_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d avh_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      AVH_TEST_DATABASE_URL: postgres://postgres:avh-test-only@127.0.0.1:5432/avh_test
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Configurar Node para pruebas
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: v3/package-lock.json
+
+      - name: Instalar dependencias de pruebas
+        working-directory: v3
+        run: npm ci --ignore-scripts
+
+      - name: Probar regresiones y autorización RPC en PostgreSQL aislado
+        working-directory: v3
+        run: npm test
 
       - name: Validar estructura y construir V3
         working-directory: v3
