@@ -21,6 +21,19 @@ async function refreshSession(){
 }
 async function request(path,opt={},retry=true){if(session?.expires_at&&Date.now()>session.expires_at-45000)await refreshSession();const headers={apikey:KEY,...(opt.headers||{})};if(session?.access_token)headers.Authorization=`Bearer ${session.access_token}`;if(opt.body!==undefined&&!headers['Content-Type'])headers['Content-Type']='application/json';try{const r=await fetch(API+path,{method:opt.method||'GET',headers,body:opt.body===undefined?undefined:(headers['Content-Type']==='application/json'?JSON.stringify(opt.body):opt.body)});if(r.status===401&&retry&&session?.refresh_token&&await refreshSession())return request(path,opt,false);const text=await r.text();let data=null;try{data=text?JSON.parse(text):null}catch{data=text}if(!r.ok)return{error:(data&&typeof data==='object'&&(data.message||data.msg||data.error))||`Error ${r.status}`,status:r.status};return{data,status:r.status,headers:r.headers}}catch{return{error:'No se pudo conectar con el servidor. Revisá tu conexión.',network:true}}}
 async function query(table,select='*',extra=''){return request(`/rest/v1/${table}?select=${encodeURIComponent(select)}${extra?'&'+extra:''}`)}
+async function queryAll(table,select='*',extra='',pageSize=1000,maxRows=100000){
+  const rows=[];let offset=0,last=null;
+  while(offset<maxRows){
+    const paging=[extra,`limit=${pageSize}`,`offset=${offset}`].filter(Boolean).join('&');
+    const r=await query(table,select,paging);last=r;
+    if(r.error)return r;
+    const page=Array.isArray(r.data)?r.data:[];
+    rows.push(...page);
+    if(page.length<pageSize)return{data:rows,status:r.status,headers:r.headers,complete:true};
+    offset+=page.length;
+  }
+  return{data:rows,status:last?.status,headers:last?.headers,complete:false,truncated:true};
+}
 async function insert(table,body,object=false){return request(`/rest/v1/${table}`,{method:'POST',headers:{Prefer:object?'return=representation':'return=minimal',...(object?{Accept:'application/vnd.pgrst.object+json'}:{})},body})}
 async function patch(table,filter,body){return request(`/rest/v1/${table}?${filter}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body})}
 async function upsert(table,body){return request(`/rest/v1/${table}`,{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body})}
