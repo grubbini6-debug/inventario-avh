@@ -32,11 +32,11 @@
   async function loadPurchaseData(){
     if(!profile)return;
     const [c,p,i,r,d]=await Promise.all([
-      query('purchase_companies','*','order=name.asc'),
-      query('v_purchase_overview','*','order=created_at.desc'),
-      query('purchase_items','*','order=created_at.asc'),
-      query('purchase_receipts','*','order=received_at.desc'),
-      query('purchase_documents','*','order=created_at.desc')
+      queryAll('purchase_companies','*','order=name.asc'),
+      queryAll('v_purchase_overview','*','order=created_at.desc'),
+      queryAll('purchase_items','*','order=created_at.asc'),
+      queryAll('purchase_receipts','*','order=received_at.desc'),
+      queryAll('purchase_documents','*','order=created_at.desc')
     ]);
     const results=[['purchaseCompanies',c],['purchases',p],['purchaseItems',i],['purchaseReceipts',r],['purchaseDocuments',d]];
     const errors=[];

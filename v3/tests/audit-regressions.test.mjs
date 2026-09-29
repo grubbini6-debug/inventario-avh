@@ -26,7 +26,7 @@ test('temporary auth outage preserves session, invalid refresh clears it',async(
 test('purchase loading retains previous data and reports failures',async()=>{
   const source=read('src/features/purchases/base.js');const start=source.indexOf('  async function loadPurchaseData()');const end=source.indexOf('\n  function ensurePurchasePage',start);
   let errors;
-  const c=vm.createContext({profile:{role:'admin'},D:{purchases:[{id:'existing'}]},lastSyncErrors:[],query:async table=>table==='v_purchase_overview'?{error:'offline'}:{data:[]},updateSyncState:x=>errors=x,Set});
+  const c=vm.createContext({profile:{role:'admin'},D:{purchases:[{id:'existing'}]},lastSyncErrors:[],queryAll:async table=>table==='v_purchase_overview'?{error:'offline'}:{data:[]},updateSyncState:x=>errors=x,Set});
   vm.runInContext(source.slice(start,end),c);await vm.runInContext('loadPurchaseData()',c);
   assert.equal(c.D.purchases[0].id,'existing');assert.equal(errors[0].key,'purchases');
 });
