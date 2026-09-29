@@ -34,6 +34,7 @@ async function loadAll(force=false){
     if(profile.role==='admin'){jobs.push(safeLoad('productRequests',query('product_requests','*','order=created_at.desc&limit=100')),safeLoad('correctionRequests',query('correction_requests','*','order=created_at.desc&limit=100')),safeLoad('profiles',query('profiles','*','order=username.asc')),safeLoad('auditEvents',query('audit_events','*','order=created_at.desc&limit=300')))}
     jobs.push(safeLoad('notifications',query('notifications','*','order=created_at.desc&limit=80')));
     const results=await Promise.all(jobs);
+    D.moveHistory=null;D.moveHistoryLoaded=false;
     updateSyncState(results.filter(Boolean));
     renderAll();
   }finally{
