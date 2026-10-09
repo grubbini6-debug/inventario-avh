@@ -37,7 +37,7 @@ async function queryAll(table,select='*',extra='',pageSize=1000,maxRows=100000){
 async function insert(table,body,object=false){return request(`/rest/v1/${table}`,{method:'POST',headers:{Prefer:object?'return=representation':'return=minimal',...(object?{Accept:'application/vnd.pgrst.object+json'}:{})},body})}
 async function patch(table,filter,body){return request(`/rest/v1/${table}?${filter}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body})}
 async function upsert(table,body){return request(`/rest/v1/${table}`,{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body})}
-const STOCK_MUTATION_RPCS=new Set(['record_initial_inventory','record_entry','record_exit','record_transfer','record_return','receive_purchase']);
+const STOCK_MUTATION_RPCS=new Set(['record_initial_inventory','record_initial_inventory_named','record_entry','record_exit','record_transfer','record_return','receive_purchase']);
 const OPERATION_REQUEST_IDS_KEY='avh_operation_request_ids_v1',OPERATION_REQUEST_ID_TTL=24*60*60*1000;
 function canonicalOperationValue(v){if(Array.isArray(v))return v.map(canonicalOperationValue);if(v&&typeof v==='object'){const o={};for(const k of Object.keys(v).sort()){if(k!=='request_id')o[k]=canonicalOperationValue(v[k])}return o}return v}
 function operationFingerprint(name,args){return name+':'+JSON.stringify(canonicalOperationValue(args))}

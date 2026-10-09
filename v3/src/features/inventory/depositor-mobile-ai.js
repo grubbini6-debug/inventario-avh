@@ -24,6 +24,10 @@
   const initialSessionMoves=()=>{const s=openingInventory();if(!s)return[];const since=s.opened_at?new Date(s.opened_at).getTime():0;return ownMoves().filter(m=>m.type==='initial'&&new Date(m.created_at).getTime()>=since)};
   const initialProgress=()=>{const moves=initialSessionMoves(),products=new Set;let lines=0;moves.forEach(m=>(m.movement_lines||[]).forEach(l=>{lines++;if(l.product_id)products.add(l.product_id)}));return{moves:moves.length,lines,products:products.size}};
   const initialChoices=productId=>{const p=product(productId),base={label:p?.base_unit||'unidad',unit:p?.base_unit||'unidad',factor:1,presentation_label:null},extra=(D.presentations||[]).filter(x=>x.product_id===productId).map(x=>({label:x.label,unit:x.unit,factor:num(x.factor_to_base)||1,presentation_label:x.label}));return[base,...extra]};
+  // Same base units as products_base_unit_check. New materials never invent conversions.
+  const initialBaseUnits=['unidad','pieza','kg','tonelada','rollo','bobina','caja','paquete','bolsa','metro','m²','m³','litro','cilindro','tambor','pallet','plancha','barra','tubo','perfil','bidón','servicio','viaje','hora','día','otro'];
+  const initialName=s=>String(s??'').trim().replace(/\s+/g,' ');
+  const canNameInitialMaterial=()=>isDep()&&window.AVHManufacturing?.writable()&&window.AVHManufacturing?.state?.warehouse===profile.warehouse_id;
   const pItems=id=>(D.purchaseItems||[]).filter(x=>x.purchase_id===id&&num(x.received_qty)<num(x.quantity));
   const product=id=>(D.products||[]).find(x=>x.id===id);
   const purchase=id=>(D.purchases||[]).find(x=>x.id===id);
@@ -39,8 +43,8 @@
   function openInitialMobile(savedMessage=''){
     const session=openingInventory();
     if(!session)return alert('Administración todavía no abrió el inventario inicial de este depósito.');
-    const progress=initialProgress(),products=(D.products||[]).filter(x=>x.active);
-    if(!products.length)return alert('No hay productos activos para cargar.');
+    const progress=initialProgress(),products=(D.products||[]).filter(x=>x.active),canName=canNameInitialMaterial();
+    if(!products.length&&!canName)return alert('No hay productos activos para cargar.');
     openModal('Inventario inicial',`${safe(ownWarehouse()?.name||'Mi depósito')} · conteo físico`,`
       <div class="dep-initial-hero">
         <div><span>SESIÓN ABIERTA</span><b>${progress.products}</b><small>productos diferentes cargados</small></div>
@@ -48,7 +52,7 @@
       </div>
       ${savedMessage?`<div class="success" style="margin-top:10px">${safe(savedMessage)}</div>`:''}
       <div class="notice" style="margin-top:10px">Contá lo que <b>ya existe físicamente</b> en el depósito. No cargues precios: administración los completa después.</div>
-      <div class="field"><label>Producto *</label><select id="depInitialProduct">${products.map(p=>`<option value="${p.id}">${safe(p.name)} · ${safe(p.base_unit)}</option>`).join('')}</select></div>
+      <div class="field"><label for="depInitialProduct">Material *</label>${canName?`<input id="depInitialProduct" list="depInitialCatalog" maxlength="300" autocomplete="off" placeholder="Elegí una opción o escribí el material" aria-describedby="depInitialMaterialHint"><datalist id="depInitialCatalog">${products.map(p=>`<option value="${safe(p.name)}">${safe(p.sku||'')} · ${safe(p.base_unit)}</option>`).join('')}</datalist><div id="depInitialMaterialHint" class="subtext" aria-live="polite"></div>`:`<select id="depInitialProduct">${products.map(p=>`<option value="${p.id}">${safe(p.name)} · ${safe(p.base_unit)}</option>`).join('')}</select>`}</div>
       <div class="two">
         <div class="field"><label>Cantidad *</label><input id="depInitialQty" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></div>
         <div class="field"><label>Unidad / presentación</label><select id="depInitialPresentation"></select></div>
@@ -61,9 +65,35 @@
         <div class="section-head"><div><h2>Último cargado</h2><p>Solo esta sesión de inventario inicial</p></div></div>
         <div class="list">${initialSessionMoves().slice(0,4).map(m=>`<div class="row"><div class="title">#${safe(m.movement_no)}</div><div class="subtext">${(m.movement_lines||[]).map(l=>`${fmt(l.quantity)} ${safe(l.presentation_label||l.unit)} ${safe(l.products?.name||'')}`).join(' · ')||'Sin detalle'} · ${dt(m.created_at)}</div></div>`).join('')||'<div class="empty">Todavía no cargaste productos en esta sesión.</div>'}</div>
       </div>`);
-    const drawPresentations=()=>{const pid=$('#depInitialProduct').value,choices=initialChoices(pid);$('#depInitialPresentation').innerHTML=choices.map((x,i)=>`<option value="${i}">${safe(x.label)}${x.factor!==1?` · 1 = ${fmt(x.factor)} ${safe(product(pid)?.base_unit||'')}`:''}</option>`).join('')};
-    drawPresentations();$('#depInitialProduct').onchange=drawPresentations;
-    $('#depInitialSaveNext').onclick=async()=>{const out=$('#depInitialMsg'),pid=$('#depInitialProduct').value,q=num($('#depInitialQty').value);if(!pid||q<=0)return msg(out,'Ingresá un producto y una cantidad mayor a cero.');const choices=initialChoices(pid),choice=choices[Number($('#depInitialPresentation').value)]||choices[0],b=$('#depInitialSaveNext');b.disabled=true;b.textContent='Guardando…';try{const r=await rpc('record_initial_inventory',{p_warehouse_id:profile.warehouse_id,p_items:[{product_id:pid,quantity:q,unit:choice.unit,factor_to_base:choice.factor,presentation_label:choice.presentation_label,unit_cost:'',currency:'',lot_reference:$('#depInitialLot').value.trim()||''}],p_notes:$('#depInitialNotes').value.trim()||null});if(r.error)throw Error(r.error);await loadAll(true);openInitialMobile('Guardado correctamente. Podés seguir con el siguiente producto.')}catch(e){msg(out,e.message||String(e))}finally{b.disabled=false;b.textContent='Guardar y cargar otro'}};
+    const resolveMaterial=()=>{
+      const value=$('#depInitialProduct').value,name=initialName(value);
+      if(!canName)return{product:products.find(p=>p.id===value)};
+      const exact=products.filter(p=>p.name===name||p.sku===name),matches=exact.length?exact:products.filter(p=>initialName(p.name).toLowerCase()===name.toLowerCase()||(p.sku&&initialName(p.sku).toLowerCase()===name.toLowerCase()));
+      return{name,product:matches.length===1?matches[0]:null,ambiguous:matches.length>1};
+    };
+    let presentationMode;
+    const drawPresentations=()=>{
+      const material=resolveMaterial(),pid=material.product?.id,mode=pid||'new',select=$('#depInitialPresentation');
+      if(canName)$('#depInitialMaterialHint').textContent=material.ambiguous?'Hay varias coincidencias. Elegí el nombre exacto del catálogo.':pid?`Material del catálogo · unidad base: ${material.product.base_unit}`:material.name?'Material nuevo: elegí su unidad. Se agregará al catálogo al guardar el conteo.':'El catálogo ofrece sugerencias. También podés escribir un material nuevo.';
+      // Typing another letter must preserve the chosen unit, quantity, lot and notes.
+      if(mode===presentationMode)return;presentationMode=mode;
+      select.innerHTML=pid?initialChoices(pid).map((x,i)=>`<option value="${i}">${safe(x.label)}${x.factor!==1?` · 1 = ${fmt(x.factor)} ${safe(material.product.base_unit)}`:''}</option>`).join(''):`<option value="">Elegí la unidad</option>${initialBaseUnits.map(unit=>`<option value="${safe(unit)}">${safe(unit)}</option>`).join('')}`;
+    };
+    drawPresentations();$('#depInitialProduct').onchange=drawPresentations;if(canName)$('#depInitialProduct').oninput=drawPresentations;
+    $('#depInitialSaveNext').onclick=async()=>{
+      const out=$('#depInitialMsg'),material=resolveMaterial(),pid=material.product?.id,q=num($('#depInitialQty').value);
+      if(material.ambiguous)return msg(out,'Elegí el nombre exacto de un material del catálogo.');
+      if((!pid&&!material.name)||q<=0)return msg(out,'Ingresá un material y una cantidad mayor a cero.');
+      const choice=pid?initialChoices(pid)[Number($('#depInitialPresentation').value)]:{unit:$('#depInitialPresentation').value,factor:1,presentation_label:null};
+      if(!choice?.unit)return msg(out,'Elegí la unidad del material.');
+      const item={quantity:q,unit:choice.unit,factor_to_base:choice.factor,presentation_label:choice.presentation_label,lot_reference:$('#depInitialLot').value.trim()||''};
+      if(pid)item.product_id=pid;else item.product_name=material.name;
+      const b=$('#depInitialSaveNext');b.disabled=true;b.textContent='Guardando…';
+      try{
+        const r=pid?await rpc('record_initial_inventory',{p_warehouse_id:profile.warehouse_id,p_items:[item],p_notes:$('#depInitialNotes').value.trim()||null}):await rpc('record_initial_inventory_named',{p_warehouse_id:profile.warehouse_id,p_items:[item],p_notes:$('#depInitialNotes').value.trim()||null});
+        if(r.error)throw Error(r.error);await loadAll(true);openInitialMobile('Guardado correctamente. Podés seguir con el siguiente material.');
+      }catch(e){msg(out,e.message||String(e))}finally{b.disabled=false;b.textContent='Guardar y cargar otro'}
+    };
   }
 
   function renderDepositorHome(){
