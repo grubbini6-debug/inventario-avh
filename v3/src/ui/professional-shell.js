@@ -7,6 +7,7 @@
     stock:'Inventario',
     moves:'Movimientos',
     barges:'Barcazas',
+    fabrication:'Fabricación Naval',
     more:'Gestión'
   };
   const moduleTitles={
