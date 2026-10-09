@@ -423,7 +423,7 @@
   const previousLoadAll=window.loadAll;
   window.loadAll=async function(force=false){
     await previousLoadAll.apply(this,arguments);
-    if(activeProductRecordId&&document.querySelector('#page-product-record')?.classList.contains('on')&&(D.products||[]).some(x=>x.id===activeProductRecordId)){
+    if(activeProductRecordId&&document.querySelector('#page-product-record')?.classList.contains('on')&&(D.products||[]).some(x=>x.id===activeProductRecordId)&&canRefreshView('#page-product-record')){
       window.openProduct360(activeProductRecordId,activeProductFocusWarehouseId);
     }
   };

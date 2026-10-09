@@ -96,7 +96,7 @@
   if(typeof baseRenderModule==='function')window.renderModule=function(name){if(name==='supply-requests'){activeModule=name;return renderSupplyRequests()}return baseRenderModule(name)};
 
   const baseLoadAll=window.loadAll;
-  window.loadAll=async function(force=false){await baseLoadAll(force);if(!profile)return;await loadSupplyRequests();ensureRequestShortcut();if(activeModule==='supply-requests'&&profile.role==='depositor')renderSupplyRequests();if(activeModule==='alerts')renderAlerts()};
+  window.loadAll=async function(force=false){await baseLoadAll(force);if(!profile)return;await loadSupplyRequests();ensureRequestShortcut();if(!canRefreshModule())return;if(activeModule==='supply-requests'&&profile.role==='depositor')renderSupplyRequests();if(activeModule==='alerts')renderAlerts()};
 
   let ensureScheduled=false;
   const observer=new MutationObserver(()=>{if(ensureScheduled)return;ensureScheduled=true;queueMicrotask(()=>{ensureScheduled=false;ensureRequestShortcut()})});
