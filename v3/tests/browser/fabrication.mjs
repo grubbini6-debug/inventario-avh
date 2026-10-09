@@ -17,7 +17,7 @@ const q=(sql,args=[])=>db.query(sql,args);
 const command=async(action,data)=>{await q("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:ids.admin,role:'authenticated'})]);return (await q('select fabrication_command($1,$2::jsonb,$3) r',[action,JSON.stringify(data),randomUUID()])).rows[0].r;};
 try{
   await db.exec(read('tests/fixtures/fabrication-inventory.sql'));await db.exec(read('migrations/20261008232715_fabricacion_naval.sql'));
-  await setupInitialInventory(db);await db.exec(read('migrations/20261009130000_initial_inventory_named_material.sql'));
+  await setupInitialInventory(db);await db.exec(read('migrations/20261009123306_initial_inventory_named_material.sql'));
   await q('insert into auth.users(id) select unnest($1::uuid[])',[[ids.admin,ids.isaac,ids.other]]);
   await q("insert into warehouses(id,code,name) values($1,'TALLER','Taller naval existente'),($2,'OTRO','Otro depósito')",[ids.w,ids.w2]);
   await q("insert into profiles(id,username,full_name,role,warehouse_id) values($1,'compras','Encargado de Compras','admin',null),($2,'isaac','Isaac','depositor',$4),($3,'otro','Otro depositario','depositor',$5)",[ids.admin,ids.isaac,ids.other,ids.w,ids.w2]);

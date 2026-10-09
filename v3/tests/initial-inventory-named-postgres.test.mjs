@@ -17,7 +17,7 @@ test('Initial inventory by name: original stock, atomic catalog creation and sco
     await db.exec(read('./fixtures/fabrication-inventory.sql'));
     await db.exec(read('../migrations/20261008232715_fabricacion_naval.sql'));
     await setupInitialInventory(db);
-    await db.exec(read('../migrations/20261009130000_initial_inventory_named_material.sql'));
+    await db.exec(read('../migrations/20261009123306_initial_inventory_named_material.sql'));
     await q('insert into auth.users(id) select unnest($1::uuid[])',[[ids.admin,ids.isaac,ids.other,ids.same]]);
     await q("insert into warehouses(id,code,name) values($1,'W','Taller existente'),($2,'W2','Otro depósito')",[ids.w,ids.w2]);
     await q("insert into profiles(id,username,role,warehouse_id) values($1,'compras','admin',null),($2,'isaac','depositor',$5),($3,'otro','depositor',$6),($4,'mismo','depositor',$5)",[ids.admin,ids.isaac,ids.other,ids.same,ids.w,ids.w2]);
