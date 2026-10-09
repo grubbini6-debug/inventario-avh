@@ -108,7 +108,7 @@
   const baseRenderModule=window.renderModule;
   window.renderModule=function(name){if(name==='data-quality'){activeModule=name;return render(false)}return baseRenderModule(name)};
   const baseLoadAll=window.loadAll;
-  window.loadAll=async function(force=false){await baseLoadAll(force);cache=null;ensureCard();if(activeModule==='data-quality'&&isAdmin())render(true)};
+  window.loadAll=async function(force=false){await baseLoadAll(force);cache=null;ensureCard();if(activeModule==='data-quality'&&isAdmin()&&canRefreshModule())render(true)};
 
   const observer=new MutationObserver(ensureCard);observer.observe(document.body,{childList:true,subtree:true});
   let tries=0;(function boot(){ensureCard();if(!document.querySelector('#dataQualityModule')&&++tries<60)setTimeout(boot,250)})();

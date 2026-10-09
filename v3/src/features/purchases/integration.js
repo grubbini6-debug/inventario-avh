@@ -22,9 +22,11 @@
     if(!profile)return;
     const alertError=await safeLoad('purchaseAlerts',query('v_purchase_alerts','*','order=days_late.desc'));
     updateSyncState([...(lastSyncErrors||[]).filter(x=>x.key!=='purchaseAlerts'),...(alertError?[alertError]:[])]);
-    if(activeModule==='alerts'&&profile.role==='admin')try{window.renderAlerts()}catch{}
-    if(activeModule==='reports'&&profile.role==='admin')try{window.renderReports()}catch{}
-    if(activeModule==='audit'&&profile.role==='admin')try{window.renderAudit()}catch{}
+    if(canRefreshModule()){
+      if(activeModule==='alerts'&&profile.role==='admin')try{window.renderAlerts()}catch{}
+      if(activeModule==='reports'&&profile.role==='admin')try{window.renderReports()}catch{}
+      if(activeModule==='audit'&&profile.role==='admin')try{window.renderAudit()}catch{}
+    }
   };
 
   let ps=null,ph=null,pr=null,pRef=5000,pStarted=null,pRefresh=null;

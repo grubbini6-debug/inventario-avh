@@ -10,6 +10,9 @@ npm ci --ignore-scripts
 npm test
 # Chromium instalado o npx playwright install chromium
 AVH_CHROME_BIN=/ruta/a/chrome npm run test:browser:manufacturing
+AVH_CHROME_BIN=/ruta/a/chrome npm run test:browser:refresh
 ```
 
 El resultado queda en `dist/`. La rama `feat/fabricacion-naval` no despliega sobre la aplicación del astillero. [Fabricación Naval: auditoría, seguridad, pruebas y activación](FABRICACION_NAVAL.md).
+
+La sincronización conserva formularios abiertos, cambios sin guardar y filtros. [Comportamiento y prueba de regresión](REFRESH_FORMS.md).

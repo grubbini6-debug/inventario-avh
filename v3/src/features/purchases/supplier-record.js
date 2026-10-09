@@ -182,7 +182,7 @@
   const previousLoadAll=window.loadAll;
   window.loadAll=async function(force=false){
     await previousLoadAll.apply(this,arguments);
-    if(activeSupplierRecordId&&document.querySelector('#page-supplier-record')?.classList.contains('on')&&(D.suppliers||[]).some(x=>x.id===activeSupplierRecordId)){
+    if(activeSupplierRecordId&&document.querySelector('#page-supplier-record')?.classList.contains('on')&&(D.suppliers||[]).some(x=>x.id===activeSupplierRecordId)&&canRefreshView('#page-supplier-record')){
       renderSupplierRecord(activeSupplierRecordId);
     }
   };

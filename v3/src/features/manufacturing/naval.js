@@ -237,7 +237,7 @@
   const originalLoad=window.loadAll;
   window.loadAll=async function(force=false){
     await originalLoad.apply(this,arguments);await context(true);syncNavigation();
-    if($('#page-fabrication')?.classList.contains('on')&&$('#modal')?.classList.contains('hide'))await load();
+    if($('#page-fabrication')?.classList.contains('on')&&canRefreshView('#page-fabrication'))await load();
   };
   window.AVHManufacturing={allowed,writable,refresh,command,state:F};
 })();

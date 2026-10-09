@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "test:browser:manufacturing": "node tests/browser/fabrication.mjs"
+    "test:browser:manufacturing": "node tests/browser/fabrication.mjs",
+    "test:browser:refresh": "node tests/browser/refresh-preserves-forms.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",

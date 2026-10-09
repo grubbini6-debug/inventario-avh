@@ -1,4 +1,24 @@
 // AVH V3 — Carga de datos y vistas principales.
+// Preserve the actual controls while synchronizing data: copying values cannot
+// restore selected files, the cursor, or an unfinished multi-step form.
+const syncEditedControls=new WeakSet();
+const syncEditableSelector='input:not([type="hidden"]):not([type="button"]):not([type="submit"]),textarea,select,[contenteditable="true"]';
+function rememberSyncEdit(event){
+  const control=event.target?.closest?.(syncEditableSelector);
+  if(control)syncEditedControls.add(control);
+}
+document.addEventListener('input',rememberSyncEdit,true);
+document.addEventListener('change',rememberSyncEdit,true);
+function canRefreshView(selector){
+  const root=typeof selector==='string'?document.querySelector(selector):selector;
+  if(!root||document.querySelector('#modal:not(.hide)'))return false;
+  const focused=document.activeElement;
+  if(root.contains(focused)&&focused?.matches?.(syncEditableSelector))return false;
+  return ![...root.querySelectorAll(syncEditableSelector)].some(control=>syncEditedControls.has(control));
+}
+function canRefreshModule(){
+  return document.querySelector('#page-more')?.classList.contains('on')&&canRefreshView('#moduleContent');
+}
 async function safeLoad(key,promise){
   try{
     const r=await promise;
@@ -41,8 +61,22 @@ async function loadAll(force=false){
     loading=false;
   }
 }
-function renderAll(){renderSelectors();renderHome();renderStock();renderMoves();renderBarges();if(activeModule)renderModule(activeModule)}
-function renderSelectors(){const whOpt=`<option value="all">Todos los depósitos</option>`+D.warehouses.filter(x=>x.active).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');for(const id of ['stockWarehouse','moveWarehouse']){const el=$('#'+id),old=el.value;el.innerHTML=whOpt;if(old)el.value=old}const b=$('#moveBarge'),bo=b.value;b.innerHTML='<option value="all">Todas las barcazas</option>'+D.barges.filter(x=>x.active).map(x=>`<option value="${x.id}">Barcaza ${x.number}</option>`).join('');if(bo)b.value=bo;}
+function renderAll(){
+  renderSelectors();
+  if(canRefreshView('#page-home'))renderHome();
+  // These render only the result lists; their search/date controls stay intact.
+  renderStock();renderMoves();renderBarges();
+  if(activeModule&&canRefreshModule())renderModule(activeModule);
+}
+function renderSelectors(){
+  const whOpt=`<option value="all">Todos los depósitos</option>`+D.warehouses.filter(x=>x.active).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
+  for(const id of ['stockWarehouse','moveWarehouse']){
+    const el=$('#'+id);if(!el||!canRefreshView(el.closest('.page')))continue;
+    const old=el.value;el.innerHTML=whOpt;if(old)el.value=old;
+  }
+  const b=$('#moveBarge');if(!b||!canRefreshView(b.closest('.page')))return;
+  const old=b.value;b.innerHTML='<option value="all">Todas las barcazas</option>'+D.barges.filter(x=>x.active).map(x=>`<option value="${x.id}">Barcaza ${x.number}</option>`).join('');if(old)b.value=old;
+}
 function criticalRows(){return D.stockStatus.filter(x=>x.is_critical)}
 function kpiValue(currency){return D.stockValues.filter(x=>x.currency===currency).reduce((a,x)=>a+Number(x.stock_value||0),0)}
 function stockDataset(){const map=new Map;D.stocks.forEach(x=>map.set(`${x.warehouse_id}|${x.product_id}`,{...x,minimum_qty:null,is_critical:false}));D.stockStatus.forEach(x=>{const k=`${x.warehouse_id}|${x.product_id}`;map.set(k,{...(map.get(k)||x),...x})});return [...map.values()]}

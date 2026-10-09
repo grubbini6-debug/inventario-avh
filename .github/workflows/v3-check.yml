@@ -79,6 +79,15 @@ jobs:
           test -n "$AVH_CHROME_BIN"
           npm run test:browser:manufacturing
 
+      - name: Probar formularios durante sincronización automática y tiempo real
+        working-directory: v3
+        shell: bash
+        run: |
+          set -euo pipefail
+          export AVH_CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$AVH_CHROME_BIN"
+          npm run test:browser:refresh
+
       - name: Guardar artefacto V3 validado
         uses: actions/upload-artifact@v4
         with:

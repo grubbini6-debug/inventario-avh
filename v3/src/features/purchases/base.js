@@ -72,11 +72,11 @@
     await previousLoadAllPurchases(force);
     if(!profile)return;
     await loadPurchaseData();ensurePurchasePage();
-    if(document.querySelector('#page-purchases')?.classList.contains('on')&&profile.role==='admin'){
+    if(document.querySelector('#page-purchases')?.classList.contains('on')&&profile.role==='admin'&&canRefreshView('#page-purchases')){
       if(activePurchaseRecordId&&(D.purchases||[]).some(x=>x.id===activePurchaseRecordId))window.openPurchaseDetail(activePurchaseRecordId);
       else renderPurchases();
     }
-    if(activeModule==='purchase-receipts'&&profile.role==='depositor')renderPurchaseReceipts();
+    if(activeModule==='purchase-receipts'&&profile.role==='depositor'&&canRefreshModule())renderPurchaseReceipts();
   };
 
   window.renderPurchases=function(){
