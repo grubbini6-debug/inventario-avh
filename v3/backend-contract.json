@@ -27,6 +27,7 @@
     "record_entry",
     "record_exit",
     "record_initial_inventory",
+    "record_initial_inventory_named",
     "record_return",
     "record_transfer",
     "register_purchase_receipt_document",

@@ -4,7 +4,7 @@
 
 La rama `feat/fabricacion-naval` incorpora fabricación interna en V3. No reemplaza Inventario AVH, no crea depósitos y no mantiene existencias paralelas. Incluye una migración aditiva, interfaces operativas y de supervisión, reportes automáticos, PDF, servicio opcional de correo y pruebas aisladas.
 
-**No se aplicó la migración, no se desplegaron funciones ni se enviaron correos en producción.** No se modificaron cuentas, asignaciones de depósitos, stock ni datos operativos del astillero. La activación requiere revisar este PR, validar en un Supabase de ensayo y autorizar el despliegue.
+La entrega original fue revisada y activada con autorización del usuario mediante los PR #66 y #67. Isaac (`isaacmra`) tiene acceso operativo a Fabricación Naval en el depósito existente **TINGLADO MARIANO**, y `admin.avh` tiene acceso de supervisión. Su sesión de inventario inicial está abierta para el conteo físico. La habilitación no cargó cantidades, productos ni órdenes ficticias; el correo automático sigue desactivado hasta configurar el proveedor y destinatarios.
 
 ## Auditoría realizada antes de implementar
 
@@ -23,7 +23,7 @@ Se revisaron el repositorio, el build publicado y el esquema real de Supabase en
 | Alertas | `v_stock_status` | Reportar mínimos existentes sin inventar umbrales. |
 | Auditoría de inventario | `audit_events` y trigger de movimientos actual | Se conserva; fabricación agrega su propia trazabilidad de comandos. |
 
-Los roles reales disponibles son `admin` y `depositor`; no se inventó un rol de Compras incompatible con el esquema. Las cuentas de Compras/administración reciben `supervisor` explícitamente. Un depositario operador conserva acceso exclusivamente a su depósito actual. No se pudo identificar inequívocamente una cuenta existente de Isaac: no se eligió otra persona ni se creó una cuenta o depósito por suposición.
+Los roles reales disponibles son `admin` y `depositor`; no se inventó un rol de Compras incompatible con el esquema. Las cuentas de Compras/administración reciben `supervisor` explícitamente. Un depositario operador conserva acceso exclusivamente a su depósito actual. La cuenta de Isaac se habilitó después de que el usuario la creó, reutilizando su asignación existente.
 
 La auditoría detectó advertencias preexistentes en otras funciones y configuración de Auth. No se modificaron otros dominios para resolverlas. Las nuevas RPC públicas son `SECURITY INVOKER`; el código privilegiado tiene `search_path=''` y vive en un esquema privado no expuesto.
 
@@ -60,6 +60,18 @@ Las vistas `v_fabrication_material_status` y `v_fabrication_costs` usan `securit
 - El PDF valida la sesión en Auth y lee con el JWT del usuario para respetar RLS. El correo utiliza un secreto de cron y una RPC reservada a `service_role`; ninguna clave privilegiada se incorpora al frontend.
 
 ## Stock y ciclo de una orden
+
+### Inventario inicial: elegir o escribir un material
+
+En **Inicio → Continuar inventario inicial**, el depositario autorizado como operador del taller puede elegir una sugerencia del catálogo o escribir el nombre de un material. Si coincide con un nombre o código existente, usa el producto y sus presentaciones/conversiones actuales. Si es nuevo, debe indicar la unidad base y una cantidad física positiva; también puede agregar lote y observación. No se registran precios ni conversiones supuestas.
+
+La migración aditiva `20261009123306_initial_inventory_named_material.sql` incorpora una sola RPC pública `record_initial_inventory_named`, con un helper privado. Verifica perfil activo, depósito asignado, permiso `operator`, taller habilitado y sesión inicial abierta. En una transacción crea o reutiliza el producto en `products` e invoca **la RPC original `record_initial_inventory`**, que registra el movimiento y el lote en el inventario existente. La creación queda vinculada al actor, sesión y movimiento en `audit_events`.
+
+El nombre se compara sin distinguir mayúsculas ni espacios repetidos, conservando acentos, signos y medidas técnicas. Los nombres ambiguos, productos inactivos o unidades diferentes requieren resolver el catálogo existente. Cada intento tiene un UUID persistido por el cliente; los reintentos por conexión perdida devuelven el mismo movimiento y una reutilización con datos distintos se rechaza. Los bloqueos de sesión y de nombre serializan los conteos y la creación desde distintos talleres. Un error revierte también el producto recién creado. No se conceden permisos de inserción directa al depositario.
+
+Los depositarios sin autorización de fabricación conservan su formulario y circuito actuales. Las pruebas PostgreSQL cubren creación, reutilización, validación, reversión, reintentos y permisos. La prueba de navegador móvil cubre selección por código, presentación existente, nombre nuevo, pérdida de respuesta sin duplicación, conservación del borrador durante sincronización y conteo normal de otro depósito.
+
+### Fabricación
 
 1. Registrar proyecto/barcaza, componente, código, plano/revisión, cantidad, prioridad, fecha prevista y personal. El número `OF-000001` proviene de una identidad PostgreSQL.
 2. Agregar materiales del catálogo actual, en su unidad base. Reservar establece la **reserva pendiente total**; cero la libera. Requerimiento, consumo neto y reserva deben ser coherentes.

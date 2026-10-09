@@ -63,3 +63,13 @@ test('stock mutation reuses request id after lost network response',async()=>{
   assert.equal(second.status,200);
   assert.equal(bodies[0].p_items[0].request_id,bodies[1].p_items[0].request_id);
 });
+
+test('a named initial count reuses its request id after an uncertain response',async()=>{
+  const bodies=[];let calls=0;
+  const c=context(async(_url,opt)=>{bodies.push(JSON.parse(opt.body));return ++calls===1?response(503,{message:'temporary'}):response(200,'movement');});
+  const args={p_warehouse_id:'warehouse',p_items:[{product_name:'Perfil U',quantity:4,unit:'metro',factor_to_base:1}]};
+  await vm.runInContext('rpc("record_initial_inventory_named",'+JSON.stringify(args)+')',c);
+  await vm.runInContext('rpc("record_initial_inventory_named",'+JSON.stringify(args)+')',c);
+  assert.ok(bodies[0].p_items[0].request_id);
+  assert.equal(bodies[0].p_items[0].request_id,bodies[1].p_items[0].request_id);
+});
