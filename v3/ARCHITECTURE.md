@@ -6,9 +6,9 @@ V3 es la única versión publicada en GitHub Pages. La arquitectura anterior bas
 
 ## Alcance funcional
 
-El núcleo de V3 es **Compras + Proveedores + Depósito + Inventario**. Barcazas se usa como dimensión de proyecto/consumo de materiales.
+El núcleo de V3 es **Compras + Proveedores + Depósito + Inventario**, con **Fabricación Naval** integrada a depósitos existentes mediante autorización explícita. Barcazas se usa como dimensión de proyecto/consumo de materiales.
 
-Quedan fuera del producto: contratistas, módulos de fabricación, liquidaciones, descuentos, adelantos y pagos a contratistas. Ese circuito se mantiene en Excel. No se deben agregar features nuevas de ese dominio a V3.
+Quedan fuera del producto: gestión de contratistas, liquidaciones, descuentos, adelantos y pagos a contratistas. Ese circuito se mantiene en Excel. Fabricación Naval registra producción interna, personal y costos disponibles; no implementa liquidaciones ni pagos. Su integración y activación se documentan en [FABRICACION_NAVAL.md](FABRICACION_NAVAL.md).
 
 ## Capas
 
@@ -19,6 +19,7 @@ Quedan fuera del producto: contratistas, módulos de fabricación, liquidaciones
 - `src/features/admin/`: usuarios, catálogos, mínimos e inventario inicial.
 - `src/features/purchases/`: compras, OC, recepción, documentos, precios, IA y control factura/OC.
 - `src/features/management/`: alertas, solicitudes, auditoría y reportes.
+- `src/features/manufacturing/`: órdenes navales, reservas, consumos con RPC existentes, producción interna, calidad y reportes diarios.
 
 ### Backend
 - PostgreSQL es la autoridad para reglas de negocio.
@@ -51,7 +52,8 @@ GitHub Actions ejecuta además un smoke test real con Chrome antes de publicar.
 5. Auditoría administrativa debe salir de `audit_events`, no de una reconstrucción visual.
 6. Los datos institucionales deben venir de tablas/configuración, no quedar hardcodeados.
 7. Cambios de esquema deben existir como migraciones reproducibles.
-8. Contratistas y módulos no deben volver al flujo activo de V3; solo se conserva compatibilidad histórica de datos cuando sea necesaria.
+8. No incorporar gestión ni pagos a contratistas al flujo activo de V3; solo conservar compatibilidad histórica cuando sea necesaria.
+9. Fabricación no mantiene otro stock: utiliza `inventory_batches`, `movements`, `movement_lines`, `batch_allocations` y las RPC existentes. Su activación no modifica asignaciones de depósitos ni habilita otros depositarios.
 
 ## Deuda técnica controlada
 

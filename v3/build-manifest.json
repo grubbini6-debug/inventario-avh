@@ -49,12 +49,14 @@
     "src/ui/professional-shell.js",
     "src/features/inventory/depositor-mobile-ai.js",
     "src/features/inventory/depositor-role-cleanup.js",
-    "src/features/inventory/depositor-complete-mobile.js"
+    "src/features/inventory/depositor-complete-mobile.js",
+    "src/features/manufacturing/naval.js"
   ],
   "bootstrap": "src/core/bootstrap.js",
   "styles": [
     "src/styles/app.css",
-    "src/styles/visual-refresh.css"
+    "src/styles/visual-refresh.css",
+    "src/styles/fabrication.css"
   ],
   "assets": [
     "src/assets/logo-avh.jpg",

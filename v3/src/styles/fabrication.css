@@ -1,0 +1,18 @@
+/* Fabricación Naval extends the current AVH identity and responsive shell. */
+.fabrication-hero{margin-bottom:16px}.fabrication-hero h2{font-size:26px}.fabrication-hero .field{min-width:200px;color:white}
+.fabrication-tabs{margin:14px 0;overflow-x:auto;flex-wrap:nowrap}.fabrication-tabs button{white-space:nowrap}.fabrication-tabs .on{background:#0f5a31;color:#fff;border-color:#0f5a31}
+.fabrication-kpis{grid-template-columns:repeat(3,minmax(0,1fr));margin:14px 0}.fabrication-kpis .value{font-size:28px}.fabrication-kpis .label{line-height:1.4}
+.fabrication-date{display:flex;align-items:end;gap:10px;flex-wrap:wrap}.fabrication-date .field{margin:0}.fabrication-date .btn{margin-bottom:3px}
+.fabrication-order{width:100%;text-align:left;font:inherit;cursor:pointer;border:1px solid #dce7df;transition:border-color .12s,background .12s}.fabrication-order:hover{background:#f6faf7;border-color:#84b99b}
+.fabrication-progress{display:flex;align-items:center;gap:12px;margin-top:12px;font-size:12px;color:#52665b}.fabrication-progress progress{flex:1;min-width:70px;height:8px;accent-color:#0f5a31}
+.fabrication-actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.fabrication-actions .btn{min-height:40px}.fabrication-form .btn[type=submit]{width:100%;margin-top:12px}
+.fabrication-form fieldset{border:1px solid #dce7df;border-radius:12px;padding:12px;margin:10px 0}.fabrication-form legend{font-weight:700;font-size:13px;color:#436150}
+.fabrication-check{display:flex;align-items:center;gap:10px;padding:8px 0}.fabrication-check input{width:18px;height:18px}
+.fabrication-form textarea{min-height:86px}.fabrication-note{font-size:13px;color:#4e6558;line-height:1.6}.fabrication-file{display:flex;flex-direction:column;gap:6px;text-align:left;width:100%;font:inherit;cursor:pointer}.fabrication-file small{color:#6c7e72}
+.fabrication-home{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:22px;border-left:4px solid #0f5a31}.fabrication-home h2{margin:6px 0}.fabrication-home p{margin:0;color:#657c6c}
+#page-fabrication .row .subtext{overflow-wrap:anywhere;line-height:1.6}#page-fabrication .card{margin:12px 0}#page-fabrication .hero .field label{color:#d7eadf}
+@media(min-width:1024px){.nav .fabrication-nav{order:55}}
+@media(max-width:1023px){.nav.fabrication-enabled{grid-template-columns:repeat(6,minmax(0,1fr))}.nav .fabrication-nav span{font-size:9px}.nav .fabrication-nav b{font-size:19px}}
+@media(max-width:600px){.fabrication-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.fabrication-hero{display:block}.fabrication-hero h2{font-size:23px}.fabrication-progress{flex-wrap:wrap}.fabrication-home{align-items:flex-start;flex-direction:column}.fabrication-actions .btn{flex:1 1 auto}.fabrication-date{align-items:stretch}.fabrication-date .field{flex:1 1 100%}}
+body.depositor-mode.fabrication-authorized .nav button[data-page="fabrication"]{display:flex!important}
+body.depositor-mode.fabrication-authorized .nav{grid-template-columns:repeat(3,minmax(0,1fr))!important}
