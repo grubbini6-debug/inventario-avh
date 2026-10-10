@@ -61,7 +61,7 @@ try{
   server=http.createServer((req,res)=>{const name=req.url==='/'?'index.html':req.url.slice(1).split('?')[0];if(name.includes('..')){res.writeHead(403).end();return;}const full=path.join(root,'dist',name);if(!fs.existsSync(full)){res.writeHead(404).end();return;}const type=name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':name.endsWith('.html')?'text/html':'image/jpeg';res.writeHead(200,{'Content-Type':type});res.end(fs.readFileSync(full));});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const base=`http://127.0.0.1:${server.address().port}`;
   browser=await chromium.launch({headless:true,...(process.env.AVH_CHROME_BIN?{executablePath:process.env.AVH_CHROME_BIN}:{}),args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
-  async function pageFor(user,viewport){
+  async function pageFor(user,viewport,{preferences=[],firstLogin=false}={}){
     const context=await browser.newContext({viewport}),page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
     await page.route('**/*supabase.co/**',async route=>{
       const req=route.request(),url=new URL(req.url()),body=req.postDataJSON()||{},headers={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*','Access-Control-Allow-Methods':'GET,POST,PATCH,OPTIONS'};
@@ -78,10 +78,24 @@ try{
       }catch(e){return route.fulfill({status:400,headers,json:{message:e.message}});}
     });
     await page.routeWebSocket('**/*supabase.co/**',socket=>socket.close());
-    await page.addInitScript(({user})=>localStorage.setItem('avh_v2_session',JSON.stringify({user:{id:user},access_token:'isolated-fixture',refresh_token:'fixture',expires_at:Date.now()+3600000})),{user});
-    await page.goto(base);await page.waitForSelector('html[data-avh-boot="ok"]');await page.waitForSelector('#main:not(.hide)');return {page,context};
+    await page.addInitScript(({user,preferences})=>{for(const [key,value] of preferences)localStorage.setItem(key,value);localStorage.setItem('avh_v2_session',JSON.stringify({user:{id:user},access_token:'isolated-fixture',refresh_token:'fixture',expires_at:Date.now()+3600000}));},{user,preferences});
+    await page.goto(base);await page.waitForSelector('html[data-avh-boot="ok"]');await page.waitForSelector(firstLogin?'#pwForm':'#main:not(.hide)');return {page,context};
   }
   const {page,context}=await pageFor(ids.isaac,{width:390,height:844});
+  // Help is available to everyone, but its content and shortcuts follow the actual role.
+  await page.locator('#guideWelcome').waitFor();assert.match(await page.locator('#guideWelcome').textContent(),/Depósito y Fabricación Naval/);
+  await page.locator('#guideWelcomeOpen').click();await page.locator('#guideTitle').waitFor();
+  assert.equal(await page.locator('[data-guide-topic="factory-order"]').count(),1);assert.equal(await page.locator('[data-guide-topic="purchase"]').count(),0);
+  const guideWidth=await page.evaluate(()=>({viewport:innerWidth,content:document.documentElement.scrollWidth}));assert.ok(guideWidth.content<=guideWidth.viewport+1,JSON.stringify(guideWidth));
+  if(process.env.AVH_QA_DIR){fs.mkdirSync(process.env.AVH_QA_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.AVH_QA_DIR,'guia-mobile.png')});}
+  await page.locator('#guideSearch').fill('reservar');await page.evaluate(()=>loadAll(true));
+  assert.equal(await page.locator('#guideSearch').inputValue(),'reservar');assert.ok(await page.locator('#page-help').evaluate(e=>e.classList.contains('on')));assert.ok(await page.locator('[data-guide-topic="factory-materials"]').evaluate(e=>e.open));
+  await page.locator('[data-guide-action="fabrication-workers"]').first().click();await page.locator('#fnNewWorker').waitFor();
+  await page.locator('.nav [data-page="help"]').click();assert.equal(await page.locator('#guideSearch').inputValue(),'reservar');
+  await page.locator('#guideAcknowledge').click();await page.reload();await page.waitForSelector('#main:not(.hide)');
+  assert.equal(await page.locator('#guideWelcome').count(),0);assert.ok(await page.locator('.nav [data-page="help"]').isVisible());
+  const guidePreferences=await page.evaluate(()=>Object.entries(localStorage).filter(([key])=>key.startsWith('avh_user_guide_')));
+  assert.ok(guidePreferences.length>0);
   await page.locator('#depInitialPriority').click();
   assert.equal(await page.locator('#depInitialProduct').evaluate(e=>e.tagName),'INPUT');
   assert.equal(await page.locator('#depInitialProduct').inputValue(),'');
@@ -131,11 +145,28 @@ try{
   await page.locator('#fnDelivery').click();await page.locator('#fn-quantity').fill('4');await page.locator('#fn-person_receiving').fill('Responsable de montaje de prueba');await page.locator('#fn-destination').fill('Montaje de prueba');await page.locator('#fabricationForm button[type="submit"]').click();await page.waitForSelector('#modal',{state:'hidden'});
   await page.waitForSelector('#fnBack');assert.equal((await q('select state from fabrication_orders')).rows[0].state,'delivered');assert.equal((await q('select sum(quantity_remaining)::float qty from inventory_batches where product_id=$1',[ids.finished])).rows[0].qty,0);
   await context.close();
-  const supervisor=await pageFor(ids.admin,{width:1440,height:1000});await supervisor.page.locator('.nav [data-page="fabrication"]').click();await supervisor.page.waitForSelector('[data-fn-order]');assert.equal(await supervisor.page.locator('#fnNewOrder').count(),0);await supervisor.page.locator('[data-fn-order]').click();await supervisor.page.waitForSelector('#fnBack');assert.equal(await supervisor.page.locator('#fnLog').count(),0);
+  const supervisor=await pageFor(ids.admin,{width:1440,height:1000},{preferences:guidePreferences});
+  await supervisor.page.locator('#guideWelcome').waitFor();await supervisor.page.locator('.nav [data-page="help"]').click();
+  assert.ok(await supervisor.page.evaluate(()=>document.querySelector('#guideTitle').getBoundingClientRect().top>=document.querySelector('.topbar').getBoundingClientRect().bottom),'guide heading must remain below the sticky desktop header');
+  assert.equal(await supervisor.page.locator('[data-guide-topic="purchase"]').count(),1);assert.equal(await supervisor.page.locator('[data-guide-topic="factory-supervision"]').count(),1);assert.equal(await supervisor.page.locator('[data-guide-topic="factory-production"]').count(),0);
+  if(process.env.AVH_QA_DIR)await supervisor.page.screenshot({path:path.join(process.env.AVH_QA_DIR,'guia-supervision.png')});
+  await supervisor.page.locator('[data-guide-action="purchases"]').first().click();await supervisor.page.locator('#newPurchase').waitFor();
+  await supervisor.page.locator('.nav [data-page="help"]').click();await supervisor.page.locator('[data-guide-topic="users"] summary').click();await supervisor.page.locator('[data-guide-action="admin-users"]').first().click();await supervisor.page.locator('#newUser').waitFor();
+  await supervisor.page.locator('.nav [data-page="fabrication"]').click();await supervisor.page.waitForSelector('[data-fn-order]');assert.equal(await supervisor.page.locator('#fnNewOrder').count(),0);await supervisor.page.locator('[data-fn-order]').click();await supervisor.page.waitForSelector('#fnBack');assert.equal(await supervisor.page.locator('#fnLog').count(),0);
   if(process.env.AVH_QA_DIR)await supervisor.page.screenshot({path:path.join(process.env.AVH_QA_DIR,'fabricacion-supervision.png'),fullPage:true});await supervisor.context.close();
-  const other=await pageFor(ids.other,{width:390,height:844});assert.equal(await other.page.locator('.fabrication-nav').isVisible(),false);await other.page.evaluate(()=>goPage('fabrication'));assert.equal(await other.page.locator('#page-fabrication').evaluate(e=>e.classList.contains('on')),false);
+  const other=await pageFor(ids.other,{width:390,height:844},{preferences:guidePreferences});assert.equal(await other.page.locator('.fabrication-nav').isVisible(),false);await other.page.evaluate(()=>goPage('fabrication'));assert.equal(await other.page.locator('#page-fabrication').evaluate(e=>e.classList.contains('on')),false);
+  await other.page.locator('#guideWelcome').waitFor();await other.page.locator('#guideWelcomeDismiss').click();assert.equal(await other.page.locator('#guideWelcome').count(),0);await other.page.locator('.nav [data-page="help"]').click();
+  assert.equal(await other.page.locator('[data-guide-topic="initial"]').count(),1);assert.equal(await other.page.locator('[data-guide-kind="Fabricación"]').count(),0);assert.equal(await other.page.locator('[data-guide-action="admin-users"]').count(),0);
+  await other.page.locator('#guideSearch').fill('remito');await other.page.evaluate(()=>loadAll(true));assert.equal(await other.page.locator('#guideSearch').inputValue(),'remito');assert.ok(await other.page.locator('#page-help').evaluate(e=>e.classList.contains('on')));
+  await other.page.locator('#guideSearch').fill('una palabra inexistente');await other.page.locator('#guideEmpty:not(.hide)').waitFor();
+  assert.equal(await other.page.locator('[data-guide-topic]:visible').count(),0);
+  await other.page.locator('#guideSearch').fill('');await other.page.locator('.guide-footer [data-guide-action="home"]').click();
   await other.page.locator('#depInitialPriority').click();assert.equal(await other.page.locator('#depInitialProduct').evaluate(e=>e.tagName),'SELECT');await other.page.locator('#depInitialProduct').selectOption(ids.counted);await other.page.locator('#depInitialQty').fill('1');await other.page.locator('#depInitialSaveNext').click();await other.page.locator('.success').waitFor();
   assert.equal(initialRequests.at(-1).table,'record_initial_inventory');assert.equal((await q('select sum(quantity_remaining)::float n from inventory_batches where warehouse_id=$1',[ids.w2])).rows[0].n,1);
   await other.context.close();
-  assert.deepEqual(errors,[]);console.log('Browser OK: initial catalog selection and existing presentation; typed material → atomic count → lost-response retry without duplication; drafts survive refresh; other depositor unchanged; mobile fabrication lifecycle, PDF, quality, inventory, delivery and supervisor permissions.');
+  await q('update profiles set must_change_password=true where id=$1',[ids.other]);
+  const firstLogin=await pageFor(ids.other,{width:390,height:844},{firstLogin:true});
+  assert.ok(await firstLogin.page.locator('#pwForm').isVisible());assert.equal(await firstLogin.page.locator('#guideWelcome').count(),0);
+  await firstLogin.page.evaluate(()=>window.AVHGuide.open());assert.equal(await firstLogin.page.locator('#page-help').evaluate(e=>e.classList.contains('on')),false);await firstLogin.context.close();
+  assert.deepEqual(errors,[]);console.log('Browser OK: role-based guide, welcome per account, persistent search and permitted shortcuts; initial catalog selection and existing presentation; typed material → atomic count → lost-response retry without duplication; drafts survive refresh; other depositor unchanged; mobile fabrication lifecycle, PDF, quality, inventory, delivery and supervisor permissions.');
 }finally{await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));await db.close();}
