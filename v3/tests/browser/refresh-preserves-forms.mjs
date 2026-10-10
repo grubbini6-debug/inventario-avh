@@ -66,6 +66,14 @@ try{
   }
 
   const admin=await open(ids.admin,{width:1440,height:1000}),p=admin.page;
+  // The introduction must leave the general summary first, including after timer/realtime sync.
+  const assertGeneralHome=async()=>{
+    assert.equal(await p.locator('#warehouseCards [data-home-wh]').count(),2);
+    assert.match(await p.locator('#page-home>.hero').textContent(),/Operación general del astillero/);
+    assert.match(await p.locator('#guideWelcome').textContent(),/Todos los depósitos/);
+    assert.ok(await p.evaluate(()=>document.querySelector('#guideWelcome').getBoundingClientRect().top>=document.querySelector('#warehouseCards').getBoundingClientRect().bottom));
+  };
+  await assertGeneralHome();await admin.tick();await admin.live();await assertGeneralHome();
   await p.locator('.nav [data-shell-module="admin"]').click();await p.locator('#newUser').fill('isaac.de.prueba');await p.locator('#newUserName').fill('Texto sin guardar');await p.locator('#newUserWh').selectOption(ids.warehouse2);await p.locator('#newUserName').blur();
   await p.evaluate(()=>{window.__usernameNode=document.querySelector('#newUser');});
   await admin.tick();
