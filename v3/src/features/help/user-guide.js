@@ -9,8 +9,8 @@
     const assigned=admin||workshop?.warehouse_id===profile?.warehouse_id;
     const operator=!!(workshop&&assigned&&window.AVHManufacturing?.writable());
     const supervisor=!!(admin&&workshop&&workshop.access_level==='supervisor');
-    const warehouse=admin?(workshop?whName(workshop.warehouse_id):''):whName(profile?.warehouse_id);
-    return{admin,operator,supervisor,warehouse,role:operator?'Depósito y Fabricación Naval':admin?'Compras y administración':'Depósito'};
+    const warehouse=admin?'Todos los depósitos':whName(profile?.warehouse_id);
+    return{admin,operator,supervisor,warehouse,role:admin?'Compras y administración':operator?'Depósito y Fabricación Naval':'Depósito'};
   }
   const key=()=>`avh_user_guide_v${VERSION}:${profile.id}`;
   function hasSeen(){try{return seen.has(profile.id)||localStorage.getItem(key())==='seen'}catch{return seen.has(profile.id)}}
@@ -26,7 +26,7 @@
     const common=[
       topic('first-login','Primeros pasos','Primer ingreso y navegación','Conocé tu cuenta y encontrá las tareas que tenés habilitadas.',[
         step('Ingresá con tu usuario','Usá la cuenta y contraseña que te entregó administración. Si el sistema pide cambiar la contraseña, completá ese paso antes de trabajar.'),
-        step('Revisá tu contexto',a.admin?'Tu cuenta permite gestionar compras y administración. Fabricación muestra los talleres para los que tengas autorización.':'En Inicio figura tu depósito asignado. Las cantidades y operaciones que cargues pertenecen a ese depósito.'),
+        step('Revisá tu contexto',a.admin?'Inicio reúne el resumen general de todos los depósitos. Tu cuenta permite gestionar compras y administración. Fabricación muestra los talleres para los que tengas autorización.':'En Inicio figura tu depósito asignado. Las cantidades y operaciones que cargues pertenecen a ese depósito.'),
         step('Consultá esta guía','Cómo usar queda siempre en el menú. Buscá una tarea o elegí una categoría y abrí su explicación.'),
         step('Volvé a tu trabajo','Los botones de esta guía abren las pantallas existentes. Completar y confirmar cada formulario es lo que guarda una operación.')
       ],'La bienvenida se puede cerrar. Se recuerda por cuenta en este navegador; en otro dispositivo puede aparecer de nuevo.'),
@@ -233,7 +233,9 @@
     const a=access(),scope=JSON.stringify([profile.id,a.role,a.warehouse]);if(previous?.dataset.scope===scope)return;
     previous?.remove();const card=document.createElement('aside');card.id='guideWelcome';card.className='card guide-welcome';card.dataset.scope=scope;card.setAttribute('aria-labelledby','guideWelcomeTitle');
     card.innerHTML=`<div><div class="eyebrow">PRIMEROS PASOS</div><h2 id="guideWelcomeTitle">Bienvenido a Inventario AVH</h2><p>${esc(profile.username)} · ${esc(a.role)}${a.warehouse?' · '+esc(a.warehouse):''}. ${a.operator?'Empezá por las existencias, el personal y tu primera orden.':a.admin?'Encontrá cómo gestionar compras, usuarios y el seguimiento de la operación.':'Conocé cómo recibir materiales, registrar entregas y consultar tu stock.'}</p></div><div class="guide-actions"><button type="button" class="btn primary" id="guideWelcomeOpen">Ver cómo usar</button><button type="button" class="btn soft" id="guideWelcomeDismiss">Entendido</button></div>`;
-    root.prepend(card);$('#guideWelcomeOpen').onclick=()=>goPage('help');$('#guideWelcomeDismiss').onclick=acknowledge;
+    // Compras keeps its general dashboard first; a workshop never defines its Home scope.
+    if(a.admin){const warehouses=root.querySelector('#warehouseCards');if(warehouses)warehouses.after(card);else root.append(card)}else root.prepend(card);
+    $('#guideWelcomeOpen').onclick=()=>goPage('help');$('#guideWelcomeDismiss').onclick=acknowledge;
   }
   function sync(){syncWelcome();if($('#page-help')?.classList.contains('on'))renderGuide()}
   const baseGo=window.goPage;

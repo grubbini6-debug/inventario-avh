@@ -1,5 +1,6 @@
 /* User guidance shares AVH's colors and existing controls. */
 .guide-welcome{display:flex;gap:18px;justify-content:space-between;align-items:center;margin-bottom:16px;background:var(--avh-green-soft);border-color:var(--avh-line-strong)}
+#warehouseCards+.guide-welcome{margin-top:16px}
 .guide-welcome>div:first-child{min-width:0;overflow-wrap:anywhere}
 .guide-welcome h2{font-size:19px;margin:4px 0 6px}.guide-welcome p{margin:0;max-width:720px;line-height:1.55;color:var(--avh-ink)}
 .guide-actions{display:flex;gap:8px;flex-wrap:wrap}.guide-welcome .guide-actions{flex-shrink:0}

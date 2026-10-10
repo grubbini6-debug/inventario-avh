@@ -11,7 +11,7 @@ import * as pdfLib from 'pdf-lib';
 import {makeFabricationPdf,base64} from '../../edge-functions/_shared/fabrication-pdf.mjs';
 import {setupInitialInventory} from '../helpers/initial-inventory-fixture.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..'),read=p=>fs.readFileSync(path.join(root,p),'utf8');
-const db=new PGlite(),ids={admin:randomUUID(),isaac:randomUUID(),other:randomUUID(),w:randomUUID(),w2:randomUUID(),raw:randomUUID(),finished:randomUUID(),counted:randomUUID()};
+const db=new PGlite(),ids={admin:randomUUID(),isaac:randomUUID(),other:randomUUID(),w:randomUUID(),w2:randomUUID(),w3:randomUUID(),w4:randomUUID(),raw:randomUUID(),finished:randomUUID(),counted:randomUUID()};
 let browser,server,date,dropNamedResponse=false;const errors=[],initialRequests=[];
 const q=(sql,args=[])=>db.query(sql,args);
 const command=async(action,data)=>{await q("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:ids.admin,role:'authenticated'})]);return (await q('select fabrication_command($1,$2::jsonb,$3) r',[action,JSON.stringify(data),randomUUID()])).rows[0].r;};
@@ -19,7 +19,7 @@ try{
   await db.exec(read('tests/fixtures/fabrication-inventory.sql'));await db.exec(read('migrations/20261008232715_fabricacion_naval.sql'));
   await setupInitialInventory(db);await db.exec(read('migrations/20261009123306_initial_inventory_named_material.sql'));
   await q('insert into auth.users(id) select unnest($1::uuid[])',[[ids.admin,ids.isaac,ids.other]]);
-  await q("insert into warehouses(id,code,name) values($1,'TALLER','Taller naval existente'),($2,'OTRO','Otro depósito')",[ids.w,ids.w2]);
+  await q("insert into warehouses(id,code,name) values($1,'TALLER','Taller naval existente'),($2,'OTRO','Otro depósito'),($3,'VH','Villa Hayes de prueba'),($4,'VILLETA','Villeta de prueba')",[ids.w,ids.w2,ids.w3,ids.w4]);
   await q("insert into profiles(id,username,full_name,role,warehouse_id) values($1,'compras','Encargado de Compras','admin',null),($2,'isaac','Isaac','depositor',$4),($3,'otro','Otro depositario','depositor',$5)",[ids.admin,ids.isaac,ids.other,ids.w,ids.w2]);
   await q("insert into products(id,name,base_unit) values($1,'Acero ASTM A36','kg'),($2,'Bularcama BU-001','unidad')",[ids.raw,ids.finished]);
   await q("insert into products(id,name,base_unit,sku) values($1,'Alambre 1 mm','kg','AL-1')",[ids.counted]);
@@ -82,6 +82,7 @@ try{
     await page.goto(base);await page.waitForSelector('html[data-avh-boot="ok"]');await page.waitForSelector(firstLogin?'#pwForm':'#main:not(.hide)');return {page,context};
   }
   const {page,context}=await pageFor(ids.isaac,{width:390,height:844});
+  assert.equal(await page.locator('#page-home .dep-home').count(),1);assert.match(await page.locator('.dep-welcome').textContent(),/Taller naval existente/);assert.equal(await page.locator('#warehouseCards').count(),0);
   // Help is available to everyone, but its content and shortcuts follow the actual role.
   await page.locator('#guideWelcome').waitFor();assert.match(await page.locator('#guideWelcome').textContent(),/Depósito y Fabricación Naval/);
   await page.locator('#guideWelcomeOpen').click();await page.locator('#guideTitle').waitFor();
@@ -146,13 +147,30 @@ try{
   await page.waitForSelector('#fnBack');assert.equal((await q('select state from fabrication_orders')).rows[0].state,'delivered');assert.equal((await q('select sum(quantity_remaining)::float qty from inventory_batches where product_id=$1',[ids.finished])).rows[0].qty,0);
   await context.close();
   const supervisor=await pageFor(ids.admin,{width:1440,height:1000},{preferences:guidePreferences});
-  await supervisor.page.locator('#guideWelcome').waitFor();await supervisor.page.locator('.nav [data-page="help"]').click();
+  // An authorized workshop must not replace Compras' general Home or its account context.
+  const assertGeneralHome=async()=>{
+    assert.equal(await supervisor.page.locator('#page-home .dep-home').count(),0);
+    assert.match(await supervisor.page.locator('#page-home>.hero').textContent(),/Operación general del astillero/);
+    assert.match(await supervisor.page.locator('#kpis').textContent(),/Movimientos hoy/);
+    assert.equal(await supervisor.page.locator('#warehouseCards [data-home-wh]').count(),4);
+    for(const id of [ids.w,ids.w2,ids.w3,ids.w4])assert.ok(await supervisor.page.locator(`#warehouseCards [data-home-wh="${id}"]`).isVisible());
+    assert.match(await supervisor.page.locator('#guideWelcome').textContent(),/Todos los depósitos/);
+    assert.doesNotMatch(await supervisor.page.locator('#guideWelcome').textContent(),/Taller naval existente/);
+    assert.ok(await supervisor.page.evaluate(()=>document.querySelector('#guideWelcome').getBoundingClientRect().top>=document.querySelector('#warehouseCards').getBoundingClientRect().bottom),'Compras sees the full dashboard before the introduction');
+  };
+  await supervisor.page.locator('#guideWelcome').waitFor();await assertGeneralHome();await supervisor.page.evaluate(()=>loadAll(true));await assertGeneralHome();
+  if(process.env.AVH_QA_DIR)await supervisor.page.screenshot({path:path.join(process.env.AVH_QA_DIR,'inicio-compras.png')});
+  await supervisor.page.locator('.nav [data-page="help"]').click();
+  assert.match(await supervisor.page.locator('.guide-meta').textContent(),/Todos los depósitos/);assert.doesNotMatch(await supervisor.page.locator('.guide-meta').textContent(),/Taller naval existente/);
   assert.ok(await supervisor.page.evaluate(()=>document.querySelector('#guideTitle').getBoundingClientRect().top>=document.querySelector('.topbar').getBoundingClientRect().bottom),'guide heading must remain below the sticky desktop header');
   assert.equal(await supervisor.page.locator('[data-guide-topic="purchase"]').count(),1);assert.equal(await supervisor.page.locator('[data-guide-topic="factory-supervision"]').count(),1);assert.equal(await supervisor.page.locator('[data-guide-topic="factory-production"]').count(),0);
   if(process.env.AVH_QA_DIR)await supervisor.page.screenshot({path:path.join(process.env.AVH_QA_DIR,'guia-supervision.png')});
   await supervisor.page.locator('[data-guide-action="purchases"]').first().click();await supervisor.page.locator('#newPurchase').waitFor();
   await supervisor.page.locator('.nav [data-page="help"]').click();await supervisor.page.locator('[data-guide-topic="users"] summary').click();await supervisor.page.locator('[data-guide-action="admin-users"]').first().click();await supervisor.page.locator('#newUser').waitFor();
   await supervisor.page.locator('.nav [data-page="fabrication"]').click();await supervisor.page.waitForSelector('[data-fn-order]');assert.equal(await supervisor.page.locator('#fnNewOrder').count(),0);await supervisor.page.locator('[data-fn-order]').click();await supervisor.page.waitForSelector('#fnBack');assert.equal(await supervisor.page.locator('#fnLog').count(),0);
+  await supervisor.page.locator('.nav [data-page="home"]').click();await assertGeneralHome();
+  await supervisor.page.locator('.nav [data-page="stock"]').click();assert.equal(await supervisor.page.locator('#stockWarehouse').inputValue(),'all');
+  await supervisor.page.locator('.nav [data-page="fabrication"]').click();await supervisor.page.locator('#fnBack').waitFor();
   if(process.env.AVH_QA_DIR)await supervisor.page.screenshot({path:path.join(process.env.AVH_QA_DIR,'fabricacion-supervision.png'),fullPage:true});await supervisor.context.close();
   const other=await pageFor(ids.other,{width:390,height:844},{preferences:guidePreferences});assert.equal(await other.page.locator('.fabrication-nav').isVisible(),false);await other.page.evaluate(()=>goPage('fabrication'));assert.equal(await other.page.locator('#page-fabrication').evaluate(e=>e.classList.contains('on')),false);
   await other.page.locator('#guideWelcome').waitFor();await other.page.locator('#guideWelcomeDismiss').click();assert.equal(await other.page.locator('#guideWelcome').count(),0);await other.page.locator('.nav [data-page="help"]').click();
