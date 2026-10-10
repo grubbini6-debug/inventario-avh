@@ -8,6 +8,7 @@
     moves:'Movimientos',
     barges:'Barcazas',
     fabrication:'Fabricación Naval',
+    help:'Cómo usar el sistema',
     more:'Gestión'
   };
   const moduleTitles={
