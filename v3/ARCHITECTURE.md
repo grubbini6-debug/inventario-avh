@@ -20,6 +20,7 @@ Quedan fuera del producto: gestión de contratistas, liquidaciones, descuentos, 
 - `src/features/purchases/`: compras, OC, recepción, documentos, precios, IA y control factura/OC.
 - `src/features/management/`: alertas, solicitudes, auditoría y reportes.
 - `src/features/manufacturing/`: órdenes navales, reservas, consumos con RPC existentes, producción interna, calidad y reportes diarios.
+- `src/features/work-orders/`: espacio técnico de Órdenes de Trabajo, importación de Excel con IA, plan de insumos y PDF numerado. Ver [ORDENES_TRABAJO.md](ORDENES_TRABAJO.md).
 
 ### Backend
 - PostgreSQL es la autoridad para reglas de negocio.

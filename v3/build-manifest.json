@@ -52,6 +52,8 @@
     "src/features/inventory/depositor-complete-mobile.js",
     "src/features/manufacturing/naval.js",
     "src/features/inventory/gases.js",
+    "src/features/work-orders/model.js",
+    "src/features/work-orders/workspace.js",
     "src/features/help/user-guide.js"
   ],
   "bootstrap": "src/core/bootstrap.js",
@@ -60,12 +62,14 @@
     "src/styles/visual-refresh.css",
     "src/styles/fabrication.css",
     "src/styles/user-guide.css",
-    "src/styles/gases.css"
+    "src/styles/gases.css",
+    "src/styles/work-orders.css"
   ],
   "assets": [
     "src/assets/logo-avh.jpg",
     "src/assets/logo-avh.png",
-    "src/assets/logo-maqmoveis.jpg"
+    "src/assets/logo-maqmoveis.jpg",
+    "src/assets/xlsx-0.20.3.min.js"
   ],
   "template": "src/index.template.html"
 }
