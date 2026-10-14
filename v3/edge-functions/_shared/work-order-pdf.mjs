@@ -58,7 +58,7 @@ export async function makeWorkOrderPdf(order,lib){
  heading('Detalle de trabajos');
  table(['Ítem','Sector y trabajo','Datos técnicos','Cantidad','Peso kg'],[30,245,130,65,53],tasks.map((t,i)=>[
   String(i+1),`${t.sector||'General'}: ${t.description}`,
-  [t.length_mm!=null&&t.width_mm!=null?`${qty(t.length_mm)} x ${qty(t.width_mm)} mm`:'',t.thickness_mm!=null?`Espesor ${qty(t.thickness_mm)} mm`:'',t.area_m2!=null?`Área/pieza ${qty(t.area_m2)} m²`:''].filter(Boolean).join(' / '),
+  [t.length_mm!=null&&t.width_mm!=null?`${qty(t.length_mm)} x ${qty(t.width_mm)} mm`:'',t.thickness_mm!=null?`Espesor ${qty(t.thickness_mm)} mm`:'',t.area_m2!=null?`${t.kind==='service'?'Superficie':'Área/pieza'} ${qty(t.area_m2)} m²`:''].filter(Boolean).join(' / '),
   t.quantity==null?'Por definir':`${qty(t.quantity)} ${t.unit||''}`,qty(t.weight_kg)
  ]));
  const weights=tasks.filter(t=>t.weight_kg!=null);paragraph(`Trabajos: ${tasks.length}${weights.length?`. Peso total indicado (${weights.length} ítems con peso): ${qty(weights.reduce((s,t)=>s+Number(t.weight_kg),0))} kg.`:'.'}`,9,bold);

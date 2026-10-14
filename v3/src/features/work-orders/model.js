@@ -16,7 +16,7 @@
     for(let r=h+1;r<rows.length;r++){
       const row=rows[r],description=text(row[cols.description]);
       if(/^tarea\s*\//i.test(description)){sector='General';continue;}
-      if(!description||/^(sub.?total|total|descripcion|description|trbajos|trabajos|actividad|bonificacion)/i.test(description))continue;
+      if(!description||/^(sub.?total\b|total\b|descripcion$|description$|trbajos$|trabajos$|actividad$|bonificacion\b)/i.test(description))continue;
       if(cols.sector!==undefined&&text(row[cols.sector]))sector=text(row[cols.sector]);
       else if(cols.description>0&&text(row[cols.description-1]))sector=text(row[cols.description-1]);
       const values={};for(const key of ['length_mm','width_mm','thickness_mm','quantity','area_m2','weight_kg'])values[key]=cols[key]===undefined?null:num(row[cols[key]]);

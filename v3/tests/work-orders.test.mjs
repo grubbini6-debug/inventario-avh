@@ -13,6 +13,7 @@ const source=[['','DD TEST 716'],['','DESCRIPTION','Length','Width','M2','Thk','
 test('Excel source preserves sectors, all tasks, measures, and mixed service units without subtotals',()=>{
  const p=M.parseRows(source,'Alcance');assert.equal(p.tasks.length,4);assert.equal(p.tasks[1].sector,'PIQUE DE POPA');assert.equal(p.tasks[0].weight_kg,1286);assert.equal(p.tasks[2].quantity,1800);assert.equal(p.tasks[2].unit,'m²');assert.equal(p.tasks[3].quantity,6);assert.equal(p.tasks[3].unit,'unidad');assert.equal(p.tasks[3].area_m2,null);
  const raw=M.parseRows([['Hoja sin encabezado'],['otra estructura']], 'Otra');assert.equal(raw.needs_ai_extraction,true);
+ assert.equal(M.parseRows([['Descripción','Cantidad','Unidad'],['Trabajos de soldadura',1,'unidad'],['Actividad de montaje',1,'unidad']],'Otra').tasks.length,2);
  const plan={title:'Trabajo',vessel:'TEST 716',client:null,groups:[{rows:p.tasks.map(t=>t.source_row),operations:['Preparación'],acceptance:['Medir según plano'],materials:[{description:'Consumible',unit:'kg',basis:'Cantidad según proceso'}]}]};
  const analysis=enrichWorkOrder(p.tasks,plan);assert.equal(analysis.tasks[0].weight_kg,1286);assert.equal(analysis.tasks[0].materials[1].quantity,null);assert.equal(analysis.tasks[0].materials[0].confirmed,false);
  assert.throws(()=>enrichWorkOrder(p.tasks,{...plan,groups:[{...plan.groups[0],rows:[4]}]}),/todos/);
