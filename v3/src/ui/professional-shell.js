@@ -9,6 +9,7 @@
     moves:'Movimientos',
     barges:'Barcazas',
     fabrication:'Fabricación Naval',
+    'work-orders':'Órdenes de Trabajo',
     help:'Cómo usar el sistema',
     more:'Gestión'
   };
