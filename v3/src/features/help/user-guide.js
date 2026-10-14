@@ -43,6 +43,13 @@
       ],'Ante un dato equivocado ya confirmado, usá el circuito de corrección; contá qué pasó y qué debería quedar registrado.')
     ];
     const depot=[
+      topic('gases','Depósito','Controlar CO₂, oxígeno y GLP','Conteo físico, salidas de llenos y devoluciones de cilindros vacíos.',[
+        step('Hacé el conteo inicial','En Gases → Nuevo conteo contá los llenos y vacíos de cada gas. Anotá también los envases que están con personas o proveedores y guardá la observación del conteo.'),
+        step('Registrá cada entrega','Usá Entregar llenos e indicá gas, cantidad, persona, destino y referencia del vale. Si devuelve vacíos al retirar, cargalos en el mismo formulario.'),
+        step('Recibí los vacíos','Elegí el responsable en Pendientes de devolución. Un vacío devuelto reduce los pendientes y aumenta los vacíos; no aumenta los llenos disponibles.'),
+        step('Seguí las recargas','Vacíos al proveedor registra lo enviado. Ingreso/recarga registra lo recibido o un canje en la misma entrega. Elegí Cilindros nuevos cuando se agregan envases.'),
+        step('Revisá el diferencial','Filtrá las fechas y el gas para comparar llenos entrados y salidos. El historial conserva el saldo antes y después y permite descargar CSV.')
+      ],'Un nuevo conteo deja registrada la diferencia con el sistema. Usá cantidades reales y la misma persona o proveedor que aparece en los pendientes.','gases'),
       topic('initial','Depósito','Cargar el inventario inicial','Contar lo que ya existe físicamente en el depósito.',[
         step('Esperá la apertura','Administración debe abrir el inventario inicial. Cuando esté habilitado, en Inicio aparece Continuar inventario inicial.'),
         step('Identificá el material',a.operator?'Elegí una sugerencia del catálogo o escribí un material nuevo. Para un material nuevo, indicá su unidad base.':'Elegí el material del catálogo y su unidad o presentación. Si falta un producto, pedí a Compras que lo incorpore.'),
@@ -190,7 +197,7 @@
   function navigate(action){
     if(!eligible())return;
     const a=access();
-    if(['home','stock'].includes(action))return goPage(action);
+    if(['home','stock','gases'].includes(action))return goPage(action);
     if(action==='purchases'&&a.admin){goPage('purchases');return window.renderPurchases?.()}
     if(action==='alerts'&&a.admin){goPage('more');return renderModule('alerts')}
     const adminTabs={'admin-users':'users','admin-products':'products','admin-opening':'opening',suppliers:'suppliers'};

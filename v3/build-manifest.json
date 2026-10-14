@@ -51,6 +51,7 @@
     "src/features/inventory/depositor-role-cleanup.js",
     "src/features/inventory/depositor-complete-mobile.js",
     "src/features/manufacturing/naval.js",
+    "src/features/inventory/gases.js",
     "src/features/help/user-guide.js"
   ],
   "bootstrap": "src/core/bootstrap.js",
@@ -58,7 +59,8 @@
     "src/styles/app.css",
     "src/styles/visual-refresh.css",
     "src/styles/fabrication.css",
-    "src/styles/user-guide.css"
+    "src/styles/user-guide.css",
+    "src/styles/gases.css"
   ],
   "assets": [
     "src/assets/logo-avh.jpg",
