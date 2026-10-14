@@ -5,6 +5,7 @@
     home:'Inicio',
     purchases:'Compras',
     stock:'Inventario',
+    gases:'Control de gases',
     moves:'Movimientos',
     barges:'Barcazas',
     fabrication:'Fabricación Naval',
