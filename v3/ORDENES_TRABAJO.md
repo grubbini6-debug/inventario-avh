@@ -15,7 +15,9 @@ El espacio técnico de Galo convierte un Excel de alcance naval en un borrador r
 
 ## Accesos
 
-En **Administración → Usuarios**, elegir **Producción / Órdenes de Trabajo**, completar usuario, nombre y clave temporal. La cuenta se crea sin depósito asignado y con permiso para preparar, emitir y seguir órdenes. Al ingresar abre directamente su panel; la primera sesión exige cambiar la clave. Administración puede actualizar sus datos, desactivar la cuenta o restablecer la clave desde **Gestionar**.
+En **Administración → Usuarios**, elegir **Producción / Órdenes de Trabajo**, completar usuario, nombre, lugar de trabajo y clave temporal. **Inventario que puede consultar** permite elegir la sede autorizada; para Galo, Villa Hayes. La cuenta recibe permiso para preparar, emitir y seguir órdenes. Al ingresar abre directamente su panel; la primera sesión exige cambiar la clave. Administración puede actualizar estos datos, cambiar o quitar la consulta de inventario, desactivar la cuenta y restablecer su clave desde **Gestionar**.
+
+La vista **Inventario** de Producción muestra cantidades y mínimos de la sede autorizada, con búsqueda y actualización. La autorización se valida en PostgreSQL. El servicio devuelve páginas de hasta 500 productos que la interfaz recorre por completo; el cliente no elige el depósito por parámetro. El permiso de consulta mantiene separados los registros de entradas, salidas, transferencias, lotes y precios. El lugar y la sede se usan como valores iniciales de las nuevas órdenes y para consultar stock en su plan de insumos.
 
 Los administradores conservan supervisión del módulo. **Órdenes de Trabajo → Accesos** permite habilitar otras cuentas existentes o revocar permisos. Para Calidad elegir **Inspeccionar trabajos**. Producción prepara los requerimientos; Compras y el depositario coordinan el abastecimiento con los permisos de depósito existentes.
 
@@ -23,6 +25,7 @@ Los administradores conservan supervisión del módulo. **Órdenes de Trabajo �
 
 - Migración: `migrations/20261014194409_ordenes_trabajo_galo.sql`.
 - Perfil de Producción: `migrations/20261015105130_perfil_produccion_ordenes_trabajo.sql` y funciones `admin-create-user`, `admin-reset-user-password`. El alta del perfil y su acceso se guarda en una transacción; solo el servicio autorizado puede usar `provision_work_order_user`. La gestión de cuentas valida el rol administrador en PostgreSQL.
+- Lugar e inventario de consulta: `migrations/20261015113424_lugar_produccion_inventario_consulta.sql`. Agrega `work_location` e `inventory_warehouse_id` al perfil; preserva `warehouse_id` para el rol depositario y conserva los contratos anteriores del alta y la gestión de usuarios.
 - Edge Functions: `work-order-ai` y `work-order-pdf`, con validación de JWT y autorización desde perfiles/roles guardados en PostgreSQL.
 - IA: usa `OPENAI_API_KEY` del proyecto. `OPENAI_WORK_ORDER_MODEL` permite definir el modelo de este módulo; su valor predeterminado es `gpt-5.4-mini`.
 - Excel: SheetJS CE `0.20.3`, copiado desde la distribución oficial a un asset local. Se carga cuando se importa un archivo y mantiene la CSP del sitio.

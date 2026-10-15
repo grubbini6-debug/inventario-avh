@@ -33,7 +33,7 @@
       topic('work-order-issue','Órdenes de Trabajo','Emitir el PDF numerado y seguir el avance','Compartir una orden formal y conservar su historial.',[
         step('Emití la orden','Emitir OT numerada asigna el número definitivo y conserva el alcance. Descargá el PDF para enviarlo o imprimirlo.'),
         step('Registrá el trabajo','Ingresá el avance y las observaciones de cada ítem. Calidad registra las inspecciones con su propia autorización.'),
-        step('Coordiná materiales','Compartí los insumos definidos con Compras y el responsable del depósito para su abastecimiento.'),
+        step('Consultá las existencias','Si Administración habilitó el inventario de tu lugar, abrí Inventario para buscar materiales y revisar cantidades y mínimos. Compartí los requerimientos con Compras y el depositario.'),
         step('Cerrá la orden','El cierre requiere avance completo y aprobación de Calidad. Los trabajos adicionales se preparan en otra orden.')
       ],'Esperá la confirmación al guardar. Los cambios pendientes pueden perderse al recargar o salir.','work-orders')
     ];
@@ -216,7 +216,7 @@
   function navigate(action){
     if(!eligible())return;
     const a=access();
-    if(a.production)return goPage('work-orders');
+    if(a.production)return goPage(action==='production-inventory'?'production-inventory':'work-orders');
     if(['home','stock','gases'].includes(action))return goPage(action);
     if(action==='purchases'&&a.admin){goPage('purchases');return window.renderPurchases?.()}
     if(action==='alerts'&&a.admin){goPage('more');return renderModule('alerts')}

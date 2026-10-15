@@ -54,6 +54,7 @@ test('A Production session boots into its orders panel, loads technical catalogs
   const u=new URL(url),path=u.pathname;calls.push(path);
   if(path==='/rest/v1/profiles')return Response.json([user]);
   if(path==='/rest/v1/rpc/work_order_context')return Response.json({access_level:'editor',access:[]});
+  if(path==='/rest/v1/rpc/work_order_inventory')return Response.json({work_location:'Astillero Villa Hayes',warehouse:{id:whId,name:'Villa Hayes'},items:[{product_id:'test-product',product_name:'Alambre',stock_qty:20,base_unit:'kg',minimum_qty:10}],next_cursor:null,updated_at:'2026-10-15T11:00:00Z'});
   if(path==='/rest/v1/rpc/fabrication_context')return Response.json({workshops:[]});
   return Response.json([]);
  };
@@ -65,7 +66,10 @@ test('A Production session boots into its orders panel, loads technical catalogs
   await wait(()=>w.document.documentElement.dataset.avhBoot==='ok');
   assert.deepEqual(errors,[]);assert.equal(w.document.querySelector('.page.on').id,'page-work-orders');assert.ok(w.document.body.classList.contains('production-mode'));
   assert.match(w.document.querySelector('#sidebarRole').textContent,/Producción/);assert.ok(w.document.querySelector('#woAnalyze'));
-  assert.equal(calls.some(p=>/purchase|inventory|movements|supply_requests|stock/.test(p)),false);
+  assert.equal(calls.filter(p=>!p.endsWith('/rpc/work_order_inventory')).some(p=>/purchase|inventory|movements|supply_requests|stock/.test(p)),false);
+  w.crypto.randomUUID=randomUUID;w.document.querySelector('#woNew').click();
+  assert.equal(w.AVHWorkOrders.state.current.payload.location,'Astillero Villa Hayes');assert.equal(w.AVHWorkOrders.state.current.payload.warehouse_id,whId);
+  w.goPage('production-inventory');assert.equal(w.document.querySelector('.page.on').id,'page-production-inventory');assert.match(w.document.querySelector('#productionStockRows').textContent,/Alambre/);
   w.goPage('stock');assert.equal(w.document.querySelector('.page.on').id,'page-work-orders');
   w.goPage('help');assert.equal(w.document.querySelector('.page.on').id,'page-help');assert.match(w.document.querySelector('#page-help').textContent,/Preparar una orden desde Excel/);
   assert.equal(w.document.querySelector('[data-guide-topic="receive"]'),null);
@@ -92,19 +96,19 @@ test('Admin endpoints validate caller and profile, auto-enable Production, prese
   if(path==='/rest/v1/profiles'&&url.includes('username='))return Response.json([]);
   if(path==='/rest/v1/warehouses')return Response.json([{id:whId,name:'Villa Hayes',active:true}]);
   if(path==='/auth/v1/admin/users'){assert.deepEqual(body.user_metadata,{username:'galo.produccion'});return Response.json({id:newId});}
-  if(path==='/rest/v1/rpc/provision_work_order_user')return fail?Response.json({error:'test'},{status:400}):Response.json({ok:true,user:{id:newId,role:'production',warehouse_id:null,active:true,must_change_password:true}});
+  if(path==='/rest/v1/rpc/provision_work_order_user')return fail?Response.json({error:'test'},{status:400}):Response.json({ok:true,user:{id:newId,role:'production',warehouse_id:null,active:true,must_change_password:true,work_location:body.p_work_location,inventory_warehouse_id:body.p_inventory_warehouse_id}});
   if(path==='/auth/v1/admin/users/'+newId&&opt.method==='DELETE')return Response.json({});
   if(path==='/rest/v1/profiles'&&opt.method==='POST')return new Response(null,{status:201});
   if(path==='/rest/v1/profiles')return Response.json([{id:newId,username:'galo.produccion',role,warehouse_id:role==='production'?null:whId,active:true,must_change_password:true}]);
   throw Error('Unexpected '+path);
  };
- const create=handler('admin-create-user',fetch),body={username:'galo.produccion',role:'production',password:'ClaveDePrueba123',full_name:'Galo'};
+ const create=handler('admin-create-user',fetch),body={username:'galo.produccion',role:'production',password:'ClaveDePrueba123',full_name:'Galo',work_location:'Astillero Villa Hayes',inventory_warehouse_id:whId};
  let r=await create(request(body));assert.equal(r.status,200);assert.equal((await r.json()).user.role,'production');
  assert.ok(calls.some(c=>c.path.endsWith('provision_work_order_user')&&c.body.p_actor_id===adminId));
  for(const denied of [{...body,role:'admin'},{...body,warehouse_id:whId},{...body,role:'depositor'}])assert.equal((await create(request(denied))).status,400);
  for(const [r,a] of [['production',true],['admin',false]]){callerRole=r;active=a;const start=calls.length;assert.equal((await create(request(body))).status,403);assert.equal(calls.slice(start).some(c=>c.path==='/auth/v1/admin/users'),false);}
  callerRole='admin';active=true;fail=true;assert.equal((await create(request(body))).status,500);assert.ok(calls.some(c=>c.path.endsWith(newId)&&c.method==='DELETE'));
- fail=false;role='depositor';const legacy={...body,warehouse_id:whId};delete legacy.role;assert.equal((await create(request(legacy))).status,200);
+ fail=false;role='depositor';const legacy={...body,warehouse_id:whId};delete legacy.role;delete legacy.work_location;delete legacy.inventory_warehouse_id;assert.equal((await create(request(legacy))).status,200);
  assert.equal(calls.filter(c=>c.path==='/rest/v1/profiles'&&c.method==='POST').at(-1).body.role,'depositor');
  assert.equal((await create(new Request('https://test',{method:'POST'}))).status,401);
 });
@@ -125,15 +129,16 @@ test('Password reset covers Production, keeps mandatory change and refuses admin
 test('User creation offers a distinct Production profile and manages it without a warehouse',async()=>{
  const dom=new JSDOM('<div id="adminBox"></div><div id="modal" class="hide"><div id="modalBody"></div></div>',{url:'https://avh.test',runScripts:'outside-only'}),w=dom.window,calls=[];
  const admin={id:adminId,role:'admin',username:'admin.prueba'},created={id:newId,username:'galo.produccion',role:'production',warehouse_id:null,full_name:'Galo',active:true,must_change_password:true};
- Object.assign(w,{$:s=>w.document.querySelector(s),$$:s=>[...w.document.querySelectorAll(s)],D:{profiles:[admin]},profile:admin,esc:s=>String(s??''),whName:()=> 'Villa Hayes',activeWhOptions:()=>'<option value="'+whId+'">Villa Hayes</option>',msg:(e,t)=>e.textContent=t,
-  openModal:(t,s,html)=>{w.document.querySelector('#modalBody').innerHTML=html;},closeModal:()=>{},loadAll:async()=>{},renderAdmin:()=>w.adminUsers(),rpc:async(name,args)=>{calls.push({name,args});return{};},edge:async(name,args)=>{calls.push({name,args});w.D.profiles.push(created);return{data:{user:created}};}});
+ Object.assign(w,{$:s=>w.document.querySelector(s),$$:s=>[...w.document.querySelectorAll(s)],D:{profiles:[admin],warehouses:[{id:whId,name:'Villa Hayes',active:true}]},profile:admin,esc:s=>String(s??''),whName:()=> 'Villa Hayes',activeWhOptions:()=>'<option value="'+whId+'">Villa Hayes</option>',msg:(e,t)=>e.textContent=t,
+  openModal:(t,s,html)=>{w.document.querySelector('#modalBody').innerHTML=html;},closeModal:()=>{},loadAll:async()=>{},renderAdmin:()=>w.adminUsers(),rpc:async(name,args)=>{calls.push({name,args});return{};},edge:async(name,args)=>{calls.push({name,args});created.work_location=args.work_location;created.inventory_warehouse_id=args.inventory_warehouse_id;w.D.profiles.push(created);return{data:{user:created}};}});
  try{
   w.eval(read('../src/features/admin/password-ux.js'));w.adminUsers();
   assert.equal(w.$('#newUserWh').disabled,false);w.$('#newUserRole').value='production';w.$('#newUserRole').onchange();
   assert.equal(w.$('#newUserWh').disabled,true);assert.equal(w.$('#newUserWarehouseField').hidden,true);
+  w.$('#newProductionInventoryWh').value=whId;w.$('#newProductionInventoryWh').onchange();assert.equal(w.$('#newProductionLocation').value,'Villa Hayes');
   w.$('#newUser').value='galo.produccion';w.$('#newUserName').value='Galo';w.$('#continueCreateUser').onclick();w.$('#tempAccessKey').value='ClaveTemporal123';await w.$('#confirmCreateDepositor').onclick();
-  assert.equal(calls[0].args.role,'production');assert.equal(calls[0].args.warehouse_id,null);
+  assert.equal(calls[0].args.role,'production');assert.equal(calls[0].args.warehouse_id,null);assert.equal(calls[0].args.work_location,'Villa Hayes');assert.equal(calls[0].args.inventory_warehouse_id,whId);
   w.manageUser(newId);assert.equal(w.$('#manageWh'),null);w.$('#manageFullName').value='Galo Técnico';await w.$('#saveUserProfile').onclick();
-  assert.equal(calls[1].name,'admin_update_work_order_user');assert.equal(calls[1].args.p_full_name,'Galo Técnico');await w.$('#toggleUser').onclick();assert.equal(calls[2].args.p_active,false);
+  assert.equal(calls[1].name,'admin_update_work_order_user');assert.equal(calls[1].args.p_full_name,'Galo Técnico');assert.equal(calls[1].args.p_inventory_warehouse_id,whId);await w.$('#toggleUser').onclick();assert.equal(calls[2].args.p_active,false);
  }finally{w.close();}
 });

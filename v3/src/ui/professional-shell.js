@@ -10,6 +10,7 @@
     barges:'Barcazas',
     fabrication:'Fabricación Naval',
     'work-orders':'Órdenes de Trabajo',
+    'production-inventory':'Consulta de inventario',
     help:'Cómo usar el sistema',
     more:'Gestión'
   };

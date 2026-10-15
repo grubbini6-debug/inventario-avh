@@ -19,7 +19,7 @@
   const user=profile.id;
   if(W.user!==user){Object.assign(W,{user,context:null,orders:[],current:null,dirty:false,busy:false,file:null,book:null,error:'',tab:'scope'});W.epoch++;W.opened.clear();}
   const r=await rpc('work_order_context');if(profile?.id!==user)return;
-  const was=allowed();W.context=r.error?null:r.data;navigation();if(profile.role==='production'&&!$('#page-work-orders')?.classList.contains('on')&&!$('#page-help')?.classList.contains('on'))goPage('work-orders');if($('#page-work-orders')?.classList.contains('on')&&(!allowed()||!was))render();
+  const was=allowed();W.context=r.error?null:r.data;navigation();if(profile.role==='production'&&!$('#page-work-orders')?.classList.contains('on')&&!$('#page-help')?.classList.contains('on')&&!$('#page-production-inventory')?.classList.contains('on'))goPage('work-orders');if($('#page-work-orders')?.classList.contains('on')&&(!allowed()||!was))render();
  }
  async function orders(){
   const user=profile?.id,r=await queryAll('work_orders','id,number,status,version,created_at,updated_at,title:payload->>title,vessel:payload->>vessel,client:payload->>client','order=created_at.desc');
@@ -38,7 +38,7 @@
  }
  function newDraft(analysis){
   W.current={id:crypto.randomUUID(),status:'draft',version:null,payload:M.draft(analysis||{title:'Orden de trabajo naval',tasks:[]},null)};
-  W.current.payload.warehouse_id=profile?.warehouse_id||'';W.current.payload.responsible=profile?.username||'';W.dirty=true;W.tab='scope';W.file=null;W.book=null;W.opened.clear();render();
+  W.current.payload.warehouse_id=profile?.inventory_warehouse_id||profile?.warehouse_id||'';W.current.payload.location=W.current.payload.location||profile?.work_location||'';W.current.payload.responsible=profile?.username||'';W.dirty=true;W.tab='scope';W.file=null;W.book=null;W.opened.clear();render();
  }
  async function open(id){
   if(W.dirty)return error('Guardá el borrador actual antes de abrir otra orden.');
@@ -80,7 +80,7 @@
  function bom(){
   const p=current(),access=profile.role==='admin'||(profile.role==='depositor'&&!!profile.warehouse_id&&p.warehouse_id===profile.warehouse_id),requester=profile.role==='depositor'&&p.warehouse_id===profile.warehouse_id;
   const rows=materialGroups().map((g,i)=>{
-   const product=D.products.find(x=>x.id===g.product_id),stock=access&&p.warehouse_id&&product&&product.base_unit===g.unit?Number(D.stocks.find(x=>x.warehouse_id===p.warehouse_id&&x.product_id===product.id)?.stock_qty||0):null;
+   const product=D.products.find(x=>x.id===g.product_id),productionStock=profile.role==='production'&&product&&product.base_unit===g.unit?window.AVHProductionInventory?.stock(product.id,p.warehouse_id):null,stock=productionStock!=null?productionStock:access&&p.warehouse_id&&product&&product.base_unit===g.unit?Number(D.stocks.find(x=>x.warehouse_id===p.warehouse_id&&x.product_id===product.id)?.stock_qty||0):null;
    const missing=stock===null||!g.confirmedCount?null:Math.max(0,g.confirmed-stock);
    return '<tr><td>'+e(g.name)+'<small>Trabajos '+g.tasks.join(', ')+'</small></td><td>'+(g.definedCount?fmt(g.defined)+' '+e(g.unit):'Por definir')+(g.pending?'<small>'+g.pending+' cantidades pendientes</small>':'')+'</td><td>'+(g.confirmedCount?fmt(g.confirmed)+' '+e(g.unit):'Por confirmar')+'</td><td>'+(stock===null?'Sin consulta':fmt(stock)+' '+e(g.unit))+'</td><td>'+(missing===null?'Por revisar':fmt(missing)+' '+e(g.unit))+'</td><td>'+(editor()&&requester&&g.confirmedCount&&(missing===null||missing>0)?'<button type="button" class="btn sm" data-group-supply="'+i+'">Preparar solicitud</button>':'')+'</td></tr>';
   });
@@ -194,7 +194,7 @@
   openModal('Accesos a Órdenes de Trabajo','Habilitá el usuario de Galo y los usuarios de Calidad.',`<div class="field"><label for="woAccessUser">Usuario existente</label><select id="woAccessUser">${users.map(p=>`<option value="${p.id}">${e(p.username)} · ${e(p.full_name)}</option>`).join('')}</select></div><div class="field"><label for="woAccessRole">Acceso</label><select id="woAccessRole"><option value="editor">Preparar, emitir y seguir órdenes</option><option value="quality">Inspeccionar trabajos (Calidad)</option><option value="viewer">Consultar</option><option value="none">Revocar acceso</option></select></div><button class="btn primary" id="woAccessSave" type="button">Guardar acceso</button><div class="list">${(W.context.access||[]).map(a=>`<div class="row">${e(a.username)} · ${e(a.access_level)}</div>`).join('')}</div><p class="hint">Las cuentas nuevas con perfil Producción / Órdenes de Trabajo quedan habilitadas al crearlas desde Administración → Usuarios.</p>`);
   $('#woAccessSave').onclick=evt=>run(async()=>{await command('access',{user_id:$('#woAccessUser').value,access_level:$('#woAccessRole').value});await context();closeModal();render();},evt.target);
  }
- const go=window.goPage;window.goPage=function(page){if(profile?.role==='production'&&!['work-orders','help'].includes(page))page='work-orders';if(page==='work-orders'&&!allowed()&&profile?.role!=='production')return;const r=go.call(this,page);if(page==='work-orders'){render();if(allowed()&&!W.dirty&&!W.busy)run(async()=>{await orders();render();});}return r;};
+ const go=window.goPage;window.goPage=function(page){if(profile?.role==='production'&&!['work-orders','production-inventory','help'].includes(page))page='work-orders';if(page==='work-orders'&&!allowed()&&profile?.role!=='production')return;const r=go.call(this,page);if(page==='work-orders'){render();if(allowed()&&!W.dirty&&!W.busy)run(async()=>{await orders();render();});}return r;};
  const load=window.loadAll;window.loadAll=async function(){const r=await load.apply(this,arguments);await context();if(allowed()&&$('#page-work-orders')?.classList.contains('on')&&!W.dirty&&!W.followDirty&&!W.busy&&canRefreshView('#page-work-orders')){await orders();render();}return r;};
  window.AVHWorkOrders={refresh:async()=>{await context();await orders();render();},state:W};
 })();

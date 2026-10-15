@@ -7,10 +7,13 @@ Deno.serve(async(req:Request)=>{
   const {profile,call}=auth;
   const body=await req.json(),username=String(body.username||'').trim().toLowerCase(),password=String(body.password||''),fullName=String(body.full_name||'').trim();
   const role=body.role??'depositor',warehouseId=String(body.warehouse_id||'').trim();
+  const location=String(body.work_location||'').trim(),inventoryWarehouseId=String(body.inventory_warehouse_id||'').trim();
   if(!['depositor','production'].includes(role))return json({error:'Elegí Depositario o Producción / Órdenes de Trabajo.'},400);
   if(!validUsername(username)||fullName.length>200)return json({error:'Revisá el usuario (3–40 caracteres) y el nombre de la persona.'},400);
   if(!validPassword(password))return json({error:'La clave temporal debe tener mínimo 10 caracteres, mayúscula, minúscula y número.'},400);
   if(role==='production'&&warehouseId)return json({error:'Producción se crea sin depósito asignado.'},400);
+  if(location.length>200||(inventoryWarehouseId&&!uuid(inventoryWarehouseId)))return json({error:'Revisá el lugar y el inventario elegido.'},400);
+  if(role!=='production'&&(location||inventoryWarehouseId))return json({error:'El lugar y la consulta de inventario corresponden al perfil de Producción.'},400);
   if(role==='depositor'&&!uuid(warehouseId))return json({error:'Elegí el depósito que va a manejar.'},400);
   const existing=await call('/rest/v1/profiles?select=id&username=eq.'+encodeURIComponent(username));
   if(existing.error)return json({error:'No se pudo verificar el usuario. Reintentá.'},500);
@@ -30,8 +33,8 @@ Deno.serve(async(req:Request)=>{
   try{
    const name=fullName.toLowerCase()===profile.username.toLowerCase()?null:fullName||null;
    if(role==='production'){
-    const r=await call('/rest/v1/rpc/provision_work_order_user',{p_user_id:id,p_username:username,p_full_name:name,p_actor_id:profile.id});
-    if(r.error||r.data?.user?.role!=='production'||r.data.user.warehouse_id!==null||!r.data.user.active||!r.data.user.must_change_password){await rollback();return json({error:'No se pudo completar el perfil y su acceso a Órdenes de Trabajo.'},500);}
+    const r=await call('/rest/v1/rpc/provision_work_order_user',{p_user_id:id,p_username:username,p_full_name:name,p_actor_id:profile.id,p_work_location:location||null,p_inventory_warehouse_id:inventoryWarehouseId||null});
+    if(r.error||r.data?.user?.role!=='production'||r.data.user.warehouse_id!==null||!r.data.user.active||!r.data.user.must_change_password||(r.data.user.work_location||'')!==location||(r.data.user.inventory_warehouse_id||'')!==inventoryWarehouseId){await rollback();return json({error:'No se pudo completar el perfil y su acceso a Órdenes de Trabajo.'},500);}
     return json(r.data);
    }
    const r=await call('/rest/v1/profiles',{id,username,full_name:name,role,warehouse_id:warehouseId,active:true,must_change_password:true,password_changed_at:null});
