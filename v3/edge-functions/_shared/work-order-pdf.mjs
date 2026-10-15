@@ -1,5 +1,12 @@
 const clean=v=>String(v??'').replace(/[\u0000-\u001f]/g,' ').replace(/[–—]/g,'-').replace(/[^\u0020-\u00ff]/g,'?');
 const qty=v=>v==null?'':Number(v).toLocaleString('es-PY',{maximumFractionDigits:3});
+const executionDescription=v=>String(v||'').replace(/\s*\((?:cotizar|presupuestar)\b[^)]*\)/gi,'').trim();
+function technicalData(t){
+ const dimensions=t.length_mm!=null&&t.width_mm!=null,areaFromDimensions=dimensions?Number(t.length_mm)*Number(t.width_mm)/1000000:null;
+ const redundantArea=dimensions&&Math.abs(Number(t.area_m2)-areaFromDimensions)<=.0005||t.unit==='m²'&&t.quantity!=null&&Number(t.quantity)===Number(t.area_m2);
+ const size=dimensions?`${qty(t.length_mm)} x ${qty(t.width_mm)}${t.thickness_mm!=null?' x '+qty(t.thickness_mm):''} mm`:[t.length_mm!=null?'Largo '+qty(t.length_mm)+' mm':'',t.width_mm!=null?'Ancho '+qty(t.width_mm)+' mm':'',t.thickness_mm!=null?'Espesor '+qty(t.thickness_mm)+' mm':''].filter(Boolean).join(' / ');
+ return[size,t.area_m2!=null&&!redundantArea?`${t.kind==='service'?'Superficie':'Área/pieza'} ${qty(t.area_m2)} m²`:''].filter(Boolean).join(' / ');
+}
 function wrap(v,font,size,width){
  const lines=[];let line='';
  for(let word of clean(v).split(/\s+/)){
@@ -17,6 +24,12 @@ export async function makeWorkOrderPdf(order,lib){
  const text=(v,x,yy,size=9,font=regular,color=ink)=>page.drawText(clean(v),{x,y:yy,size,font,color});
  const add=()=>{
   page=pdf.addPage([595.28,841.89]);y=722;
+  if(pdf.getPageCount()>1){
+   text('AVH | ORDEN DE TRABAJO',36,807,11,bold,green);text(number,355,807,9,bold,green);
+   text('Embarcación: '+(p.vessel||''),36,789,9,regular,gray);
+   if(draft||order.status==='cancelled')text(draft?'BORRADOR PARA REVISIÓN':'ORDEN ANULADA',390,789,8,bold,rgb(.65,.24,.13));
+   page.drawLine({start:{x:36,y:776},end:{x:559,y:776},color:green,thickness:1});y=763;return;
+  }
   page.drawRectangle({x:36,y:769,width:110,height:55,borderColor:green,borderWidth:1.3});text('AVH',53,786,26,bold,green);
   const company=clean(c.legal_name||c.name||'ASTILLERO VILLA HAYES S.A.');
   wrap(company,bold,10,380).slice(0,2).forEach((s,i)=>text(s,160,814-i*13,10,bold,green));
@@ -34,51 +47,41 @@ export async function makeWorkOrderPdf(order,lib){
   function header(){ensure(42);page.drawRectangle({x:36,y:y-24,width:523,height:24,color:green});headers.forEach((h,i)=>text(h,xs[i]+6,y-15,8,bold,rgb(1,1,1)));y-=24;}
   header();
   rows.forEach((row,index)=>{
-   const cells=row.map((v,i)=>wrap(v,regular,8.1,widths[i]-12));let remaining=Math.max(...cells.map(x=>x.length)),offset=0;
+   const cells=row.map((v,i)=>wrap(v,regular,8.5,widths[i]-12));let remaining=Math.max(...cells.map(x=>x.length)),offset=0;
    // Keep normal rows together. Very long descriptions may continue on the next page.
-   if(y-(remaining*11+12)<65&&remaining*11+12<600){add();header();}
+   if(y-(remaining*10+8)<65&&remaining*10+8<600){add();header();}
    while(remaining>0){
     if(y-32<65){add();header();}
-    const count=Math.min(remaining,Math.max(1,Math.floor((y-65-12)/11))),height=count*11+12;
+    const count=Math.min(remaining,Math.max(1,Math.floor((y-65-8)/10))),height=count*10+8;
     if(index%2===0)page.drawRectangle({x:36,y:y-height,width:523,height,color:pale});
-    cells.forEach((lines,i)=>lines.slice(offset,offset+count).forEach((s,j)=>text(s,xs[i]+6,y-14-j*11,8.1)));
+    cells.forEach((lines,i)=>lines.slice(offset,offset+count).forEach((s,j)=>text(s,xs[i]+6,y-12-j*10,8.5)));
     page.drawLine({start:{x:36,y:y-height},end:{x:559,y:y-height},color:lineColor,thickness:.5});
     y-=height;remaining-=count;offset+=count;if(remaining>0){add();header();}
    }
   });y-=12;
  }
  add();
- heading(p.title||'Trabajos navales');
+ heading(/recetas|plan de trabajo|planificaci[oó]n/i.test(p.title||'')?'Trabajos a ejecutar':p.title||'Trabajos a ejecutar');
  table(['Datos del proyecto','Datos de ejecución'],[261,262],[
   [`Embarcación: ${p.vessel||''}`,`Responsable técnico: ${p.responsible||''}`],
   [`Cliente: ${p.client||''}`,`Ejecutor: ${p.executor||'A definir'}`],
   [`Lugar: ${p.location||'A definir'}`,`Fecha prevista: ${p.due_date||'A definir'}`]
  ]);
- if(p.notes){heading('Alcance general y observaciones');paragraph(p.notes);}
+ const notes=String(p.notes||'').split(/\r?\n/).filter(s=>!/\bsource_row\b|\bgroups\.rows\b|\bJSON\b/i.test(s)).join('\n').trim();
+ if(notes){heading('Observaciones de ejecución');paragraph(notes);}
  heading('Detalle de trabajos');
- table(['Ítem','Sector y trabajo','Datos técnicos','Cantidad','Peso kg'],[30,245,130,65,53],tasks.map((t,i)=>[
-  String(i+1),`${t.sector||'General'}: ${t.description}`,
-  [t.length_mm!=null&&t.width_mm!=null?`${qty(t.length_mm)} x ${qty(t.width_mm)} mm`:'',t.thickness_mm!=null?`Espesor ${qty(t.thickness_mm)} mm`:'',t.area_m2!=null?`${t.kind==='service'?'Superficie':'Área/pieza'} ${qty(t.area_m2)} m²`:''].filter(Boolean).join(' / '),
-  t.quantity==null?'Por definir':`${qty(t.quantity)} ${t.unit||''}`,qty(t.weight_kg)
+ table(['Ítem','Sector y trabajo','Medidas / espesor','Cantidad'],[28,300,125,70],tasks.map((t,i)=>[
+  String(i+1),`${t.sector||'General'}: ${executionDescription(t.description)}`,
+  technicalData(t),
+  t.quantity==null?'Por definir':`${qty(t.quantity)} ${t.unit||''}`
  ]));
  const weights=tasks.filter(t=>t.weight_kg!=null);paragraph(`Trabajos: ${tasks.length}${weights.length?`. Peso total indicado (${weights.length} ítems con peso): ${qty(weights.reduce((s,t)=>s+Number(t.weight_kg),0))} kg.`:'.'}`,9,bold);
- const plans=new Map();tasks.forEach((t,i)=>{const key=JSON.stringify([t.operations||[],t.acceptance||[]]);if(!plans.has(key))plans.set(key,{items:[],operations:t.operations||[],acceptance:t.acceptance||[]});plans.get(key).items.push(i+1);});
- if([...plans.values()].some(g=>g.operations.length||g.acceptance.length)){
-  heading('Plan de ejecución y controles');
-  for(const g of plans.values()){
-   if(!g.operations.length&&!g.acceptance.length)continue;
-   paragraph('Trabajos '+g.items.join(', '),9,bold,green);
-   if(g.operations.length)paragraph('Operaciones: '+g.operations.join('; '));
-   if(g.acceptance.length)paragraph('Verificaciones previstas: '+g.acceptance.join('; '));
-  }
- }
- const materials=[];tasks.forEach((t,i)=>(t.materials||[]).forEach(m=>materials.push([String(i+1),m.description,m.quantity==null?'Por definir':qty(m.quantity)+' '+m.unit,m.confirmed?'Confirmado':'Por confirmar',m.basis||''])));
- if(materials.length){heading('Plan de materiales e insumos');paragraph('Las cantidades por confirmar y los consumos sin definir requieren validación del responsable antes de abastecer.');table(['Ítem','Material / insumo','Cantidad','Estado','Base del requerimiento'],[30,185,80,75,153],materials);}
- if(p.source){heading('Documento de referencia');paragraph(`${p.source.file_name} - Hoja: ${p.source.sheet}`);}
- ensure(115);y-=18;
+ if(p.source)paragraph(`Referencia: ${p.source.file_name} - Hoja: ${p.source.sheet}`,8,regular,gray);
+ const signatureLines=p.responsible?wrap(p.responsible,regular,8,155).slice(0,2):[];
+ ensure(70+Math.max(0,signatureLines.length-1)*11);y-=10;
  [36,214,392].forEach(x=>page.drawLine({start:{x,y:y-30},end:{x:x+155,y:y-30},color:gray,thickness:.6}));
  text('Responsable técnico',36,y-44,9,bold);text('Ejecutor / recepción',214,y-44,9,bold);text('Autorización',392,y-44,9,bold);
- if(p.responsible)wrap(p.responsible,regular,8,155).slice(0,2).forEach((s,i)=>text(s,36,y-58-i*11,8));
+ signatureLines.forEach((s,i)=>text(s,36,y-58-i*11,8));
  pdf.getPages().forEach((pg,index)=>{
   pg.drawLine({start:{x:36,y:43},end:{x:559,y:43},color:lineColor,thickness:.6});
   pg.drawText(clean(number),{x:36,y:29,font:regular,size:8,color:gray});

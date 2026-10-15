@@ -5,13 +5,15 @@ El espacio técnico de Galo convierte un Excel de alcance naval en un borrador r
 ## Uso
 
 1. Entrar a **Órdenes de Trabajo**, seleccionar un Excel `.xlsx` o `.xls` y elegir la hoja correspondiente.
-2. **Analizar con IA**. Revisar cliente, embarcación, medidas, trabajos, operaciones y controles propuestos.
-3. Vincular insumos al catálogo existente. Definir cantidades y marcar las que el responsable haya confirmado.
-4. **Guardar borrador** archiva el Excel original en Storage privado. **Vista previa PDF** permite revisar la presentación.
-5. **Emitir OT numerada** asigna un número anual `OT-AVH-AAAA-NNNNN` en PostgreSQL y conserva una copia del alcance emitido. Descargar el PDF para enviarlo o imprimirlo.
+2. **Analizar con IA**. Revisar cliente, embarcación, lugar, trabajos, medidas y cantidades del alcance a ejecutar.
+3. **Guardar borrador** archiva el Excel original en Storage privado. **Vista previa OT** permite revisar el documento de ejecución.
+4. **Emitir OT numerada** asigna un número anual `OT-AVH-AAAA-NNNNN` en PostgreSQL y conserva una copia del alcance emitido. **Descargar OT** genera el PDF para enviarlo o imprimirlo.
+5. **Insumos internos** conserva la planificación opcional de materiales y stock. Se puede revisar y completar cuando corresponda; preparar presupuestos, precios y OC pertenece al circuito posterior de Compras.
 6. Registrar avance por trabajo. Calidad registra sus inspecciones con acceso propio. El cierre requiere avance completo y aprobación de Calidad.
 
-**Insumos y stock** acumula las cantidades del mismo producto entre todos los trabajos. Las cantidades sin definir permanecen pendientes. Un depositario habilitado puede preparar solicitudes para su depósito; los retiros mantienen el circuito existente de Depósito.
+El PDF comunica la orden de ejecución: encabezado, alcance, trabajos con medidas y cantidades, referencia del Excel y firmas. La impresión conserva el peso total indicado y omite los anexos de operaciones, controles e insumos por ítem. Los datos internos se mantienen guardados. Los pedidos de cotización entre paréntesis, como «cotizar por m2», y los comentarios de procesamiento de IA se excluyen de la impresión. El borrador de prueba de Touax 716 conserva sus 70 trabajos en 3 páginas, frente a las 32 anteriores.
+
+**Insumos internos** acumula las cantidades del mismo producto entre todos los trabajos. Las cantidades sin definir permanecen pendientes. Un depositario habilitado puede preparar solicitudes para su depósito; los retiros mantienen el circuito existente de Depósito.
 
 ## Accesos
 
