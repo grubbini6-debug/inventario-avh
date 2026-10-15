@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {randomUUID,webcrypto} from 'node:crypto';
-import {PGlite} from '@electric-sql/pglite';
+import {database} from './fixtures/commercial-database.mjs';
 import * as pdfLib from 'pdf-lib';
 import {makeCommercialPdf} from '../edge-functions/_shared/commercial-pdf.mjs';
 import {makeWorkOrderPdf} from '../edge-functions/_shared/work-order-pdf.mjs';
@@ -13,12 +13,6 @@ const read=p=>fs.readFileSync(new URL(p,import.meta.url),'utf8');
 const ctx={Intl,Date,crypto:webcrypto};ctx.window=ctx;vm.runInNewContext(read('../src/features/work-orders/commercial-model.js'),ctx);const M=ctx.AVHCommercialModel;
 const company={legal_name:'Astillero Villa Hayes S.A.',tax_id:'80091371-0',name:'AVH',address:'Villa Hayes',phone:'Contacto',email:'compras@example.test'};
 const payload=()=>({...M.draft('quote',null,{username:'Galo'}),recipient_name:'Cliente naval',title:'Reparación de estructura',document_date:'2026-10-15',valid_until:'2026-11-15',currency:'USD',tax_mode:'add',tax_rate:10,payment_terms:'Contado',delivery_terms:'Según alcance acordado',items:[{id:'item-1',description:'Chapa naval 12.7 mm',quantity:3,unit:'unidad',unit_price:.335}]});
-export async function database(){
- const db=new PGlite();await db.exec(read('./fixtures/fabrication-inventory.sql'));await db.exec(read('../migrations/20261014194409_ordenes_trabajo_galo.sql'));await db.exec(read('../migrations/20261015105130_perfil_produccion_ordenes_trabajo.sql'));
- const functions=read('../migrations/20260926130000_null_safe_rpc_authorization.sql');
- for(const name of ['admin_create_purchase','admin_prepare_purchase_order'])await db.exec(functions.match(new RegExp('CREATE OR REPLACE FUNCTION public\\.'+name+'\\([\\s\\S]*?\\$function\\$;'))[0]);
- await db.exec('create sequence public.purchase_order_seq;');await db.exec(read('../migrations/20261015130314_documentos_comerciales_produccion.sql'));return db;
-}
 test('Commercial authority, exact totals, immutable snapshots and central purchase-order numbering',async t=>{
  const db=await database(),ids={admin:randomUUID(),galo:randomUUID(),other:randomUUID(),depositor:randomUUID(),wh:randomUUID(),supplier:randomUUID(),company:randomUUID()};
  const q=(sql,args=[])=>db.query(sql,args),login=async id=>{await db.exec('reset role');await q("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:id,role:'authenticated'})]);await db.exec('set role authenticated');};

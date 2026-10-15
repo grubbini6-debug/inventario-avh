@@ -11,7 +11,7 @@
     fabrication:'Fabricación Naval',
     'work-orders':'Órdenes de Trabajo',
     'production-inventory':'Consulta de inventario',
-    'commercial':'Presupuestos y OC',
+    'commercial':'Presupuestos',
     help:'Cómo usar el sistema',
     more:'Gestión'
   };
@@ -40,7 +40,7 @@
   }
   function syncActive(page=visiblePage(),module=activeModule){
     clearActive();
-    let target=null,title=pageTitles[page]||'AVH';
+    let target=null,title=page==='commercial'&&profile?.role==='admin'?'Presupuestos y órdenes de compra':pageTitles[page]||'AVH';
     if(page==='more'&&module){
       target=document.querySelector(`.nav [data-shell-module="${CSS.escape(module)}"]`);
       title=moduleTitles[module]||title;

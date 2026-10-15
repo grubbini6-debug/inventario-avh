@@ -1,7 +1,6 @@
 // AVH — Flujo principal: presupuesto IA -> productos AVH -> OC PDF -> confirmar compra.
 (function(){
   const DOC_EDGE='purchase-document-ai';
-  const PDF_EDGE='purchase-order-pdf';
   const MAX_BYTES=12*1024*1024;
   const UNIT_ALIASES={un:'unidad',und:'unidad',u:'unidad',unidad:'unidad',unidades:'unidad',pieza:'pieza',piezas:'pieza',kg:'kg',kgs:'kg',kilogramo:'kg',kilogramos:'kg',tn:'tonelada',ton:'tonelada',tonelada:'tonelada',toneladas:'tonelada',rollo:'rollo',rollos:'rollo',bobina:'bobina',bobinas:'bobina',caja:'caja',cajas:'caja',paquete:'paquete',paquetes:'paquete',bolsa:'bolsa',bolsas:'bolsa',m:'metro',mt:'metro',mts:'metro',metro:'metro',metros:'metro',m2:'m²','m²':'m²',m3:'m³','m³':'m³',l:'litro',lt:'litro',lts:'litro',litro:'litro',litros:'litro',cilindro:'cilindro',cilindros:'cilindro',tambor:'tambor',tambores:'tambor',pallet:'pallet',pallets:'pallet',plancha:'plancha',planchas:'plancha',barra:'barra',barras:'barra',tubo:'tubo',tubos:'tubo',perfil:'perfil',perfiles:'perfil',bidon:'bidón','bidón':'bidón',bidones:'bidón',servicio:'servicio',servicios:'servicio',viaje:'viaje',viajes:'viaje',hora:'hora',horas:'hora',dia:'día','día':'día',dias:'día','días':'día',otro:'otro'};
   const norm=s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
@@ -88,11 +87,9 @@
     const doc=smartState.doc||{},ir=await insert('purchase_documents',{purchase_id:purchaseId,kind:'quotation',file_path:path,file_name:file.name,document_number:doc.document_number||null,document_date:doc.date||null,analysis_status:'ok',analysis_data:doc,analysis_model:smartState.meta?.model||null,analysis_confidence:num(doc.confidence)||null,analyzed_at:new Date().toISOString(),uploaded_by:profile.id});if(ir.error)throw Error(ir.error);return path;
   }
 
-  function decodePdf(b64){const raw=atob(String(b64||'')),bytes=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);return new Blob([bytes],{type:'application/pdf'})}
-  async function generatePurchaseOrderPdf(id,download=true){
-    const r=await edge(PDF_EDGE,{purchase_id:id});if(r.error)throw Error(r.error);const data=r.data||{};if(!data.pdf_base64)throw Error('AVH no devolvió el PDF de la OC.');
-    if(download){const blob=decodePdf(data.pdf_base64),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=data.filename||'Orden-de-Compra.pdf';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)}
-    return data;
+  async function generatePurchaseOrderPdf(id){
+    if(profile?.role!=='admin')throw Error('Solo Administración puede generar órdenes de compra.');
+    return window.AVHCommercial.editPurchaseOrder(id);
   }
 
   async function generatePO(){
@@ -105,7 +102,6 @@
       const r=await rpc('admin_create_purchase_from_quote',{p_data:data,p_items:items});if(r.error)throw Error(r.error);
       const result=r.data||{},purchaseId=result.purchase_id||result.id||result;if(!purchaseId)throw Error('La compra se creó pero no recibí su identificador.');
       const warnings=[];try{await uploadQuote(smartState.file,purchaseId)}catch(e){warnings.push('Presupuesto: '+(e.message||e))}
-      try{await generatePurchaseOrderPdf(purchaseId,false)}catch(e){warnings.push('OC PDF: '+(e.message||e))}
       await loadAll(true);closeModal();showPurchaseOrder(purchaseId,warnings.join(' · '));
     }catch(e){msg(out,e.message||String(e))}finally{btn.disabled=false;btn.textContent='📄 Generar Orden de Compra'}
   }
@@ -124,8 +120,8 @@
 
   function showPurchaseOrder(id,warning=''){
     const p=purchaseById(id);if(!p)return alert('No encontré la compra.');const items=itemsByPurchase(id),confirmed=p.status==='ordered'||p.purchase_confirmed_at;
-    openModal(p.po_number||'Orden de compra',p.supplier_name||supplierById(p.supplier_id)?.name||'Proveedor',`${poHtml(p,items)}${warning?`<div class="notice" style="margin-top:10px">${safe(warning)}</div>`:''}<div style="margin-top:10px"><span class="po-status ${confirmed?'ok':''}">${confirmed?'COMPRADO / PEDIDO':'OC GENERADA · PENDIENTE DE CONFIRMAR COMPRA'}</span></div><div class="split-actions" style="margin-top:14px"><button id="poDownload" class="btn primary">⬇ Descargar OC en PDF</button>${confirmed?'':`<button id="poConfirm" class="btn soft">✅ Confirmar que se compró</button>`}<button id="poOpenDetail" class="btn soft">Ver expediente</button></div><div id="poMsg"></div>`);
-    $('#poDownload').onclick=async()=>{const b=$('#poDownload');b.disabled=true;b.textContent='Generando PDF…';try{await generatePurchaseOrderPdf(id,true);msg($('#poMsg'),'OC descargada y guardada dentro de la compra.',true);await loadAll(true)}catch(e){msg($('#poMsg'),e.message||String(e))}finally{b.disabled=false;b.textContent='⬇ Descargar OC en PDF'}};
+    openModal(p.po_number||'Orden de compra',p.supplier_name||supplierById(p.supplier_id)?.name||'Proveedor',`${poHtml(p,items)}${warning?`<div class="notice" style="margin-top:10px">${safe(warning)}</div>`:''}<div style="margin-top:10px"><span class="po-status ${confirmed?'ok':''}">${confirmed?'COMPRADO / PEDIDO':'OC GENERADA · PENDIENTE DE CONFIRMAR COMPRA'}</span></div><div class="split-actions" style="margin-top:14px"><button id="poDownload" class="btn primary">Revisar y descargar PDF</button>${confirmed?'':`<button id="poConfirm" class="btn soft">✅ Confirmar que se compró</button>`}<button id="poOpenDetail" class="btn soft">Ver expediente</button></div><div id="poMsg"></div>`);
+    $('#poDownload').onclick=async()=>{const b=$('#poDownload');b.disabled=true;b.textContent='Generando PDF…';try{await generatePurchaseOrderPdf(id,true);msg($('#poMsg'),'OC descargada y guardada dentro de la compra.',true);await loadAll(true)}catch(e){msg($('#poMsg'),e.message||String(e))}finally{b.disabled=false;b.textContent='Revisar y descargar PDF'}};
     $('#poOpenDetail').onclick=()=>window.openPurchaseDetail?.(id);if($('#poConfirm'))$('#poConfirm').onclick=()=>confirmPurchase(id);
   }
 
@@ -140,6 +136,6 @@
   }
 
   const oldRender=window.renderPurchases;window.renderPurchases=function(){const r=oldRender?.apply(this,arguments);enhancePurchaseList();return r};
-  const oldDetail=window.openPurchaseDetail;window.openPurchaseDetail=async function(id){await oldDetail?.apply(this,arguments);const p=purchaseById(id),body=$('#modalBody');if(!p?.po_number||!body)return;const bar=document.createElement('div');bar.className='split-actions';bar.style.marginTop='12px';bar.innerHTML=`<button id="detailOpenPo" class="btn soft">📄 ${safe(p.po_number)}</button><button id="detailDownloadPo" class="btn soft">⬇ PDF</button>${p.status==='approved'?'<button id="detailConfirmBuy" class="btn primary">✅ Confirmar comprado</button>':''}`;body.prepend(bar);$('#detailOpenPo').onclick=()=>showPurchaseOrder(id);$('#detailDownloadPo').onclick=async()=>{try{await generatePurchaseOrderPdf(id,true);await loadAll(true)}catch(e){alert(e.message||String(e))}};if($('#detailConfirmBuy'))$('#detailConfirmBuy').onclick=()=>confirmPurchase(id)};
+  const oldDetail=window.openPurchaseDetail;window.openPurchaseDetail=async function(id){await oldDetail?.apply(this,arguments);const p=purchaseById(id),body=$('#modalBody');if(!p?.po_number||!body)return;const bar=document.createElement('div');bar.className='split-actions';bar.style.marginTop='12px';bar.innerHTML=`<button id="detailOpenPo" class="btn soft">📄 ${safe(p.po_number)}</button><button id="detailDownloadPo" class="btn soft">Revisar OC / PDF</button>${p.status==='approved'?'<button id="detailConfirmBuy" class="btn primary">✅ Confirmar comprado</button>':''}`;body.prepend(bar);$('#detailOpenPo').onclick=()=>showPurchaseOrder(id);$('#detailDownloadPo').onclick=async()=>{try{await generatePurchaseOrderPdf(id,true);await loadAll(true)}catch(e){alert(e.message||String(e))}};if($('#detailConfirmBuy'))$('#detailConfirmBuy').onclick=()=>confirmPurchase(id)};
   window.AVHSmartPurchase={open:openSmartPurchase,showPurchaseOrder,downloadPurchaseOrderPdf:(id)=>generatePurchaseOrderPdf(id,true)};
 })();
