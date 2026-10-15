@@ -55,6 +55,8 @@
     "src/features/work-orders/model.js",
     "src/features/work-orders/workspace.js",
     "src/features/work-orders/inventory-view.js",
+    "src/features/work-orders/commercial-model.js",
+    "src/features/work-orders/commercial.js",
     "src/features/help/user-guide.js"
   ],
   "bootstrap": "src/core/bootstrap.js",

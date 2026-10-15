@@ -18,6 +18,11 @@ Deno.serve(async(req:Request)=>{
   const response=await fetch(`${url}/rest/v1/work_orders?id=eq.${id}&select=id,number,status,payload,issued_payload,issued_at`,{headers});
   if(!response.ok)return json({error:'No se pudo consultar la orden'},403);
   const data=await response.json(),order=data[0];if(!order)return json({error:'Orden inexistente o sin acceso'},404);
+  if(!order.issued_payload){
+   const brand=await fetch(`${url}/rest/v1/rpc/work_order_brand`,{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:'{}'});
+   if(!brand.ok)return json({error:'No se pudo consultar el membrete institucional'},403);
+   order.payload={...order.payload,company:await brand.json()};
+  }
   const bytes=await makeWorkOrderPdf(order,pdfLib);
   const name=order.number||'BORRADOR_OT_'+id.slice(0,8);return json({pdf_base64:base64(bytes),filename:name+'.pdf'});
  }catch{return json({error:'No se pudo generar el PDF de la orden'},500);}

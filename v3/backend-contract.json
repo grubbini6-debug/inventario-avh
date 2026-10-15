@@ -16,6 +16,9 @@
     "admin_void_movement",
     "admin_void_purchase_receipt",
     "approve_product_request",
+    "commercial_command",
+    "commercial_context",
+    "commercial_document",
     "complete_password_change",
     "create_product_request",
     "create_supply_request",
@@ -47,6 +50,7 @@
     "barges",
     "bi_purchase_facts",
     "bi_purchase_item_facts",
+    "commercial_documents",
     "correction_requests",
     "documents",
     "fabrication_access",
@@ -90,15 +94,17 @@
     "v_warehouse_activity_today",
     "warehouse_opening_inventory",
     "warehouses",
-    "work_orders",
     "work_order_events",
     "work_order_progress",
-    "work_order_quality"
+    "work_order_quality",
+    "work_orders"
   ],
   "edge": [
     "admin-create-user",
     "admin-reset-user-password",
     "avh-user-admin",
+    "commercial-ai",
+    "commercial-pdf",
     "fabrication-report-pdf",
     "work-order-ai",
     "work-order-pdf"
