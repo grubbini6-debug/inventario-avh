@@ -39,7 +39,8 @@
     "review_product_deletion",
     "review_supply_request",
     "work_order_command",
-    "work_order_context"
+    "work_order_context",
+    "work_order_inventory"
   ],
   "query": [
     "audit_events",

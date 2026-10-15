@@ -2,7 +2,9 @@
 @media(max-width:1100px){.wo-layout{grid-template-columns:220px minmax(0,1fr)}.wo-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.wo-document-head{flex-direction:column}}
 @media(max-width:700px){.wo-layout{grid-template-columns:1fr}.wo-sidebar{max-height:260px}.wo-grid,.wo-material-grid{grid-template-columns:1fr}.wo-heading{flex-wrap:wrap}.wo-import>div{width:100%}.wo-task-body{padding:12px}.wo-import select{max-width:100%}}
 
-body.production-mode .nav button:not([data-page="work-orders"]):not([data-page="help"]):not(.nav-user-exit){display:none!important}
+body.production-mode .nav button:not([data-page="work-orders"]):not([data-page="production-inventory"]):not([data-page="help"]):not(.nav-user-exit){display:none!important}
 body.production-mode #globalSearchBtn,body.production-mode #globalSearchOverlay{display:none!important}
 body.production-mode .nav-section-management,body.production-mode .nav-section-config{display:none!important}
-@media(max-width:760px){body.production-mode .nav{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:760px){body.production-mode .nav{grid-template-columns:repeat(2,minmax(0,1fr))!important}body.production-mode.production-inventory-authorized .nav{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+
+body.production-inventory-authorized .nav [data-page="production-inventory"]{display:flex!important}
