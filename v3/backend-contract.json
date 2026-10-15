@@ -8,7 +8,9 @@
     "admin_open_initial_inventory",
     "admin_opening_inventory_lines",
     "admin_price_initial_inventory",
+    "admin_purchase_order_document",
     "admin_reopen_initial_inventory",
+    "admin_save_purchase_order_document",
     "admin_update_depositor",
     "admin_update_purchase",
     "admin_update_purchase_item",
@@ -106,6 +108,7 @@
     "commercial-ai",
     "commercial-pdf",
     "fabrication-report-pdf",
+    "purchase-order-pdf",
     "work-order-ai",
     "work-order-pdf"
   ],

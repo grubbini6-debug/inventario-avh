@@ -32,3 +32,16 @@ test('Existing purchase PDF is also admin-only, and legacy purchases preserve de
  const d=purchaseOrderDocument({po_number:'OC-2026-001',currency:'USD',status:'approved',created_at:'2026-10-15',delivery_mode:'partial'}, {name:'OTRA EMPRESA',legal_name:'Otra empresa'}, {name:'Proveedor'},[{id:'a',description:'Chapa',quantity:3,unit:'kg',unit_price:.335}],'Villa Hayes','TEST');assert.equal(d.issued_payload.company.brand_avh,false);assert.equal(d.issued_payload.total,1.01);assert.equal(d.issued_payload.items[0].unit_price,.335);assert.match(d.issued_payload.delivery_terms,/parciales/);
  const pdf=await pdfLib.PDFDocument.load(await makeCommercialPdf(d,pdfLib));assert.equal(pdf.getPageCount(),1);
 });
+
+test('OC PDF cache follows the saved version and rejects exporting a stale review',async()=>{
+ const files=new Map(),docs=[];let version='version-1';
+ const document=()=>({id,purchase_id:id,number:'OC-AVH-REVISADA',kind:'purchase_order',status:'draft',version,payload:{title:'Compra revisada',document_date:'2026-10-15',company:{legal_name:'Astillero Villa Hayes S.A.',tax_id:'80091371-0',address:version},currency:'USD',recipient_name:'Proveedor '+version,items:[{id:'line',description:'Chapa',quantity:2,unit:'kg',unit_price:5,amount:10}],subtotal:10,total:10,tax_mode:'none',payment_terms:'Contado',delivery_terms:'En una semana'}});
+ const client={auth:{getUser:async()=>({data:{user:{id:'caller'}}})},from:table=>{
+  const filters={};const chain={select:()=>chain,eq:(k,v)=>{filters[k]=v;return chain;},order:()=>chain,limit:()=>chain,maybeSingle:async()=>({data:table==='profiles'?{role:'admin',active:true}:docs.find(d=>d.source===filters.source)||null}),insert:async row=>{docs.push(row);return{error:null};}};return chain;
+ },storage:{from:()=>({upload:async(path,bytes)=>{files.set(path,bytes);return{error:null};},download:async path=>({data:new Blob([files.get(path)]),error:null})})}};
+ const handler=endpoint('purchase-order-pdf',async(url,options)=>{assert.match(url,/rpc\/admin_purchase_order_document$/);assert.equal(options.headers.Authorization,'Bearer caller');return Response.json(document());},()=>client);
+ const first=await (await handler(request({purchase_id:id,expected_version:version}))).json();assert.equal(first.reused,false);assert.equal(first.filename,'OC-AVH-REVISADA.pdf');
+ const repeat=await (await handler(request({purchase_id:id,expected_version:version}))).json();assert.equal(repeat.reused,true);assert.equal(repeat.pdf_base64,first.pdf_base64);
+ version='version-2';assert.equal((await handler(request({purchase_id:id,expected_version:'version-1'}))).status,409);
+ const updated=await (await handler(request({purchase_id:id,expected_version:version}))).json();assert.equal(updated.reused,false);assert.notEqual(updated.pdf_base64,first.pdf_base64);assert.notEqual(updated.file_path,first.file_path);assert.equal(files.size,2);
+});

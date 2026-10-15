@@ -34,9 +34,9 @@
         step('Creá el presupuesto','Desde una OT usá Crear presupuesto desde esta OT, o ingresá a Presupuestos para crear uno nuevo.'),
         step('Completá los importes','Revisá destinatario, cantidades, precios, moneda, IVA, vigencia y condiciones. La IA puede proponer una redacción para revisar.'),
         step('Revisá y emití','Guardá el borrador, abrí Vista previa PDF y luego Emitir presupuesto numerado. El PDF definitivo queda listo para enviar.')
-      ],'Las órdenes de compra son exclusivas de Administración.','commercial'),
+      ],'Revisá el alcance y los importes antes de emitir el presupuesto.','commercial'),
       topic('work-order-issue','Órdenes de Trabajo','Emitir el PDF numerado y seguir el avance','Compartir una orden formal y conservar su historial.',[
-        step('Emití la orden','Emitir OT numerada asigna el número definitivo y conserva el alcance. Descargá la OT para enviarla o imprimirla. El documento contiene el alcance de ejecución; presupuestos y órdenes de compra se gestionan después.'),
+        step('Emití la orden','Emitir OT numerada asigna el número definitivo y conserva el alcance. Descargá la OT para enviarla o imprimirla. El documento contiene el alcance de ejecución; los presupuestos se gestionan después.'),
         step('Registrá el trabajo','Ingresá el avance y las observaciones de cada ítem. Calidad registra las inspecciones con su propia autorización.'),
         step('Consultá las existencias','Si Administración habilitó el inventario de tu lugar, abrí Inventario para buscar materiales y revisar cantidades y mínimos. Compartí los requerimientos con Compras y el depositario.'),
         step('Cerrá la orden','El cierre requiere avance completo y aprobación de Calidad. Los trabajos adicionales se preparan en otra orden.')

@@ -30,6 +30,8 @@ test('Production creates, reviews and emits quotes, retains edits on refresh and
  try{
   w.eval(read('../src/features/work-orders/commercial-model.js'));w.eval(read('../src/features/work-orders/commercial.js'));await w.AVHCommercial.refresh();
   assert.equal(w.document.querySelector('#cdNewOc'),null);assert.equal(w.document.querySelector('[data-cd-kind="purchase_order"]'),null);
+  assert.doesNotMatch(w.document.querySelector('#commercialPanel').textContent,/\bOC\b|órdenes de compra/i);
+  await assert.rejects(w.AVHCommercial.editPurchaseOrder(randomUUID()),/Solo Administración/);
   await assert.rejects(w.AVHCommercial.fromWorkOrder({},'purchase_order'),/Solo Administración/);
   const order={id:randomUUID(),number:'OT-AVH-2026-00001',payload:{vessel:'TEST 716',client:'Cliente naval',location:'Villa Hayes',tasks:[{sector:'Popa',description:'Chapa 12.7 mm',quantity:3,unit:'unidad'}]}};
   await w.AVHCommercial.fromWorkOrder(order,'quote');assert.equal(w.AVHCommercial.state.current.payload.items[0].unit_price,null);
