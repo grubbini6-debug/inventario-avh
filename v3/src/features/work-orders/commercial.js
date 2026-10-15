@@ -1,6 +1,6 @@
 // Quotes for Production. Only Administration can create or view purchase orders.
 (function(){
- const M=AVHCommercialModel,C={user:null,context:null,documents:[],current:null,dirty:false,busy:false,error:'',kind:'quote',epoch:0};
+ const M=AVHCommercialModel,C={user:null,context:null,documents:[],current:null,dirty:false,busy:false,error:'',kind:'quote',epoch:0,excel:null};
  const labels={draft:'Borrador',submitted:'Pendiente de autorización',issued:'Emitido',cancelled:'Anulado'},e=esc;
  const allowed=()=>C.user===profile?.id&&['admin','editor'].includes(C.context?.access_level);
  const admin=()=>profile?.role==='admin'&&C.context?.access_level==='admin',editable=()=>C.current?.status==='draft'&&allowed();
@@ -10,7 +10,7 @@
  function error(err){C.error=err?.message||String(err);const el=$('#commercialError');if(el)el.textContent=C.error;}
  async function run(fn,button){if(C.busy)return;const owner=profile?.id;C.busy=true;if(button)button.disabled=true;error('');try{await fn();}catch(err){if(profile?.id===owner)error(err);}finally{if(profile?.id===owner){C.busy=false;if(button?.isConnected)button.disabled=false;}}}
  async function context(){
-  const owner=profile?.id;if(C.user!==owner){Object.assign(C,{user:owner,context:null,documents:[],current:null,dirty:false,error:'',busy:false});C.epoch++;}
+  const owner=profile?.id;if(C.user!==owner){Object.assign(C,{user:owner,context:null,documents:[],current:null,dirty:false,error:'',busy:false,excel:null});C.epoch++;}
   if(!['admin','production'].includes(profile?.role)){C.context=null;navigation();return;}
   const r=await rpc('commercial_context');if(profile?.id!==owner)return;
   C.context=r.error?null:r.data;if(!admin()&&C.kind==='purchase_order'){C.kind='quote';C.current=null;C.dirty=false;}if(!allowed()){C.current=null;C.documents=[];C.dirty=false;}navigation();
@@ -36,6 +36,45 @@
   const epoch=++C.epoch,r=await rpc('admin_purchase_order_document',{p_purchase_id:id});if(profile?.id!==owner||epoch!==C.epoch)return;if(r.error)throw Error(r.error);
   C.current=r.data;C.kind='purchase_order';C.dirty=false;closeModal();goPage('commercial');render();
  }
+ function importPanel(){
+  if(C.kind!=='quote')return '';
+  const x=C.excel;
+  return `<div class="card wo-import cd-import"><div><h3>Crear presupuesto desde Excel</h3><p>Subí los trabajos con sus cantidades y precios. Revisá el presupuesto y descargá el PDF con membrete AVH.</p></div><label class="btn" for="cdExcelFile">Seleccionar Excel</label><input class="wo-file" id="cdExcelFile" type="file" accept=".xlsx,.xls"><select id="cdExcelSheet" aria-label="Hoja del presupuesto" ${x?'':'disabled'}>${x?x.book.SheetNames.map(name=>`<option ${name===x.sheet?'selected':''}>${e(name)}</option>`).join(''):'<option>Elegir hoja</option>'}</select><button class="btn primary" id="cdExcelAnalyze" type="button" ${x?'':'disabled'}>Preparar presupuesto</button><span id="cdExcelStatus" class="hint" role="status">${e(x?.file.name||'Excel .xlsx o .xls · hasta 10 MB')}</span></div>`;
+ }
+ function importSummary(){
+  const info=C.current?.importInfo;if(!info)return '';
+  return `<div class="card cd-import-summary"><strong>Presupuesto preparado desde Excel</strong><p>${e(info.source.file_name)} · ${e(info.source.sheet)} · ${info.source.items_count} trabajos</p>${info.source.source_total!=null?`<p>Total indicado en la hoja: <b>${e(payload().currency)} ${e(money(info.source.source_total))}</b></p>`:''}${info.warnings.length?`<div class="wo-review"><strong>Revisá estos datos antes de emitir</strong>${info.warnings.map(value=>`<p>${e(value)}</p>`).join('')}</div>`:''}<p class="hint">Los datos del cliente, la vigencia y las condiciones quedan editables. Guardá y usá Vista previa PDF para revisar el documento.</p></div>`;
+ }
+ function hasUnsavedWork(){
+  if(!C.dirty||!payload())return false;const p=payload();return !!(C.current.version||p.items.some(i=>i.description.trim()||i.quantity!=null||i.unit_price!=null)||p.recipient_name||p.reference||p.notes||p.payment_terms||p.title!=='Presupuesto de trabajos');
+ }
+ async function readQuoteExcel(file){
+  if(!file)return;if(!allowed())throw Error('No autorizado para preparar presupuestos.');if(hasUnsavedWork())throw Error('Guardá los cambios del documento antes de importar otro Excel.');
+  if(!/\.(xlsx|xls)$/i.test(file.name)||file.size>10*1024*1024)throw Error('Subí un Excel .xlsx o .xls de hasta 10 MB.');
+  const owner=profile.id,epoch=++C.epoch,X=await excelReader(),bytes=await file.arrayBuffer(),book=X.read(bytes,{type:'array',cellDates:false,sheetRows:1201});
+  if(profile?.id!==owner||epoch!==C.epoch)return;if(!book.SheetNames.length)throw Error('El Excel no tiene hojas.');
+  C.excel={file,book,sheet:book.SheetNames[0],bytes};C.kind='quote';render();
+ }
+ let excelLoading;
+ async function excelReader(){
+  if(window.XLSX)return window.XLSX;
+  if(!excelLoading)excelLoading=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='assets/xlsx-0.20.3.min.js';script.onload=()=>resolve(window.XLSX);script.onerror=()=>{excelLoading=null;reject(Error('No se pudo cargar el lector de Excel.'));};document.head.appendChild(script);});return excelLoading;
+ }
+ async function prepareQuoteExcel(){
+  if(!allowed())throw Error('No autorizado para preparar presupuestos.');if(hasUnsavedWork())throw Error('Guardá los cambios del documento antes de preparar otro presupuesto.');
+  const x=C.excel;if(!x)throw Error('Seleccioná un Excel.');const owner=profile.id,sheet=x.sheet,epoch=++C.epoch,X=await excelReader(),ws=x.book.Sheets[sheet],range=X.utils.decode_range(ws['!fullref']||ws['!ref']||'A1');
+  if(range.e.r>=1200||range.e.c>=60)throw Error('La hoja supera 1.200 filas o 60 columnas. Dividila antes de importar.');
+  const rows=X.utils.sheet_to_json(ws,{header:1,defval:null,blankrows:true,raw:true,range:0}),status=$('#cdExcelStatus');if(status)status.textContent='Leyendo los trabajos y precios del Excel…';
+  const response=await edge('quote-excel-ai',{file_name:x.file.name,sheet,rows});
+  if(profile?.id!==owner||epoch!==C.epoch||C.excel!==x||x.sheet!==sheet)return;if(response.error)throw Error(response.error);
+  if(hasUnsavedWork())throw Error('Hay cambios sin guardar. Guardalos antes de volver a preparar el presupuesto.');
+  const a=response.data?.analysis;if(!a?.items?.length)throw Error('No encontré trabajos con precios en esta hoja.');
+  const p=M.draft('quote',null,profile);for(const k of ['title','document_date','valid_until','delivery_date','recipient_name','recipient_tax_id','recipient_address','recipient_contact','location','reference','payment_terms','delivery_terms','introduction','notes'])if(a.fields?.[k])p[k]=a.fields[k];
+  p.currency=a.currency||'PYG';p.tax_mode=a.tax_mode||'included';p.tax_rate=a.tax_rate??0;p.items=a.items.map(i=>({id:crypto.randomUUID(),description:i.description,quantity:i.quantity,unit:i.unit,unit_price:i.unit_price}));
+  const warnings=[...(a.warnings||[])];if(Object.values(ws).some(cell=>cell&&typeof cell==='object'&&(cell.f&&cell.v==null||cell.t==='e')))warnings.push('Hay fórmulas sin resultado guardado o con error. Revisá los precios y guardá el archivo en Excel para actualizar sus cálculos.');
+  const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',x.bytes))).map(v=>v.toString(16).padStart(2,'0')).join('');
+  C.current={id:crypto.randomUUID(),kind:'quote',status:'draft',version:null,payload:p,importInfo:{source:{file_name:x.file.name,sheet,sha256:hash,rows_count:rows.length,items_count:a.items.length,mapping:a.mapping,source_total:a.source_total,source_rows:rows},warnings,archived:false}};C.dirty=true;C.kind='quote';render();
+ }
  function field(key,label,type='text',attrs=''){return `<div class="field"><label for="cd-${key}">${e(label)}</label><input id="cd-${key}" data-cd-header="${key}" type="${type}" value="${e(payload()[key]??'')}" ${editable()?'':'disabled'} ${attrs}></div>`;}
  function area(key,label){return `<div class="field"><label for="cd-${key}">${e(label)}</label><textarea id="cd-${key}" data-cd-header="${key}" ${editable()?'':'disabled'}>${e(payload()[key]||'')}</textarea></div>`;}
  function companyFields(){
@@ -59,7 +98,7 @@
   const d=C.current,p=payload(),quote=d.kind==='quote';
   return `<div class="wo-document-head"><div><span class="badge">${e(d.purchase_editor?'Revisar OC antes del PDF':labels[d.status]||d.status)}</span><h2>${e(d.number||'Nuevo '+(quote?'presupuesto':'borrador de OC'))}</h2><p>${e(p.reference||'Documento comercial AVH')}</p></div><div class="wo-actions">${editable()?'<button class="btn" id="cdSave" type="button">'+(d.purchase_editor?'Guardar cambios':'Guardar borrador')+'</button>'+(!d.purchase_editor?'<button class="btn" id="cdAi" type="button">Mejorar redacción con IA</button>':''):''}<button class="btn" id="cdPdf" type="button">${d.number?'Descargar PDF para enviar':'Vista previa PDF'}</button>${editable()&&quote?'<button class="btn primary" id="cdIssue" type="button">Emitir presupuesto numerado</button>':''}${admin()&&!quote&&!d.purchase_editor&&['draft','submitted'].includes(d.status)?'<button class="btn primary" id="cdApprove" type="button">Emitir OC numerada</button>':''}${admin()&&d.status==='submitted'?'<button class="btn" id="cdReturn" type="button">Devolver a revisión</button>':''}${!d.purchase_editor&&!['cancelled'].includes(d.status)&&!(d.kind==='purchase_order'&&d.status==='issued')?'<button class="btn" id="cdCancel" type="button">Anular</button>':''}</div></div>
    ${d.review_note?`<div class="wo-review">${e(d.review_note)}</div>`:''}${d.status==='submitted'?'<div class="cd-status">OC enviada a Administración. El PDF definitivo estará disponible cuando sea autorizada.</div>':''}${d.purchase_id?'<p class="hint">OC registrada también en Compras. '+(admin()?'<button class="btn sm" id="cdPurchase" type="button">Ver compra</button>':'')+'</p>':''}
-   <div class="card"><h3>Datos del documento</h3><div class="wo-grid">${!quote&&admin()?field('document_number','Número de OC (automático si se deja vacío)'):''}${field('title','Título')}${field('document_date','Fecha','date')}${field('reference','OT / proyecto / referencia')}${field('location','Lugar')}${field('issuer_name','Preparado por')}${quote?field('valid_until','Válido hasta','date'):field('delivery_date','Entrega prevista','date')}</div></div>
+   ${importSummary()}<div class="card"><h3>Datos del documento</h3><div class="wo-grid">${!quote&&admin()?field('document_number','Número de OC (automático si se deja vacío)'):''}${field('title','Título')}${field('document_date','Fecha','date')}${field('reference','OT / proyecto / referencia')}${field('location','Lugar')}${field('issuer_name','Preparado por')}${quote?field('valid_until','Válido hasta','date'):field('delivery_date','Entrega prevista','date')}</div></div>
    ${!quote&&admin()?companyFields():''}<div class="card"><h3>${quote?'Cliente / destinatario':'Proveedor'}</h3>${!quote?`<div class="field"><label for="cd-supplier_id">Proveedor del catálogo</label><select id="cd-supplier_id" ${editable()?'':'disabled'}><option value="">Seleccionar proveedor</option>${(C.context.suppliers||[]).map(s=>`<option value="${s.id}" ${p.supplier_id===s.id?'selected':''}>${e(s.name)}</option>`).join('')}</select><p class="hint">Administración puede registrar proveedores nuevos desde Proveedores.</p></div>`:''}<div class="wo-grid">${field('recipient_name',quote?'Razón social / nombre':'Razón social del proveedor')}${field('recipient_tax_id','RUC / identificación')}${field('recipient_contact','Contacto')}${field('recipient_address','Dirección')}</div>${area('introduction','Presentación / alcance para el destinatario')}</div>
    <div class="card"><h3>Importes</h3><div class="wo-grid"><div class="field"><label for="cd-currency">Moneda</label><select id="cd-currency" data-cd-header="currency" ${editable()?'':'disabled'}><option value="PYG" ${p.currency==='PYG'?'selected':''}>Guaraníes (PYG)</option><option value="USD" ${p.currency==='USD'?'selected':''}>Dólares (USD)</option></select></div><div class="field"><label for="cd-tax_mode">Tratamiento del IVA</label><select id="cd-tax_mode" data-cd-header="tax_mode" ${editable()?'':'disabled'}>${!quote?'<option value="unspecified" '+(p.tax_mode==='unspecified'?'selected':'')+'>Según presupuesto de referencia</option>':''}<option value="included" ${p.tax_mode==='included'?'selected':''}>IVA incluido en los precios</option><option value="add" ${p.tax_mode==='add'?'selected':''}>Agregar IVA al subtotal</option><option value="none" ${p.tax_mode==='none'?'selected':''}>Sin IVA</option></select></div>${field('tax_rate','IVA (%)','number','min="0" max="100" step="0.000001"')}</div><p class="hint">Confirmá precios, cantidades e impuestos antes de emitir. Los campos sin precio quedan pendientes.</p><div id="cdItems">${lines()}</div>${editable()?'<button class="btn" id="cdAdd" type="button">+ Agregar ítem</button>':''}<div class="cd-totals" id="cdTotals" aria-live="polite"></div></div>
    <div class="card"><h3>Condiciones para enviar</h3>${area('payment_terms','Condición de pago')}${area('delivery_terms','Plazo y condiciones de entrega / ejecución')}${area('notes','Observaciones visibles en el PDF')}</div>`;
@@ -69,8 +108,8 @@
  }
  function render(){
   if(!root())return;if(!allowed()){root().innerHTML='<div class="card">Documentos comerciales requiere una cuenta de Producción habilitada o de Administración.</div>';return;}
-  root().innerHTML=`<div class="wo-heading"><div><div class="eyebrow">DOCUMENTOS AVH</div><h2>${admin()?'Presupuestos y órdenes de compra':'Presupuestos'}</h2><p>Documentos numerados con membrete institucional, listos para descargar y enviar.</p></div><div class="wo-actions"><button class="btn primary" id="cdNewQuote" type="button">+ Presupuesto</button>${admin()?'<button class="btn" id="cdNewOc" type="button">+ Orden de compra</button>':''}</div></div><div id="commercialError" class="error" role="alert">${e(C.error)}</div><div class="wo-tabs"><button class="btn ${C.kind==='quote'?'primary':''}" data-cd-kind="quote">Presupuestos</button>${admin()?'<button class="btn '+(C.kind==='purchase_order'?'primary':'')+'" data-cd-kind="purchase_order">Órdenes de compra</button>':''}</div><div class="wo-layout"><aside class="wo-sidebar card"><div class="field"><label for="cdSearch">Buscar documentos</label><input id="cdSearch" type="search" placeholder="Número, cliente, proyecto"></div><select id="cdFilter" aria-label="Estado"><option value="all">Todos los estados</option>${Object.entries(labels).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select><div id="cdList"></div></aside><div class="cd-document">${documentView()}</div></div>`;
-  list();$('#cdSearch').oninput=list;$('#cdFilter').onchange=list;
+  root().innerHTML=`<div class="wo-heading"><div><div class="eyebrow">DOCUMENTOS AVH</div><h2>${admin()?'Presupuestos y órdenes de compra':'Presupuestos'}</h2><p>Documentos numerados con membrete institucional, listos para descargar y enviar.</p></div><div class="wo-actions"><button class="btn primary" id="cdNewQuote" type="button">+ Presupuesto</button>${admin()?'<button class="btn" id="cdNewOc" type="button">+ Orden de compra</button>':''}</div></div><div id="commercialError" class="error" role="alert">${e(C.error)}</div>${importPanel()}<div class="wo-tabs"><button class="btn ${C.kind==='quote'?'primary':''}" data-cd-kind="quote">Presupuestos</button>${admin()?'<button class="btn '+(C.kind==='purchase_order'?'primary':'')+'" data-cd-kind="purchase_order">Órdenes de compra</button>':''}</div><div class="wo-layout"><aside class="wo-sidebar card"><div class="field"><label for="cdSearch">Buscar documentos</label><input id="cdSearch" type="search" placeholder="Número, cliente, proyecto"></div><select id="cdFilter" aria-label="Estado"><option value="all">Todos los estados</option>${Object.entries(labels).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select><div id="cdList"></div></aside><div class="cd-document">${documentView()}</div></div>`;
+  list();$('#cdExcelFile')?.addEventListener('change',evt=>run(()=>readQuoteExcel(evt.target.files?.[0]),evt.target));$('#cdExcelSheet')?.addEventListener('change',evt=>{if(C.excel)C.excel.sheet=evt.target.value;});$('#cdExcelAnalyze')?.addEventListener('click',evt=>run(prepareQuoteExcel,evt.target));$('#cdSearch').oninput=list;$('#cdFilter').onchange=list;
   $('#cdNewQuote').onclick=()=>run(()=>newDraft('quote'));$('#cdNewOc')?.addEventListener('click',()=>run(()=>newDraft('purchase_order')));
   $$('[data-cd-kind]').forEach(b=>b.onclick=()=>{if(b.dataset.cdKind==='purchase_order'&&!admin())return;if(C.dirty)return error('Guardá el borrador antes de cambiar de apartado.');C.kind=b.dataset.cdKind;C.current=null;render();});
   $$('[data-cd-header]').forEach(el=>el.oninput=()=>{if(!editable())return;payload()[el.dataset.cdHeader]=el.type==='number'?(el.value===''?null:Number(el.value)):el.value;C.dirty=true;updateTotals();});
@@ -98,7 +137,7 @@
    if(profile?.id!==owner)throw Error('La sesión cambió. Volvé a abrir la OC.');if(r.error)throw Error(r.error);
    C.current=r.data;C.dirty=false;await loadAll(true);render();return;
   }
-  const id=C.current.id;await command('save',{document_id:id,kind:C.current.kind,expected_version:C.current.version,work_order_id:C.current.work_order_id,payload:payload()});C.dirty=false;await documents();await open(id);
+  const id=C.current.id,info=C.current.importInfo;await command('save',{document_id:id,kind:C.current.kind,expected_version:C.current.version,work_order_id:C.current.work_order_id,payload:payload(),...(info&&!info.archived?{excel_source:{...info.source,warnings:info.warnings}}:{})});C.dirty=false;await documents();await open(id);if(info){info.archived=true;C.current.importInfo=info;render();}
  }
  async function improve(){
   if(C.dirty||!C.current.version)await save();const id=C.current.id,version=C.current.version,owner=profile?.id;

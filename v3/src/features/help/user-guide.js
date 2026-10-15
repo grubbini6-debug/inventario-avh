@@ -31,7 +31,7 @@
         step('Guardá y revisá','Guardar borrador archiva el Excel original. Usá Vista previa OT para revisar el documento antes de emitirlo.')
       ],'Las propuestas de IA requieren revisión del responsable técnico.','work-orders'),
       topic('production-quotes','Presupuestos','Preparar un presupuesto profesional','Crear y enviar presupuestos con el membrete AVH.',[
-        step('Creá el presupuesto','Desde una OT usá Crear presupuesto desde esta OT, o ingresá a Presupuestos para crear uno nuevo.'),
+        step('Subí el Excel con precios','En Presupuestos elegí Seleccionar Excel, seleccioná la hoja y pulsá Preparar presupuesto. También podés crear uno a mano o desde una OT.'),
         step('Completá los importes','Revisá destinatario, cantidades, precios, moneda, IVA, vigencia y condiciones. La IA puede proponer una redacción para revisar.'),
         step('Revisá y emití','Guardá el borrador, abrí Vista previa PDF y luego Emitir presupuesto numerado. El PDF definitivo queda listo para enviar.')
       ],'Revisá el alcance y los importes antes de emitir el presupuesto.','commercial'),
