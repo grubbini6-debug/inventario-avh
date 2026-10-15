@@ -2,15 +2,15 @@
 (function(){
   const VERSION='1',seen=new Set();
   const normal=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-  const eligible=()=>!!profile?.active&&!profile.must_change_password&&['admin','depositor'].includes(profile.role);
+  const eligible=()=>!!profile?.active&&!profile.must_change_password&&['admin','depositor','production'].includes(profile.role);
   function access(){
-    const admin=profile?.role==='admin',f=window.AVHManufacturing?.state;
+    const admin=profile?.role==='admin',production=profile?.role==='production',f=window.AVHManufacturing?.state;
     const workshop=f?.context?.workshops?.find(w=>w.warehouse_id===f.warehouse&&w.enabled&&w.access_level);
     const assigned=admin||workshop?.warehouse_id===profile?.warehouse_id;
     const operator=!!(workshop&&assigned&&window.AVHManufacturing?.writable());
     const supervisor=!!(admin&&workshop&&workshop.access_level==='supervisor');
     const warehouse=admin?'Todos los depósitos':whName(profile?.warehouse_id);
-    return{admin,operator,supervisor,warehouse,role:admin?'Compras y administración':operator?'Depósito y Fabricación Naval':'Depósito'};
+    return{admin,production,operator,supervisor,warehouse:production?'':warehouse,role:production?'Producción / Órdenes de Trabajo':admin?'Compras y administración':operator?'Depósito y Fabricación Naval':'Depósito'};
   }
   const key=()=>`avh_user_guide_v${VERSION}:${profile.id}`;
   function hasSeen(){try{return seen.has(profile.id)||localStorage.getItem(key())==='seen'}catch{return seen.has(profile.id)}}
@@ -23,6 +23,20 @@
   const step=(title,text)=>({title,text});
   const topic=(id,category,title,summary,steps,note='',action=null)=>({id,category,title,summary,steps,note,action});
   function topics(a){
+    if(a.production)return[
+      topic('work-order-start','Órdenes de Trabajo','Preparar una orden desde Excel','Revisar el alcance y los insumos de cada trabajo.',[
+        step('Ingresá a tu panel','Al entrar con tu cuenta de Producción se abre Órdenes de Trabajo. En el primer ingreso debés cambiar la contraseña temporal.'),
+        step('Subí el archivo','Elegí un Excel, seleccioná la hoja y usá Analizar con IA. Revisá la embarcación, el cliente, las tareas y las medidas contra el original.'),
+        step('Definí los insumos','Revisá las operaciones y controles propuestos. Vinculá materiales al catálogo, completá cantidades y marcá únicamente las confirmadas.'),
+        step('Guardá y revisá','Guardar borrador archiva el Excel original. Usá Vista previa PDF para revisar el documento antes de emitirlo.')
+      ],'Las propuestas de IA requieren revisión del responsable técnico.','work-orders'),
+      topic('work-order-issue','Órdenes de Trabajo','Emitir el PDF numerado y seguir el avance','Compartir una orden formal y conservar su historial.',[
+        step('Emití la orden','Emitir OT numerada asigna el número definitivo y conserva el alcance. Descargá el PDF para enviarlo o imprimirlo.'),
+        step('Registrá el trabajo','Ingresá el avance y las observaciones de cada ítem. Calidad registra las inspecciones con su propia autorización.'),
+        step('Coordiná materiales','Compartí los insumos definidos con Compras y el responsable del depósito para su abastecimiento.'),
+        step('Cerrá la orden','El cierre requiere avance completo y aprobación de Calidad. Los trabajos adicionales se preparan en otra orden.')
+      ],'Esperá la confirmación al guardar. Los cambios pendientes pueden perderse al recargar o salir.','work-orders')
+    ];
     const common=[
       topic('first-login','Primeros pasos','Primer ingreso y navegación','Conocé tu cuenta y encontrá las tareas que tenés habilitadas.',[
         step('Ingresá con tu usuario','Usá la cuenta y contraseña que te entregó administración. Si el sistema pide cambiar la contraseña, completá ese paso antes de trabajar.'),
@@ -147,7 +161,7 @@
         step('Producto fabricado','Para ingresar piezas terminadas de una orden, creá su producto en el catálogo con unidad base unidad y pedí al operador que lo vincule a la orden.')
       ],'Crear un producto en el catálogo no carga cantidades de stock. Los movimientos y la fabricación registran las existencias.','admin-products'),
       topic('users','Administración','Crear usuarios y asignar sus permisos','Preparar una cuenta nueva con el acceso que le corresponde.',[
-        step('Creá el depositario','En Administración → Usuarios completá usuario, nombre, depósito asignado y contraseña temporal. Usá Crear depositario.'),
+        step('Creá el usuario','En Administración → Usuarios elegí Depositario y su depósito, o Producción / Órdenes de Trabajo para el responsable técnico. Completá el nombre de usuario, nombre de la persona y clave temporal.'),
         step('Entregá el acceso','Indicá al usuario que ingrese y cambie su contraseña si el sistema lo solicita. En su Inicio verá la bienvenida y Cómo usar quedará disponible en el menú.'),
         step('Habilitá fabricación si corresponde','En Fabricación Naval → Configuración seleccioná el depósito existente. En Autorizar usuario asigná Operación al depositario correspondiente o Supervisión a una cuenta administrativa autorizada.'),
         step('Revisá cambios de personal','Actualizá la asignación o desactivá cuentas cuando corresponda. El rol de la cuenta y la autorización de fabricación deben coincidir con sus responsabilidades.')
@@ -178,6 +192,11 @@
     return[...common,...(!a.admin?depot:[]),...(a.operator?manufacturing:supervision),...(a.admin?administration:[])];
   }
   function firstSteps(a){
+    if(a.production)return[
+      {title:'Importá el alcance',text:'Subí el Excel y revisá las tareas que prepara la IA.',action:'work-orders',label:'Abrir Órdenes de Trabajo'},
+      {title:'Revisá los insumos',text:'Definí materiales, cantidades y controles para cada ítem.',action:'work-orders',label:'Revisar la orden'},
+      {title:'Emití y seguí',text:'Descargá el PDF numerado y registrá los avances.',action:'work-orders',label:'Ver mis órdenes'}
+    ];
     if(a.operator)return[
       {title:'Contá las existencias',text:'Cargá los materiales físicos del depósito y revisá las unidades.',action:'home',label:'Ir a Inicio'},
       {title:'Registrá al personal',text:'Agregá los operarios reales del taller antes de asignarlos.',action:'fabrication-workers',label:'Ver Personal'},
@@ -197,6 +216,7 @@
   function navigate(action){
     if(!eligible())return;
     const a=access();
+    if(a.production)return goPage('work-orders');
     if(['home','stock','gases'].includes(action))return goPage(action);
     if(action==='purchases'&&a.admin){goPage('purchases');return window.renderPurchases?.()}
     if(action==='alerts'&&a.admin){goPage('more');return renderModule('alerts')}
@@ -221,7 +241,7 @@
       <div class="card guide-filter"><div class="field"><label for="guideSearch">Buscar en la guía</label><input type="search" id="guideSearch" placeholder="Ej.: recibir, unidades, orden, reporte…" autocomplete="off"></div><div class="guide-categories" aria-label="Categorías de la guía">${categories.map(c=>`<button type="button" class="btn ${c==='Todo'?'on':''}" data-guide-category="${esc(c)}" aria-pressed="${c==='Todo'}">${esc(c)}</button>`).join('')}</div><p id="guideResultCount" role="status"></p></div>
       <div class="list" id="guideTopics" style="margin-top:12px">${rows.map(t=>`<details class="row guide-topic" data-guide-topic="${t.id}" data-guide-kind="${esc(t.category)}"><summary><span><strong>${esc(t.title)}</strong><small>${esc(t.summary)}</small></span></summary><div class="guide-topic-content"><ol>${t.steps.map(x=>`<li><strong>${esc(x.title)}</strong>${esc(x.text)}</li>`).join('')}</ol>${t.note?`<div class="hint">${esc(t.note)}</div>`:''}${t.action?`<button type="button" class="btn soft" data-guide-action="${t.action}">Abrir la sección</button>`:''}</div></details>`).join('')}</div>
       <div id="guideEmpty" class="empty hide" style="margin-top:12px">No encontramos esa tarea. Probá otra palabra o elegí Todo.</div>
-      <div class="guide-footer"><div><p>Podés consultar esta guía cuando lo necesites.</p><p id="guideAck" role="status"></p></div><div class="guide-actions"><button type="button" id="guideAcknowledge" class="btn soft" ${hasSeen()?'disabled':''}>${hasSeen()?'Guía revisada':'Entendido'}</button><button type="button" class="btn primary" data-guide-action="home">Volver a Inicio</button></div></div>`;
+      <div class="guide-footer"><div><p>Podés consultar esta guía cuando lo necesites.</p><p id="guideAck" role="status"></p></div><div class="guide-actions"><button type="button" id="guideAcknowledge" class="btn soft" ${hasSeen()?'disabled':''}>${hasSeen()?'Guía revisada':'Entendido'}</button><button type="button" class="btn primary" data-guide-action="${a.production?'work-orders':'home'}">${a.production?'Volver a Órdenes de Trabajo':'Volver a Inicio'}</button></div></div>`;
     let category='Todo';
     const documents=new Map(rows.map(t=>[t.id,normal([t.title,t.summary,t.note,...t.steps.map(s=>s.title+' '+s.text)].join(' '))]));
     function filter(){
@@ -235,7 +255,7 @@
   }
   function syncWelcome(){
     const previous=$('#guideWelcome');
-    if(!eligible()||hasSeen()){previous?.remove();return}
+    if(!eligible()||profile.role==='production'||hasSeen()){previous?.remove();return}
     const root=$('#page-home');if(!root||!canRefreshView(root))return;
     const a=access(),scope=JSON.stringify([profile.id,a.role,a.warehouse]);if(previous?.dataset.scope===scope)return;
     previous?.remove();const card=document.createElement('aside');card.id='guideWelcome';card.className='card guide-welcome';card.dataset.scope=scope;card.setAttribute('aria-labelledby','guideWelcomeTitle');

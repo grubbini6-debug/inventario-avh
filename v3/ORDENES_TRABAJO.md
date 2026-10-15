@@ -15,11 +15,14 @@ El espacio técnico de Galo convierte un Excel de alcance naval en un borrador r
 
 ## Accesos
 
-Los administradores ven el módulo. En **Órdenes de Trabajo → Accesos**, habilitar el usuario existente de Galo como **Preparar, emitir y seguir órdenes**. Para Calidad elegir **Inspeccionar trabajos**. Los usuarios sin autorización explícita carecen de acceso a órdenes y archivos. Crear usuarios nuevos desde Administración → Usuarios cuando corresponda.
+En **Administración → Usuarios**, elegir **Producción / Órdenes de Trabajo**, completar usuario, nombre y clave temporal. La cuenta se crea sin depósito asignado y con permiso para preparar, emitir y seguir órdenes. Al ingresar abre directamente su panel; la primera sesión exige cambiar la clave. Administración puede actualizar sus datos, desactivar la cuenta o restablecer la clave desde **Gestionar**.
+
+Los administradores conservan supervisión del módulo. **Órdenes de Trabajo → Accesos** permite habilitar otras cuentas existentes o revocar permisos. Para Calidad elegir **Inspeccionar trabajos**. Producción prepara los requerimientos; Compras y el depositario coordinan el abastecimiento con los permisos de depósito existentes.
 
 ## Despliegue
 
 - Migración: `migrations/20261014194409_ordenes_trabajo_galo.sql`.
+- Perfil de Producción: `migrations/20261015105130_perfil_produccion_ordenes_trabajo.sql` y funciones `admin-create-user`, `admin-reset-user-password`. El alta del perfil y su acceso se guarda en una transacción; solo el servicio autorizado puede usar `provision_work_order_user`. La gestión de cuentas valida el rol administrador en PostgreSQL.
 - Edge Functions: `work-order-ai` y `work-order-pdf`, con validación de JWT y autorización desde perfiles/roles guardados en PostgreSQL.
 - IA: usa `OPENAI_API_KEY` del proyecto. `OPENAI_WORK_ORDER_MODEL` permite definir el modelo de este módulo; su valor predeterminado es `gpt-5.4-mini`.
 - Excel: SheetJS CE `0.20.3`, copiado desde la distribución oficial a un asset local. Se carga cuando se importa un archivo y mantiene la CSP del sitio.
