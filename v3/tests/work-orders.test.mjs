@@ -64,8 +64,26 @@ test('real PostgreSQL: work-order authority, numbered emission, immutable scope 
   });
  }finally{await db.close();}
 });
-test('PDF renderer keeps multi-page work scope and pending inputs legible',async()=>{
- const tasks=Array.from({length:75},(_,i)=>({id:'i'+i,sector:'Sector '+i,description:'Trabajo '+i+' - reparación y medición de chapa naval con descripción extensa para validar saltos de página.',quantity:1,unit:'unidad',length_mm:4300,width_mm:3000,thickness_mm:12.7,weight_kg:1286,operations:['Corte y montaje'],acceptance:['Revisar medidas'],materials:[{description:'Consumible',quantity:null,unit:'kg',confirmed:false,basis:'Cantidad pendiente de validar'}]}));
- const bytes=await makeWorkOrderPdf({number:'OT-AVH-2026-00001',status:'issued',issued_payload:{title:'Reparación naval',vessel:'TEST 716',client:'Cliente',responsible:'Galo',order_date:'2026-10-14',tasks}},pdfLib);
- const doc=await pdfLib.PDFDocument.load(bytes);assert.ok(doc.getPageCount()>3);assert.match(doc.getTitle(),/OT-AVH/);assert.ok(bytes.length>20000);
+function printedText(doc){
+ return doc.getPages().flatMap(page=>page.node.Contents().asArray().flatMap(ref=>{
+  const stream=doc.context.lookup(ref),source=new TextDecoder().decode(pdfLib.decodePDFRawStream(stream).decode());
+  return [...source.matchAll(/<([0-9A-F]+)>\s*Tj/g)].map(m=>Buffer.from(m[1],'hex').toString('latin1'));
+ })).join(' ');
+}
+test('Execution PDF retains every task and its measures without printing internal planning or a bill of materials',async()=>{
+ const tasks=Array.from({length:75},(_,i)=>({id:'i'+i,sector:'Sector '+i,description:'OTITEM'+String(i).padStart(3,'0')+' - reparación y medición de chapa naval con descripción extensa para validar saltos de página.',quantity:1,unit:'unidad',length_mm:4300,width_mm:3000,thickness_mm:12.7,area_m2:12.9,weight_kg:1286,operations:['OPERACIÓN_INTERNA'],acceptance:['CONTROL_INTERNO'],materials:Array.from({length:8},()=>({description:'INSUMO_INTERNO',quantity:null,unit:'kg',confirmed:false,basis:'BASE_INTERNA'}))}));
+ const p={title:'Reparación naval',vessel:'TEST 716',client:'Cliente',responsible:'Galo',order_date:'2026-10-14',notes:'Ejecutar los trabajos indicados.\nComentario interno source_row groups.rows.',tasks};
+ const render=async payload=>pdfLib.PDFDocument.load(await makeWorkOrderPdf({number:'OT-AVH-2026-00001',status:'issued',issued_payload:payload},pdfLib));
+ const doc=await render(p),text=printedText(doc);assert.ok(doc.getPageCount()>=2&&doc.getPageCount()<=5);assert.match(doc.getTitle(),/OT-AVH/);
+ for(let i=0;i<75;i++)assert.ok(text.includes('OTITEM'+String(i).padStart(3,'0')),'Missing task '+i);
+ assert.match(text,/4\.300 x 3\.000 x 12,7 mm/);assert.match(text,/Trabajos: 75/);assert.match(text,/Ejecutar los trabajos indicados/);
+ assert.doesNotMatch(text,/INSUMO_INTERNO|OPERACIÓN_INTERNA|CONTROL_INTERNO|BASE_INTERNA|source_row|groups\.rows/);
+ const scopeOnly=await render({...p,tasks:tasks.map(t=>({...t,operations:[],acceptance:[],materials:[]}))});
+ assert.equal(doc.getPageCount(),scopeOnly.getPageCount());assert.equal(text,printedText(scopeOnly));
+});
+test('A short execution order fits one page and keeps partial measures, surface and operative observations',async()=>{
+ const p={title:'Plan de trabajo naval agrupado por recetas',vessel:'TEST',notes:'Ejecutar en el sector indicado.',tasks:[{id:'a',sector:'Interior',description:'Aplicar pintura interior (cotizar por m2)',kind:'service',quantity:177,unit:'m²',area_m2:180,materials:[{description:'No imprimir este insumo',quantity:8,unit:'litro'}]},{id:'b',sector:'Popa',description:'Reparar refuerzo',length_mm:4300,thickness_mm:7.94,quantity:1,unit:'unidad'}]};
+ const doc=await pdfLib.PDFDocument.load(await makeWorkOrderPdf({status:'draft',payload:p},pdfLib)),text=printedText(doc);
+ assert.equal(doc.getPageCount(),1);assert.match(text,/BORRADOR PARA REVISIÓN/);assert.match(text,/Trabajos a ejecutar/);assert.match(text,/Superficie 180 m²/);assert.match(text,/177 m²/);assert.match(text,/Largo 4\.300 mm/);
+ assert.doesNotMatch(text,/cotizar|recetas|No imprimir este insumo/);
 });
