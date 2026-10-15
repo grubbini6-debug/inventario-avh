@@ -23,8 +23,9 @@ async function boot(){
 
     $('#who').textContent=profile.role==='admin'
       ?'Administrador general'
-      :`${profile.username} · ${whName(profile.warehouse_id)||'Depósito asignado'}`;
+      :profile.role==='production'?`${profile.username} · Producción / Órdenes de Trabajo`:`${profile.username} · ${whName(profile.warehouse_id)||'Depósito asignado'}`;
     showApp(true);
+    if(profile.role==='production')goPage('work-orders');
 
     clearInterval(refreshTimer);
     refreshTimer=setInterval(()=>loadAll(false),20000);

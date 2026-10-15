@@ -70,7 +70,7 @@
   const previousLoadAllPurchases=window.loadAll;
   window.loadAll=async function(force=false){
     await previousLoadAllPurchases(force);
-    if(!profile)return;
+    if(!profile||profile.role==='production')return;
     await loadPurchaseData();ensurePurchasePage();
     if(document.querySelector('#page-purchases')?.classList.contains('on')&&profile.role==='admin'&&canRefreshView('#page-purchases')){
       if(activePurchaseRecordId&&(D.purchases||[]).some(x=>x.id===activePurchaseRecordId))window.openPurchaseDetail(activePurchaseRecordId);

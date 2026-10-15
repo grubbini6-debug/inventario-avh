@@ -50,6 +50,17 @@ async function loadAll(force=false){
   if(loading)return;
   loading=true;
   try{
+    if(profile.role==='production'){
+      const catalogs=['warehouses','products','presentations','barges'];
+      for(const key of Object.keys(D))if(Array.isArray(D[key])&&!catalogs.includes(key))D[key]=[];
+      const results=await Promise.all([
+        safeLoad('warehouses',query('warehouses','*','order=name.asc')),
+        safeLoad('products',query('products','*','order=name.asc')),
+        safeLoad('presentations',query('product_presentations','*','order=label.asc')),
+        safeLoad('barges',query('barges','*','order=number.asc'))
+      ]);
+      updateSyncState(results.filter(Boolean));return;
+    }
     const jobs=[safeLoad('warehouses',query('warehouses','*','order=name.asc')),safeLoad('products',query('products','*','order=name.asc')),safeLoad('presentations',query('product_presentations','*','order=label.asc')),safeLoad('barges',query('barges','*','order=number.asc')),safeLoad('suppliers',query('suppliers','*','order=name.asc')),safeLoad('stocks',query('v_stock_by_warehouse')),safeLoad('stockStatus',query('v_stock_status')),safeLoad('stockValues',query('v_stock_value_by_warehouse')),safeLoad('minimums',query('stock_minimums')),safeLoad('moves',query('movements','*,movement_lines(*,products(name,base_unit))','order=created_at.desc&limit=400')),safeLoad('bargeConsumption',query('v_barge_consumption','*','order=barge_number.asc')),safeLoad('productConsumption',query('v_product_consumption','*','order=base_quantity.desc')),safeLoad('warehouseActivity',query('v_warehouse_activity_today')),safeLoad('openingInventorySessions',query('warehouse_opening_inventory','*','order=opened_at.desc'))];
     if(profile.role==='admin'){jobs.push(safeLoad('productRequests',query('product_requests','*','order=created_at.desc&limit=100')),safeLoad('correctionRequests',query('correction_requests','*','order=created_at.desc&limit=100')),safeLoad('profiles',query('profiles','*','order=username.asc')),safeLoad('auditEvents',query('audit_events','*','order=created_at.desc&limit=300')))}
     jobs.push(safeLoad('notifications',query('notifications','*','order=created_at.desc&limit=80')));

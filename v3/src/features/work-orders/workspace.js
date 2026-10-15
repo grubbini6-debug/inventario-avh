@@ -12,13 +12,14 @@
  function navigation(){
   $$('.work-orders-nav').forEach(b=>{b.classList.toggle('hide',!allowed());b.style.display=allowed()?'':'none';});
   document.body.classList.toggle('work-orders-authorized',allowed());
+  document.body.classList.toggle('production-mode',profile?.role==='production');
  }
  async function context(){
   if(!profile)return;
   const user=profile.id;
   if(W.user!==user){Object.assign(W,{user,context:null,orders:[],current:null,dirty:false,busy:false,file:null,book:null,error:'',tab:'scope'});W.epoch++;W.opened.clear();}
   const r=await rpc('work_order_context');if(profile?.id!==user)return;
-  const was=allowed();W.context=r.error?null:r.data;navigation();if($('#page-work-orders')?.classList.contains('on')&&(!allowed()||!was))render();
+  const was=allowed();W.context=r.error?null:r.data;navigation();if(profile.role==='production'&&!$('#page-work-orders')?.classList.contains('on')&&!$('#page-help')?.classList.contains('on'))goPage('work-orders');if($('#page-work-orders')?.classList.contains('on')&&(!allowed()||!was))render();
  }
  async function orders(){
   const user=profile?.id,r=await queryAll('work_orders','id,number,status,version,created_at,updated_at,title:payload->>title,vessel:payload->>vessel,client:payload->>client','order=created_at.desc');
@@ -77,13 +78,13 @@
   }));return [...groups.values()];
  }
  function bom(){
-  const p=current(),access=profile.role==='admin'||p.warehouse_id===profile.warehouse_id,requester=profile.role==='depositor'&&p.warehouse_id===profile.warehouse_id;
+  const p=current(),access=profile.role==='admin'||(profile.role==='depositor'&&!!profile.warehouse_id&&p.warehouse_id===profile.warehouse_id),requester=profile.role==='depositor'&&p.warehouse_id===profile.warehouse_id;
   const rows=materialGroups().map((g,i)=>{
    const product=D.products.find(x=>x.id===g.product_id),stock=access&&p.warehouse_id&&product&&product.base_unit===g.unit?Number(D.stocks.find(x=>x.warehouse_id===p.warehouse_id&&x.product_id===product.id)?.stock_qty||0):null;
    const missing=stock===null||!g.confirmedCount?null:Math.max(0,g.confirmed-stock);
    return '<tr><td>'+e(g.name)+'<small>Trabajos '+g.tasks.join(', ')+'</small></td><td>'+(g.definedCount?fmt(g.defined)+' '+e(g.unit):'Por definir')+(g.pending?'<small>'+g.pending+' cantidades pendientes</small>':'')+'</td><td>'+(g.confirmedCount?fmt(g.confirmed)+' '+e(g.unit):'Por confirmar')+'</td><td>'+(stock===null?'Sin consulta':fmt(stock)+' '+e(g.unit))+'</td><td>'+(missing===null?'Por revisar':fmt(missing)+' '+e(g.unit))+'</td><td>'+(editor()&&requester&&g.confirmedCount&&(missing===null||missing>0)?'<button type="button" class="btn sm" data-group-supply="'+i+'">Preparar solicitud</button>':'')+'</td></tr>';
   });
-  return '<div class="card"><h3>Requerimientos acumulados por producto</h3><p class="hint">Se suman los insumos de todos los trabajos de la orden. El faltante se calcula sobre cantidades confirmadas y stock registrado del depósito seleccionado. Las cantidades por definir siguen pendientes.</p><div class="wo-table-wrap"><table class="wo-table"><thead><tr><th>Material e ítems</th><th>Cantidad definida</th><th>Confirmada</th><th>Stock registrado</th><th>Faltante confirmado</th><th></th></tr></thead><tbody>'+ (rows.join('')||'<tr><td colspan="6">Sin insumos registrados.</td></tr>')+'</tbody></table></div></div>';
+  return '<div class="card"><h3>Requerimientos acumulados por producto</h3><p class="hint">Se suman los insumos de todos los trabajos de la orden. Las cantidades por definir siguen pendientes. La consulta de stock depende del permiso de depósito de la cuenta.</p><div class="wo-table-wrap"><table class="wo-table"><thead><tr><th>Material e ítems</th><th>Cantidad definida</th><th>Confirmada</th><th>Stock registrado</th><th>Faltante confirmado</th><th></th></tr></thead><tbody>'+ (rows.join('')||'<tr><td colspan="6">Sin insumos registrados.</td></tr>')+'</tbody></table></div></div>';
  }
  function documentView(){
   if(!W.current)return empty('Subí un Excel o abrí una orden para trabajar.');
@@ -92,7 +93,7 @@
    <div class="wo-tabs"><button class="btn ${W.tab==='scope'?'primary':''}" data-wo-tab="scope">Orden y trabajos</button><button class="btn ${W.tab==='materials'?'primary':''}" data-wo-tab="materials">Insumos y stock</button><button class="btn ${W.tab==='history'?'primary':''}" data-wo-tab="history">Historial</button></div>
    ${W.tab==='materials'?bom():W.tab==='history'?`<div class="list">${(o.events||[]).map(x=>`<div class="row"><strong>${e({save:'Borrador guardado',issue:'Orden emitida',progress:'Avance registrado',quality:'Inspección de Calidad',attachment:'Excel archivado',close:'Orden cerrada',cancel:'Orden anulada'}[x.action]||x.action)}</strong><div class="subtext">${dt(x.created_at)}</div><p>${e(x.request_data.notes||x.request_data.observations||x.request_data.reason||'')}</p></div>`).join('')||empty('Sin eventos registrados.')}</div>`:`
    <div class="card"><div class="wo-grid">${field('title','Título',p.title)}${field('vessel','Embarcación',p.vessel)}${field('client','Cliente',p.client)}${field('location','Lugar de ejecución',p.location)}${field('responsible','Responsable técnico',p.responsible)}${field('executor','Ejecutor / empresa',p.executor)}${field('order_date','Fecha de la orden',p.order_date,'date')}${field('due_date','Fecha prevista',p.due_date,'date')}
-   <div class="field"><label for="wo-warehouse">Depósito para consultar insumos</label><select id="wo-warehouse" data-header="warehouse_id" ${readonly()?'disabled':''}><option value="">Seleccionar</option>${D.warehouses.filter(x=>x.active&&(profile.role==='admin'||x.id===profile.warehouse_id)).map(x=>`<option value="${x.id}" ${x.id===p.warehouse_id?'selected':''}>${e(x.name)}</option>`).join('')}</select></div></div>${area('notes','Alcance general y observaciones',p.notes)}
+   <div class="field"><label for="wo-warehouse">${profile.role==='production'?'Depósito de abastecimiento':'Depósito para consultar insumos'}</label><select id="wo-warehouse" data-header="warehouse_id" ${readonly()?'disabled':''}><option value="">Seleccionar</option>${D.warehouses.filter(x=>x.active&&(profile.role==='admin'||profile.role==='production'||x.id===profile.warehouse_id)).map(x=>`<option value="${x.id}" ${x.id===p.warehouse_id?'selected':''}>${e(x.name)}</option>`).join('')}</select></div></div>${area('notes','Alcance general y observaciones',p.notes)}
    ${p.source?`<p class="hint">Origen: ${e(p.source.file_name)} · Hoja ${e(p.source.sheet)} · ${p.tasks.length} trabajos.</p>`:''}
    ${p.ai_warnings?.length?`<div class="wo-review"><strong>Puntos para revisar</strong>${p.ai_warnings.map(w=>`<p>${e(w)}</p>`).join('')}</div>`:''}</div>
    <div class="section-head"><h3>Trabajos e implicancias</h3>${!readonly()?'<button class="btn sm" id="woAddTask" type="button">+ Agregar trabajo</button>':''}</div><div class="wo-task-list">${p.tasks.map(taskView).join('')||empty('Subí un Excel para analizar sus trabajos.')}</div>`}`;
@@ -190,10 +191,10 @@
  }
  function accessForm(){
   const users=D.profiles.filter(p=>p.active&&p.role!=='admin');
-  openModal('Accesos a Órdenes de Trabajo','Habilitá el usuario de Galo y los usuarios de Calidad.',`<div class="field"><label for="woAccessUser">Usuario existente</label><select id="woAccessUser">${users.map(p=>`<option value="${p.id}">${e(p.username)} · ${e(p.full_name)}</option>`).join('')}</select></div><div class="field"><label for="woAccessRole">Acceso</label><select id="woAccessRole"><option value="editor">Preparar, emitir y seguir órdenes</option><option value="quality">Inspeccionar trabajos (Calidad)</option><option value="viewer">Consultar</option><option value="none">Revocar acceso</option></select></div><button class="btn primary" id="woAccessSave" type="button">Guardar acceso</button><div class="list">${(W.context.access||[]).map(a=>`<div class="row">${e(a.username)} · ${e(a.access_level)}</div>`).join('')}</div><p class="hint">Si Galo todavía no tiene usuario, crealo desde Administración → Usuarios y habilitalo aquí.</p>`);
+  openModal('Accesos a Órdenes de Trabajo','Habilitá el usuario de Galo y los usuarios de Calidad.',`<div class="field"><label for="woAccessUser">Usuario existente</label><select id="woAccessUser">${users.map(p=>`<option value="${p.id}">${e(p.username)} · ${e(p.full_name)}</option>`).join('')}</select></div><div class="field"><label for="woAccessRole">Acceso</label><select id="woAccessRole"><option value="editor">Preparar, emitir y seguir órdenes</option><option value="quality">Inspeccionar trabajos (Calidad)</option><option value="viewer">Consultar</option><option value="none">Revocar acceso</option></select></div><button class="btn primary" id="woAccessSave" type="button">Guardar acceso</button><div class="list">${(W.context.access||[]).map(a=>`<div class="row">${e(a.username)} · ${e(a.access_level)}</div>`).join('')}</div><p class="hint">Las cuentas nuevas con perfil Producción / Órdenes de Trabajo quedan habilitadas al crearlas desde Administración → Usuarios.</p>`);
   $('#woAccessSave').onclick=evt=>run(async()=>{await command('access',{user_id:$('#woAccessUser').value,access_level:$('#woAccessRole').value});await context();closeModal();render();},evt.target);
  }
- const go=window.goPage;window.goPage=function(page){if(page==='work-orders'&&!allowed())return;const r=go.apply(this,arguments);if(page==='work-orders'){render();if(!W.dirty&&!W.busy)run(async()=>{await orders();render();});}return r;};
+ const go=window.goPage;window.goPage=function(page){if(profile?.role==='production'&&!['work-orders','help'].includes(page))page='work-orders';if(page==='work-orders'&&!allowed()&&profile?.role!=='production')return;const r=go.call(this,page);if(page==='work-orders'){render();if(allowed()&&!W.dirty&&!W.busy)run(async()=>{await orders();render();});}return r;};
  const load=window.loadAll;window.loadAll=async function(){const r=await load.apply(this,arguments);await context();if(allowed()&&$('#page-work-orders')?.classList.contains('on')&&!W.dirty&&!W.followDirty&&!W.busy&&canRefreshView('#page-work-orders')){await orders();render();}return r;};
  window.AVHWorkOrders={refresh:async()=>{await context();await orders();render();},state:W};
 })();

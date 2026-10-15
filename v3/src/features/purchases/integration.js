@@ -19,7 +19,7 @@
   const prevLoadAllV6=window.loadAll;
   window.loadAll=async function(force=false){
     await prevLoadAllV6(force);
-    if(!profile)return;
+    if(!profile||profile.role==='production')return;
     const alertError=await safeLoad('purchaseAlerts',query('v_purchase_alerts','*','order=days_late.desc'));
     updateSyncState([...(lastSyncErrors||[]).filter(x=>x.key!=='purchaseAlerts'),...(alertError?[alertError]:[])]);
     if(canRefreshModule()){
@@ -34,7 +34,7 @@
   function closePurchaseRealtime(){clearInterval(ph);clearTimeout(pr);clearTimeout(pRefresh);if(ps){try{ps.onclose=null;ps.close()}catch{}ps=null}}
   function schedulePurchaseReload(){clearTimeout(pRefresh);pRefresh=setTimeout(async()=>{if(!profile)return;try{await loadAll(true)}catch{}},650)}
   function startPurchaseRealtime(force=false){
-    if(!profile||!session?.access_token)return;
+    if(!profile||profile.role==='production'||!session?.access_token)return;
     if(!force&&ps&&[WebSocket.OPEN,WebSocket.CONNECTING].includes(ps.readyState)&&pStarted===profile.id)return;
     closePurchaseRealtime();pStarted=profile.id;
     const wsBase=API.replace(/^https:/,'wss:').replace(/^http:/,'ws:');
