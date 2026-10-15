@@ -53,6 +53,7 @@ test('A Production session boots into its orders panel, loads technical catalogs
  w.fetch=async(url)=>{
   const u=new URL(url),path=u.pathname;calls.push(path);
   if(path==='/rest/v1/profiles')return Response.json([user]);
+  if(path==='/rest/v1/rpc/commercial_context')return Response.json({access_level:'editor',company:{name:'AVH'},suppliers:[]});
   if(path==='/rest/v1/rpc/work_order_context')return Response.json({access_level:'editor',access:[]});
   if(path==='/rest/v1/rpc/work_order_inventory')return Response.json({work_location:'Astillero Villa Hayes',warehouse:{id:whId,name:'Villa Hayes'},items:[{product_id:'test-product',product_name:'Alambre',stock_qty:20,base_unit:'kg',minimum_qty:10}],next_cursor:null,updated_at:'2026-10-15T11:00:00Z'});
   if(path==='/rest/v1/rpc/fabrication_context')return Response.json({workshops:[]});
@@ -70,6 +71,7 @@ test('A Production session boots into its orders panel, loads technical catalogs
   w.crypto.randomUUID=randomUUID;w.document.querySelector('#woNew').click();
   assert.equal(w.AVHWorkOrders.state.current.payload.location,'Astillero Villa Hayes');assert.equal(w.AVHWorkOrders.state.current.payload.warehouse_id,whId);
   w.goPage('production-inventory');assert.equal(w.document.querySelector('.page.on').id,'page-production-inventory');assert.match(w.document.querySelector('#productionStockRows').textContent,/Alambre/);
+  w.goPage('commercial');assert.equal(w.document.querySelector('.page.on').id,'page-commercial');assert.ok(w.document.querySelector('#cdNewQuote'));assert.equal(w.document.querySelector('#cdNewOc'),null);assert.equal(w.document.querySelector('[data-cd-kind="purchase_order"]'),null);
   w.goPage('stock');assert.equal(w.document.querySelector('.page.on').id,'page-work-orders');
   w.goPage('help');assert.equal(w.document.querySelector('.page.on').id,'page-help');assert.match(w.document.querySelector('#page-help').textContent,/Preparar una orden desde Excel/);
   assert.equal(w.document.querySelector('[data-guide-topic="receive"]'),null);

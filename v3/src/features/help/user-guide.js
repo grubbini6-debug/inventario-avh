@@ -30,6 +30,11 @@
         step('Definí los insumos','Revisá las operaciones y controles propuestos. Vinculá materiales al catálogo, completá cantidades y marcá únicamente las confirmadas.'),
         step('Guardá y revisá','Guardar borrador archiva el Excel original. Usá Vista previa OT para revisar el documento antes de emitirlo.')
       ],'Las propuestas de IA requieren revisión del responsable técnico.','work-orders'),
+      topic('production-quotes','Presupuestos','Preparar un presupuesto profesional','Crear y enviar presupuestos con el membrete AVH.',[
+        step('Creá el presupuesto','Desde una OT usá Crear presupuesto desde esta OT, o ingresá a Presupuestos para crear uno nuevo.'),
+        step('Completá los importes','Revisá destinatario, cantidades, precios, moneda, IVA, vigencia y condiciones. La IA puede proponer una redacción para revisar.'),
+        step('Revisá y emití','Guardá el borrador, abrí Vista previa PDF y luego Emitir presupuesto numerado. El PDF definitivo queda listo para enviar.')
+      ],'Las órdenes de compra son exclusivas de Administración.','commercial'),
       topic('work-order-issue','Órdenes de Trabajo','Emitir el PDF numerado y seguir el avance','Compartir una orden formal y conservar su historial.',[
         step('Emití la orden','Emitir OT numerada asigna el número definitivo y conserva el alcance. Descargá la OT para enviarla o imprimirla. El documento contiene el alcance de ejecución; presupuestos y órdenes de compra se gestionan después.'),
         step('Registrá el trabajo','Ingresá el avance y las observaciones de cada ítem. Calidad registra las inspecciones con su propia autorización.'),
@@ -216,7 +221,7 @@
   function navigate(action){
     if(!eligible())return;
     const a=access();
-    if(a.production)return goPage(action==='production-inventory'?'production-inventory':'work-orders');
+    if(a.production)return goPage(['production-inventory','commercial'].includes(action)?action:'work-orders');
     if(['home','stock','gases'].includes(action))return goPage(action);
     if(action==='purchases'&&a.admin){goPage('purchases');return window.renderPurchases?.()}
     if(action==='alerts'&&a.admin){goPage('more');return renderModule('alerts')}

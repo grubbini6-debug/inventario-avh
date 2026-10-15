@@ -1,0 +1,9 @@
+// Preserve the existing purchase fields; no new taxes or terms are inferred.
+export function purchaseOrderDocument(p,company,supplier,items,destination,project){
+ const currency=p.currency||'PYG',scale=currency==='USD'?100n:1n,div=1000000000000n/scale;
+ const fixed=v=>BigInt(Number(v).toFixed(6).replace('.','')),round=(v,d)=>(v+d/2n)/d;
+ let raw=0n,subtotal=0n;
+ const rows=items.map((i,n)=>{const product=fixed(i.quantity)*fixed(i.unit_price),amount=round(product,div);raw+=product;subtotal+=amount;return{id:i.id||String(n),description:i.description,quantity:Number(i.quantity),unit:i.unit,unit_price:Number(i.unit_price),amount:Number(amount)/Number(scale)};});
+ const total=round(raw,div),deliveryMode=p.delivery_mode==='partial'?'Entregas parciales / liberaciones':'Entrega única';
+ return{kind:'purchase_order',status:p.status==='cancelled'?'cancelled':'issued',purchase_status:p.status,number:p.po_number,issued_payload:{company:{...company,brand_avh:/villa hayes/i.test(company.legal_name||company.name||'')||company.name==='AVH'},title:'Orden de compra - '+(p.source_document_number||p.order_reference||supplier.name||''),document_date:String(p.po_generated_at||p.created_at).slice(0,10),recipient_name:supplier.name||'Proveedor sin definir',recipient_tax_id:supplier.tax_id||'',recipient_contact:supplier.phone||'',reference:[p.source_document_number||p.order_reference,project].filter(Boolean).join(' - '),location:destination,delivery_date:p.expected_date||'',currency,items:rows,subtotal:Number(subtotal)/Number(scale),rounding_adjustment:Number(total-subtotal)/Number(scale),tax_amount:0,tax_mode:'unspecified',total:Number(total)/Number(scale),issuer_name:p.requester||'',payment_terms:p.payment_terms||'Según presupuesto de referencia',delivery_terms:deliveryMode+(p.expected_date?' - Fecha prevista: '+p.expected_date:''),notes:[p.notes,'Impuestos: según presupuesto de referencia.'].filter(Boolean).join('\n')}};
+}

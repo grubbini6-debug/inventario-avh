@@ -11,6 +11,7 @@
     fabrication:'Fabricación Naval',
     'work-orders':'Órdenes de Trabajo',
     'production-inventory':'Consulta de inventario',
+    'commercial':'Presupuestos y OC',
     help:'Cómo usar el sistema',
     more:'Gestión'
   };

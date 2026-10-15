@@ -23,6 +23,7 @@
   <button data-page="barges"><b>⚓</b><span>Barcazas</span></button>
   <button class="fabrication-nav hide" data-page="fabrication"><b>⚒</b><span>Fabricación Naval</span></button>
   <button class="work-orders-nav hide" data-page="work-orders"><b aria-hidden="true">▤</b><span>Órdenes de Trabajo</span></button>
+  <button class="commercial-nav hide" data-page="commercial"><b aria-hidden="true">▧</b><span>Presupuestos y OC</span></button>
   <button class="production-inventory-nav hide" data-page="production-inventory"><b aria-hidden="true">▦</b><span>Inventario</span></button>
   <div class="nav-section desktop-nav-only nav-section-management">GESTIÓN</div>
   <button class="desktop-nav-only nav-direct" data-shell-module="alerts"><b>🔔</b><span>Alertas</span></button>
@@ -58,6 +59,7 @@
 <section class="page" id="page-fabrication"><div id="fabricationContent"></div></section>
 <section class="page" id="page-gases"><div id="gasContent"></div></section>
 <section class="page" id="page-production-inventory" aria-label="Consulta de inventario"></section>
+<section class="page" id="page-commercial"><div id="commercialPanel"></div></section>
 <section class="page" id="page-work-orders"><div id="workOrderPanel"></div></section>
 <section class="page" id="page-help" aria-labelledby="guideTitle"><div id="userGuideContent"></div></section>
 <section class="page" id="page-more"><div class="section-head"><div><h2>Más módulos</h2><p>Control, pendientes y administración</p></div></div><div class="grid more-grid"><button class="card more-card" data-module="alerts"><span>🔔</span><strong>Alertas y pendientes</strong><small>Críticos, transferencias y solicitudes</small></button><button class="card more-card" data-module="reports"><span>📊</span><strong>Resumen operativo</strong><small>Indicadores y valorización</small></button><button class="card more-card admin-shell-only" data-module="purchase-intelligence" id="purchaseIntelligenceModule"><span>📈</span><strong>Inteligencia de Compras</strong><small>Gasto, proveedores, precios y entregas</small></button><button class="card more-card" data-module="product-request"><span>＋</span><strong>Solicitar producto</strong><small>Alta para aprobación del administrador</small></button><button class="card more-card" data-module="audit" id="auditModule"><span>🛡</span><strong>Auditoría</strong><small>Quién hizo qué y cuándo</small></button><button class="card more-card" data-module="admin" id="adminModule"><span>⚙</span><strong>Administración</strong><small>Catálogos, usuarios y mínimos</small></button></div><div id="moduleContent" style="margin-top:14px"></div></section>

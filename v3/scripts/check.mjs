@@ -74,8 +74,9 @@ for(const token of ['pcDeliveryMode','pdDeliveryMode','DELIVERY_MODE','Compra, f
 for(const token of ['smartDeliveryMode','delivery_mode',"Entregas parciales / liberaciones"]){
   if(!smartPurchaseSource.includes(token)){console.error('Smart purchase delivery-mode contract missing:',token);failed=true;}
 }
-for(const token of ['generated_professional_header_v7_delivery_mode','deliveryMode',"p.delivery_mode==='partial'"]){
-  if(!purchaseOrderPdfSource.includes(token)){console.error('Purchase-order PDF delivery-mode contract missing:',token);failed=true;}
+const purchaseOrderAdapterSource=fs.readFileSync(path.join(root,'edge-functions/_shared/purchase-order-document.mjs'),'utf8');
+for(const token of ['generated_professional_header_v8_institutional','deliveryMode',"p.delivery_mode==='partial'"]){
+  if(!(purchaseOrderPdfSource+purchaseOrderAdapterSource).includes(token)){console.error('Purchase-order PDF delivery-mode contract missing:',token);failed=true;}
 }
 for(const token of ['data-product-tab="supply"','openSupplyPolicyEditor','target_coverage_days','preferred_supplier_id','order_multiple_qty','recommended_buy_qty','data-buy-supply-policy']){
   if(!(productRecordSource+purchaseBaseSource).includes(token)){console.error('Supply policy contract missing:',token);failed=true;}
