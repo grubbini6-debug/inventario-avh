@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import {randomUUID,webcrypto} from 'node:crypto';
 import {database} from './fixtures/commercial-database.mjs';
+import {logoDataUrl} from './fixtures/quote-workbook.mjs';
 import * as pdfLib from 'pdf-lib';
 import {makeCommercialPdf} from '../edge-functions/_shared/commercial-pdf.mjs';
 import {makeWorkOrderPdf} from '../edge-functions/_shared/work-order-pdf.mjs';
@@ -26,7 +27,7 @@ test('Commercial authority, exact totals, immutable snapshots and central purcha
   await q('insert into purchase_companies(id,name,legal_name,tax_id,po_prefix) values($1,$2,$3,$4,$5)',[ids.company,'AVH',company.legal_name,company.tax_id,'OC']);await q('insert into suppliers(id,name,tax_id) values($1,$2,$3)',[ids.supplier,'Proveedor de prueba','123-4']);
   await t.test('drafts preserve pending prices; access is scoped and financial values are recomputed',async()=>{
    await login(ids.galo);const p=payload();p.items[0].unit_price=null;const data={document_id:quote,kind:'quote',payload:{...p,total:999,company:{legal_name:'Empresa falsa'}}},req=randomUUID();const saved=await cmd('save',data,req);assert.deepEqual(await cmd('save',data,req),saved);
-   assert.equal((await get(quote)).payload.items[0].unit_price,null);assert.equal((await get(quote)).payload.company,undefined);await assert.rejects(cmd('issue',{document_id:quote,expected_version:1}),/cantidad y precio/);
+   assert.equal((await get(quote)).payload.items[0].unit_price,null);assert.equal((await get(quote)).payload.company.legal_name,company.legal_name);await assert.rejects(cmd('issue',{document_id:quote,expected_version:1}),/cantidad y precio/);
    await login(ids.other);assert.equal((await q('select * from commercial_documents')).rows.length,0);await assert.rejects(get(quote),/sin acceso/);await assert.rejects(cmd('save',{...data,expected_version:1}),/sin acceso/);
    await login(ids.depositor);await assert.rejects(q('select commercial_context()'),/No autorizado/);await assert.rejects(cmd('save',data),/No autorizado/);
   });
@@ -35,6 +36,16 @@ test('Commercial authority, exact totals, immutable snapshots and central purcha
    const d=await get(quote),total=M.totals(p);assert.equal(Number(d.issued_payload.total),total.total);assert.equal(Number(d.issued_payload.total),1.11);assert.equal(d.issued_payload.company.tax_id,company.tax_id);
    await assert.rejects(cmd('save',{document_id:quote,kind:'quote',expected_version:3,payload:p}),/borrador/);await assert.rejects(q('update commercial_documents set number=$1 where id=$2',['FAKE',quote]),/permission/);
    const round=payload();round.items=[{...round.items[0],unit_price:.005,quantity:1},{...round.items[0],id:'item-2',unit_price:.005,quantity:1}];round.tax_mode='none';const id=randomUUID();await cmd('save',{document_id:id,kind:'quote',payload:round});const canonical=(await get(id)).payload;assert.equal(canonical.rounding_adjustment,-.01);assert.equal(canonical.total,.01);assert.equal(M.totals(round).total,.01);
+  });
+  await t.test('Production may preserve a quote issuer snapshot; incomplete issuers and unsafe logos cannot be issued',async()=>{
+   const id=randomUUID(),logo=logoDataUrl(),custom={brand_avh:false,legal_name:'Talleres del Puerto S.A.',tax_id:'',logo_data_url:logo},p={...payload(),company:custom};
+   await cmd('save',{document_id:id,kind:'quote',payload:p});assert.equal((await get(id)).payload.company.logo_data_url,logo);await assert.rejects(cmd('issue',{document_id:id,expected_version:1}),/razón social y RUC/);
+   const invalid=['https://example.test/logo.png','data:image/svg+xml;base64,PHN2Zy8+','data:image/png;base64,YmFk'];
+   const huge=Buffer.from(logo.split(',')[1],'base64');huge.writeUInt32BE(1000000000,16);invalid.push('data:image/png;base64,'+huge.toString('base64'));
+   for(const url of invalid)await assert.rejects(cmd('save',{document_id:id,kind:'quote',expected_version:1,payload:{...p,company:{...custom,tax_id:'80123456-7',logo_data_url:url}}}),/logo/i);
+   await cmd('save',{document_id:id,kind:'quote',expected_version:1,payload:{...p,company:{...custom,tax_id:'80123456-7',id:ids.company}}});const result=await cmd('issue',{document_id:id,expected_version:2}),d=await get(id);assert.match(result.number,/^PRE-2026-/);assert.equal(d.issued_payload.company.legal_name,custom.legal_name);assert.equal(d.issued_payload.company.id,undefined);assert.equal(d.issued_payload.company.logo_data_url,logo);assert.equal((await get(quote)).issued_payload.company.legal_name,company.legal_name);
+   await assert.rejects(q('select avh_commercial_private.quote_company($1,false)',[JSON.stringify(custom)]),/permission/);await assert.rejects(q('update purchase_companies set legal_name=$1 where id=$2',['Cambiar catálogo',ids.company]),/permission/);
+   await db.exec('reset role');assert.equal((await q('select legal_name from purchase_companies where id=$1',[ids.company])).rows[0].legal_name,company.legal_name);await login(ids.galo);
   });
   await t.test('Only Administration can create, view and issue OC into the central purchase flow',async()=>{
    const p=payload();p.supplier_id=ids.supplier;p.recipient_name='Proveedor de prueba';p.items[0].unit_price=12.5;

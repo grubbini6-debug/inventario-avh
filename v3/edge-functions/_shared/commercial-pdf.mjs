@@ -2,7 +2,7 @@ import {documentLayout} from './document-layout.mjs';
 export const money=(value,currency)=>value==null?'Por definir':Number(value).toLocaleString('es-PY',{minimumFractionDigits:currency==='USD'?2:0,maximumFractionDigits:currency==='USD'?2:0});
 export async function makeCommercialPdf(order,lib){
  const p=order.issued_payload||order.payload,quote=order.kind==='quote',number=order.number||'BORRADOR - SIN EMITIR',cancelled=order.status==='cancelled'||order.purchase_status==='cancelled';
- const doc=await documentLayout(lib,{company:p.company||order.company||{},institutionalLogo:p.company?.brand_avh!==false,title:quote?'PRESUPUESTO':'ORDEN DE COMPRA',number,date:p.document_date,reference:p.reference||p.title,status:cancelled?'DOCUMENTO ANULADO':!order.number?(order.status==='submitted'?'PENDIENTE DE AUTORIZACIÓN':'BORRADOR PARA REVISIÓN'):''});
+ const company=p.company||order.company||{},doc=await documentLayout(lib,{company,institutionalLogo:company.brand_avh!==false,title:quote?'PRESUPUESTO':'ORDEN DE COMPRA',number,date:p.document_date,reference:p.reference||p.title,status:cancelled?'DOCUMENTO ANULADO':!order.number?(order.status==='submitted'?'PENDIENTE DE AUTORIZACIÓN':'BORRADOR PARA REVISIÓN'):''});
  doc.heading(p.title);
  doc.table([quote?'Cliente':'Proveedor','Referencia y entrega'],[261,262],[
   [p.recipient_name||'Por definir',p.reference||'Sin referencia'],

@@ -1,4 +1,5 @@
 import {embedAvhLogo,drawAvhLogo} from './avh-brand.mjs';
+import './company-logo.js';
 export const cleanText=v=>String(v??'').replace(/[\u0000-\u0008\u000b-\u001f]/g,' ').replace(/[–—‑]/g,'-').replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/[^\u000a\u0020-\u00ff]/g,'?');
 export function wrapText(value,font,size,width){
  const result=[];
@@ -11,18 +12,20 @@ export function wrapText(value,font,size,width){
  }return result.length?result:[''];
 }
 export async function documentLayout(lib,{company={},title,number,date='',status='',reference='',institutionalLogo=true}){
- const {PDFDocument,StandardFonts,rgb}=lib,pdf=await PDFDocument.create(),regular=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold),logo=institutionalLogo?await embedAvhLogo(pdf):null;
+ const {PDFDocument,StandardFonts,rgb}=lib,pdf=await PDFDocument.create(),regular=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold),custom=company.brand_avh===false&&company.logo_data_url?globalThis.AVHCompanyLogo.read(company.logo_data_url):null;
+ const logo=custom?await (custom.mime==='image/png'?pdf.embedPng(custom.bytes):pdf.embedJpg(custom.bytes)):institutionalLogo&&company.brand_avh!==false?await embedAvhLogo(pdf):null;
+ const companyName=company.legal_name||company.name||(company.brand_avh===false?'Empresa emisora por completar':'Astillero Villa Hayes S.A.');
  const color={green:rgb(.07,.32,.18),ink:rgb(.14,.19,.16),muted:rgb(.4,.47,.43),line:rgb(.82,.87,.83),pale:rgb(.95,.975,.96),white:rgb(1,1,1),warn:rgb(.66,.24,.12)};
  const left=36,width=523,bottom=64;let page,y;
  function text(value,x,yy,size=9,font=regular,ink=color.ink){page.drawText(cleanText(value).replace(/\n/g,' '),{x,y:yy,size,font,color:ink});}
  function fixed(value,x,top,w,size,font=regular,ink=color.ink){const lines=wrapText(value,font,size,w);lines.forEach((line,i)=>text(line,x,top-i*(size+3),size,font,ink));return top-lines.length*(size+3);}
  function add(){
-  page=pdf.addPage([595.28,841.89]);const first=pdf.getPageCount()===1;if(logo)drawAvhLogo(page,logo,lib,36,first?747:773,first?65:39);let a,b;const companyX=logo?114:36,companyW=logo?268:346;
+  page=pdf.addPage([595.28,841.89]);const first=pdf.getPageCount()===1;if(logo){const box=first?65:39,yy=first?747:773;if(custom){const factor=Math.min(box/logo.width,box/logo.height);page.drawImage(logo,{x:36+(box-logo.width*factor)/2,y:yy+(box-logo.height*factor)/2,width:logo.width*factor,height:logo.height*factor});}else drawAvhLogo(page,logo,lib,36,yy,box);}let a,b;const companyX=logo?114:36,companyW=logo?268:346;
   if(first){
-   a=fixed(company.legal_name||company.name||'Astillero Villa Hayes S.A.',companyX,808,companyW,10,bold,color.green);
+   a=fixed(companyName,companyX,808,companyW,10,bold,color.green);
    for(const detail of [company.tax_id?'RUC '+company.tax_id:'',company.address,[company.phone,company.email].filter(Boolean).join(' | ')].filter(Boolean))a=fixed(detail,companyX,a-2,companyW,7.4,regular,color.muted);
    b=fixed(title,404,807,155,12,bold,color.green);b=fixed(number,404,b-5,155,9.2,bold,color.green);if(date)b=fixed('Fecha: '+date,404,b-3,155,8,regular,color.muted);
-  }else{a=fixed(title,87,807,300,10,bold,color.green);if(reference)a=fixed(reference,87,a-3,300,8,regular,color.muted);b=fixed(number,404,807,155,9,bold,color.green);}
+  }else{const x=logo?87:36;a=fixed(title,x,807,logo?300:351,10,bold,color.green);if(reference)a=fixed(reference,x,a-3,logo?300:351,8,regular,color.muted);b=fixed(number,404,807,155,9,bold,color.green);}
   if(status)b=fixed(status,404,b-5,155,8,bold,color.warn);
   y=Math.min(a,b,first?747:774)-12;page.drawLine({start:{x:left,y},end:{x:559,y},color:color.green,thickness:1.2});y-=23;
  }
@@ -50,7 +53,7 @@ export async function documentLayout(lib,{company={},title,number,date='',status
  }
  async function save(){
   pdf.getPages().forEach((pg,i)=>{pg.drawLine({start:{x:left,y:43},end:{x:559,y:43},color:color.line,thickness:.6});pg.drawText(cleanText(number),{x:left,y:29,font:regular,size:7.5,color:color.muted});const label='Página '+(i+1)+' de '+pdf.getPageCount();pg.drawText(label,{x:559-regular.widthOfTextAtSize(label,8),y:29,font:regular,size:8,color:color.muted});});
-  pdf.setTitle(cleanText(number+' - '+reference));pdf.setAuthor(cleanText(company.legal_name||company.name||'Astillero Villa Hayes S.A.'));return pdf.save();
+  pdf.setTitle(cleanText(number+' - '+reference));pdf.setAuthor(cleanText(companyName));return pdf.save();
  }
  add();return{pdf,regular,bold,color,text,paragraph,heading,table,signatures,save,ensure,get page(){return page;},get y(){return y;},set y(v){y=v;}};
 }

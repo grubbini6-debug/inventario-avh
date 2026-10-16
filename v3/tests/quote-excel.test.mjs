@@ -30,3 +30,9 @@ test('Localized money formats, missing formulas and bounded sheets never silentl
  assert.equal(Q.number('=SUM(A1:A2)'),null);assert.equal(Q.number('#VALUE!'),null);assert.throws(()=>Q.parse(Array.from({length:1201},()=>[])),/1.200/);assert.throws(()=>Q.parse([[{formula:'bad'}]]),/datos/);
  const rows=[['Descripción','Precio'],...Array.from({length:301},(_,i)=>['Trabajo '+i,10])];assert.throws(()=>Q.parse(rows),/300 trabajos/);
 });
+test('The issuer is independent of the recipient; ambiguous names remain pending instead of becoming AVH',()=>{
+ const rows=[['Empresa emisora: Talleres del Puerto S.A.'],['RUC','80123456-7'],['Dirección','Ruta 9'],['Correo','cotizaciones@example.test'],['Cliente','Astillero Villa Hayes S.A.'],['Razón social','Astillero Villa Hayes S.A.'],['RUC','80091371-0'],['Dirección','Villa Hayes'],['Descripción','Precio'],['Reparación',500]];
+ const a=Q.parse(rows);assert.equal(a.company.brand_avh,false);assert.equal(a.company.legal_name,'Talleres del Puerto S.A.');assert.equal(a.company.tax_id,'80123456-7');assert.equal(a.company.address,'Ruta 9');assert.equal(a.company.email,'cotizaciones@example.test');assert.equal(a.fields.recipient_name,'Astillero Villa Hayes S.A.');
+ const b=Q.parse([['Servicios Técnicos S.R.L.'],['RUC: 123456-7'],['Cliente','Cliente naval'],['Descripción','Precio'],['Reparación',10]]);assert.equal(b.company.legal_name,'Servicios Técnicos S.R.L.');assert.equal(b.company.tax_id,'123456-7');
+ const c=Q.parse([['Un nombre sin identificar'],['Descripción','Precio'],['Trabajo',20]]);assert.equal(c.company.legal_name,'');assert.equal(c.company.brand_avh,false);
+});

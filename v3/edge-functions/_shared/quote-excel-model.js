@@ -22,9 +22,21 @@
   if(typeof value==='number'&&value>30000&&value<80000)return new Date(Date.UTC(1899,11,30)+Math.floor(value)*86400000).toISOString().slice(0,10);
   const s=text(value);if(/^\d{4}-\d\d-\d\d$/.test(s))return s;const m=s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);return m?`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`:'';
  }
- function metadata(rows){
+ function issuer(rows,header){
+  const company={brand_avh:false,legal_name:'',tax_id:'',address:'',phone:'',email:'',logo_data_url:''};let group='issuer';
+  const labels={legal_name:['emisor','empresa','empresaemisora','proveedor','razonsocialemisor','razonsocialproveedor'],tax_id:['rucemisor','rucempresa','rucproveedor'],address:['direccionemisor','direccionempresa','direccionproveedor'],phone:['telefonoemisor','telefonoempresa','telefonoproveedor'],email:['correoemisor','correoempresa','correoproveedor','emailemisor']},generic={razonsocial:'legal_name',ruc:'tax_id',direccion:'address',telefono:'phone',tel:'phone',celular:'phone',correo:'email',email:'email'};
+  for(const row of rows.slice(0,Math.min(header||80,80)))for(let c=0;c<row.length;c++){
+   const value=text(row[c]);if(!value)continue;const split=value.match(/^([^:]{2,45}):\s*(.*)$/),label=norm(split?split[1]:value),next=split?.[2]||row.slice(c+1).find(v=>v!==null&&v!==undefined&&text(v)!=='');
+   if(['cliente','destinatario','razonsocialcliente','datosdelcliente'].includes(label))group='recipient';
+   if(labels.legal_name.includes(label))group='issuer';
+   if(next!=null){for(const [key,names] of Object.entries(labels))if(names.includes(label))company[key]=text(next).slice(0,500);if(group==='issuer'&&generic[label])company[generic[label]]=text(next).slice(0,500);}
+   if(group==='issuer'&&!company.legal_name&&c===0&&value.length<180&&!/^(presupuesto|cotizaci[oó]n|cliente|referencia)\b/i.test(value)&&/\bS\.?\s*A\.?\s*$|\bS\.?\s*R\.?\s*L\.?\s*$/i.test(value))company.legal_name=value;
+  }
+  return company;
+ }
+ function metadata(rows,header){
   const fields={},currencies=new Set(),warnings=[];let tax_mode=null,tax_rate=null;
-  const labels={recipient_name:['cliente','destinatario','razonsocial','cliente destinatario'],recipient_tax_id:['ruccliente','rucdestinatario'],recipient_address:['direccioncliente','direcciondestinatario'],recipient_contact:['contactocliente','atencion'],reference:['referencia','obra','proyecto','embarcacion','barcaza'],location:['lugar','lugardetrabajo','lugardeentrega'],payment_terms:['condiciondepago','condicionesdepago','formadepago','pago'],delivery_terms:['plazodeentrega','plazodeejecucion','entrega','plazo'],valid_until:['validohasta','vigenciahasta','vencimiento'],document_date:['fecha','fechadelpresupuesto']};
+  const labels={recipient_name:['cliente','destinatario','razonsocialcliente','razonsocialdestinatario','cliente destinatario'],recipient_tax_id:['ruccliente','rucdestinatario'],recipient_address:['direccioncliente','direcciondestinatario'],recipient_contact:['contactocliente','atencion'],reference:['referencia','obra','proyecto','embarcacion','barcaza'],location:['lugar','lugardetrabajo','lugardeentrega'],payment_terms:['condiciondepago','condicionesdepago','formadepago','pago'],delivery_terms:['plazodeentrega','plazodeejecucion','entrega','plazo'],valid_until:['validohasta','vigenciahasta','vencimiento'],document_date:['fecha','fechadelpresupuesto']};
   for(const row of rows)for(let c=0;c<row.length;c++){
    const value=text(row[c]);if(!value)continue;
    if(/\bUSD\b|US\$|U\$S|d[oó]lares/i.test(value))currencies.add('USD');if(/\bPYG\b|\bGs\.?\b|₲|guaran[ií]es/i.test(value))currencies.add('PYG');
@@ -40,7 +52,7 @@
   const currency=currencies.size===1?[...currencies][0]:null;
   if(!currency)warnings.push('La moneda no quedó identificada. Confirmá PYG o USD antes de emitir.');
   if(!tax_mode||tax_mode!=='none'&&tax_rate==null)warnings.push('Confirmá el tratamiento y el porcentaje de IVA antes de emitir.');
-  return{fields,currency,tax_mode,tax_rate,warnings};
+  return{fields,company:issuer(rows,header),currency,tax_mode,tax_rate,warnings};
  }
  function mapping(rows){
   let best=null,score=0;
@@ -58,7 +70,7 @@
  }
  function parse(rows,sheet='',hint){
   if(!Array.isArray(rows)||!rows.length||rows.length>1200||rows.some(r=>!Array.isArray(r)||r.length>60||r.some(v=>v!==null&&!['number','string','boolean'].includes(typeof v))))throw Error('La hoja admite hasta 1.200 filas y 60 columnas de datos.');
-  const meta=metadata(rows),detected=hint||mapping(rows);if(!detected)return{...meta,items:[],mapping:null,needs_mapping:true};
+  const detected=hint||mapping(rows),meta=metadata(rows,detected?.header_row);if(!detected)return{...meta,items:[],mapping:null,needs_mapping:true};
   const cols=validateMapping(rows,detected),items=[],warnings=[...meta.warnings],lumps=[],derived=[],missing=[],conflicts=[];let sector='',source_total=null;
   const n=v=>number(v,meta.currency),round=v=>amount(1,v,meta.currency);
   if(hint&&cols.header_row>0&&[cols.quantity,cols.unit_price,cols.total].some(c=>c!==undefined&&n(rows[cols.header_row-1][c])!==null))throw Error('El encabezado detectado contiene importes de trabajo. Revisá la estructura de la hoja.');
