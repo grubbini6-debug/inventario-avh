@@ -1,6 +1,6 @@
 // Quotes for Production. Only Administration can create or view purchase orders.
 (function(){
- const M=AVHCommercialModel,T=AVHQuoteTheme,C={user:null,context:null,documents:[],current:null,dirty:false,busy:false,error:'',kind:'quote',epoch:0,colorEpoch:0,excel:null};
+ const M=AVHCommercialModel,T=AVHQuoteTheme,C={user:null,context:null,documents:[],current:null,dirty:false,busy:false,error:'',kind:'quote',epoch:0,colorEpoch:0,logoEpoch:0,excel:null};
  const labels={draft:'Borrador',submitted:'Pendiente de autorización',issued:'Emitido',cancelled:'Anulado'},e=esc;
  const allowed=()=>C.user===profile?.id&&['admin','editor'].includes(C.context?.access_level);
  const admin=()=>profile?.role==='admin'&&C.context?.access_level==='admin',editable=()=>C.current?.status==='draft'&&allowed();
@@ -24,7 +24,13 @@
  }
  async function open(id){
   if(C.dirty)throw Error('Guardá el borrador antes de abrir otro documento.');const owner=profile?.id,epoch=++C.epoch,r=await rpc('commercial_document',{p_id:id});if(profile?.id!==owner||epoch!==C.epoch)return;if(r.error)throw Error(r.error);const d=r.data;if(!d.payload.company)d.payload.company={...structuredClone(d.company||C.context.company),brand_avh:true};let changed=false;
-  if(d.kind==='quote'&&d.status==='draft'&&!T.normalize(d.payload.company.brand_color)&&d.payload.company.brand_color_mode!=='manual'){const color=await automaticColor(d.payload.company);if(color){d.payload.company.brand_color=color;d.payload.company.brand_color_mode='auto';changed=true;}}
+  if(d.kind==='quote'){
+   const c=d.payload.company;let prepared;if(c.brand_avh===false&&c.logo_data_url)try{prepared=await T.prepare(c.logo_data_url);}catch{}
+   if(d.status==='draft'){
+    if(prepared&&prepared.data_url!==c.logo_data_url){c.logo_data_url=prepared.data_url;changed=true;}
+    if(c.brand_color_mode!=='manual'&&(!T.normalize(c.brand_color)||changed)){const color=prepared?.color||await automaticColor(c);if(color){c.brand_color=color;c.brand_color_mode='auto';changed=true;}}
+   }else if(prepared)d.brandingPreview={...c,logo_data_url:prepared.data_url,brand_color:c.brand_color_mode!=='manual'&&prepared.removedRules?prepared.color:c.brand_color};
+  }
   if(profile?.id!==owner||epoch!==C.epoch)return;C.current=d;C.dirty=changed;C.kind=d.kind;render();
  }
  function newDraft(kind,order){
@@ -97,7 +103,7 @@
   const p=M.draft('quote',null,profile);for(const k of ['title','document_date','valid_until','delivery_date','recipient_name','recipient_tax_id','recipient_address','recipient_contact','location','reference','payment_terms','delivery_terms','introduction','notes'])if(a.fields?.[k])p[k]=a.fields[k];
   p.currency=a.currency||'PYG';p.tax_mode=a.tax_mode||'included';p.tax_rate=a.tax_rate??0;p.items=a.items.map(i=>({id:crypto.randomUUID(),description:i.description,quantity:i.quantity,unit:i.unit,unit_price:i.unit_price}));const warnings=[...(a.warnings||[]),...logos.warnings];
   p.company={brand_avh:false,legal_name:'',tax_id:'',address:'',phone:'',email:'',...(a.company||{}),logo_data_url:logos.images.length===1?logos.images[0].data_url:''};
-  delete p.company.brand_color;const color=await automaticColor(p.company);p.company.brand_color_mode='auto';if(color)p.company.brand_color=color;
+  p.company.logo_data_url=await cleanLogo(p.company.logo_data_url);delete p.company.brand_color;const color=await automaticColor(p.company);p.company.brand_color_mode='auto';if(color)p.company.brand_color=color;
   if(profile?.id!==owner||epoch!==C.epoch)return;if(hasUnsavedWork())throw Error('Hay cambios sin guardar. Guardalos antes de preparar otro presupuesto.');if(files)files.prepared=true;
   if(!p.company.legal_name||!p.company.tax_id)warnings.push('Completá o confirmá la razón social y el RUC de la empresa emisora.');
   if(logos.images.length>1)warnings.push('La hoja contiene varias imágenes. Elegí cuál es el logo de la empresa emisora.');
@@ -109,11 +115,12 @@
  async function automaticColor(company){
   if(company.brand_avh!==false)return T.fallback(company);if(!company.logo_data_url)return null;try{return await T.detect(company.logo_data_url);}catch{return null;}
  }
- function brandTheme(){const c=payload().company||{};return T.colors(T.normalize(c.brand_color)||T.fallback(c));}
+ async function cleanLogo(url){if(!url)return '';try{return(await T.prepare(url)).data_url;}catch{return url;}}
+ function brandTheme(){const c=C.current.brandingPreview||payload().company||{};return T.colors(T.normalize(c.brand_color)||T.fallback(c));}
  function brandMessage(){const c=payload().company||{};return c.brand_color_mode==='manual'?'Color personalizado.':c.brand_avh!==false?'Color institucional AVH.':T.normalize(c.brand_color)?'Color tomado del logo.':c.logo_data_url?'Elegí un color si no se pudo detectar el del logo.':'Adjuntá el logo para tomar sus colores o elegí un color.';}
  function themeFields(){
   const c=payload().company||{},t=brandTheme();
-  return `<div class="cd-brand"><div class="cd-brand-settings"><div class="field"><label for="cdBrandColor">Color del presupuesto</label><input id="cdBrandColor" type="color" value="${t.primary}" ${editable()?'':'disabled'}></div>${editable()?`<button class="btn" id="cdBrandAuto" type="button" ${c.brand_avh===false&&!c.logo_data_url?'disabled':''}>${c.brand_avh===false?'Usar colores del logo':'Usar color AVH'}</button>`:''}<span class="hint" id="cdBrandMode" role="status">${e(brandMessage())}</span></div><div class="cd-brand-sample" id="cdBrandSample" style="--cd-brand:${t.primary};--cd-brand-heading:${t.heading};--cd-brand-text:${t.headerText};--cd-brand-pale:${t.pale};--cd-brand-line:${t.line}" aria-label="Muestra de los colores del presupuesto"><strong class="cd-brand-heading">PRESUPUESTO</strong><div class="cd-brand-table"><span>Detalle de trabajos</span><span>Importe</span></div><div class="cd-brand-row">Colores de la empresa emisora</div><strong class="cd-brand-total">TOTAL</strong></div><p class="hint">Estos colores se aplican al PDF. Los tonos claros se ajustan para que el texto se lea bien.</p></div>`;
+  return `<div class="cd-brand"><div class="cd-brand-settings"><div class="field"><label for="cdBrandColor">Color del presupuesto</label><input id="cdBrandColor" type="color" value="${t.primary}" ${editable()?'':'disabled'}></div>${editable()?`<button class="btn" id="cdBrandAuto" type="button" ${c.brand_avh===false&&!c.logo_data_url?'disabled':''}>${c.brand_avh===false?'Usar colores del logo':'Usar color AVH'}</button>`:''}<span class="hint" id="cdBrandMode" role="status">${e(brandMessage())}</span></div><div class="cd-brand-sample" id="cdBrandSample" style="--cd-brand:${t.primary};--cd-brand-heading:${t.heading};--cd-brand-text:${t.headerText};--cd-brand-pale:${t.pale};--cd-brand-line:${t.line}" aria-label="Muestra de los colores del presupuesto"><strong class="cd-brand-heading">PRESUPUESTO</strong><div class="cd-brand-table"><span>Detalle de trabajos</span><span>Importe</span></div><div class="cd-brand-row">Colores de la empresa emisora</div><strong class="cd-brand-total">TOTAL</strong></div><p class="hint">Usamos únicamente el logo: sin márgenes vacíos ni franjas de la tabla original. Los tonos claros se ajustan para que el texto se lea bien.</p></div>`;
  }
  function updateBrandPreview(){
   const t=brandTheme(),sample=$('#cdBrandSample');if(!sample)return;for(const [key,value] of Object.entries({brand:t.primary,'brand-heading':t.heading,'brand-text':t.headerText,'brand-pale':t.pale,'brand-line':t.line}))sample.style.setProperty('--cd-'+key,value);$('#cdBrandColor').value=t.primary;$('#cdBrandMode').textContent=brandMessage();
@@ -122,10 +129,13 @@
   if(!editable()||C.current.kind!=='quote')return;const company=payload().company,owner=profile.id,id=C.current.id,logo=company.logo_data_url,epoch=++C.colorEpoch;company.brand_color_mode='auto';delete company.brand_color;C.dirty=true;updateBrandPreview();const color=await automaticColor(company);
   if(profile?.id!==owner||C.current?.id!==id||payload().company!==company||company.logo_data_url!==logo||epoch!==C.colorEpoch||!editable()||company.brand_color_mode==='manual')return;if(color)company.brand_color=color;updateBrandPreview();
  }
- async function setLogo(url){if(!editable()||C.current.kind!=='quote'||payload().company?.brand_avh!==false)return;payload().company.logo_data_url=url;delete payload().company.brand_color;payload().company.brand_color_mode='auto';C.dirty=true;render();await useLogoColor();}
+ async function setLogo(url){
+  if(!editable()||C.current.kind!=='quote'||payload().company?.brand_avh!==false)return;const owner=profile.id,id=C.current.id,company=payload().company,epoch=++C.logoEpoch,colorEpoch=C.colorEpoch,clean=await cleanLogo(url);
+  if(profile?.id!==owner||C.current?.id!==id||payload().company!==company||epoch!==C.logoEpoch||!editable())return;company.logo_data_url=clean;const auto=colorEpoch===C.colorEpoch;if(auto){delete company.brand_color;company.brand_color_mode='auto';}C.dirty=true;render();if(auto)await useLogoColor();
+ }
  function companyFields(){
   const c=payload().company||{},quote=C.current.kind==='quote',custom=c.brand_avh===false,logos=C.current.importLogos||[];let logo='';
-  if(custom&&c.logo_data_url)try{AVHCompanyLogo.read(c.logo_data_url);logo=c.logo_data_url;}catch{}
+  if(custom&&(C.current.brandingPreview||c).logo_data_url)try{logo=(C.current.brandingPreview||c).logo_data_url;AVHCompanyLogo.read(logo);}catch{logo='';}
   const selector=quote?`<div class="field"><label for="cd-company_brand">Empresa que emite el presupuesto</label><select id="cd-company_brand" ${editable()?'':'disabled'}><option value="custom" ${custom?'selected':''}>Empresa del archivo / otra empresa</option><option value="avh" ${custom?'':'selected'}>Astillero Villa Hayes</option></select></div>`:`<div class="field"><label for="cd-company_id">Empresa del catálogo</label><select id="cd-company_id" ${editable()?'':'disabled'}>${(C.context.companies||[C.context.company]).filter(Boolean).map(x=>`<option value="${e(x.id)}" ${c.id===x.id?'selected':''}>${e(x.name)}</option>`).join('')}</select></div>`;
   return `<div class="card"><h3>Empresa emisora</h3>${quote?'<p class="hint">Estos datos y el logo identifican a quien presenta el presupuesto. El cliente se completa por separado.</p>':''}${selector}<div class="wo-grid">${[['legal_name','Razón social'],['tax_id','RUC'],['address','Dirección'],['phone','Teléfono'],['email','Correo']].map(([key,label])=>`<div class="field"><label for="cd-company-${key}">${label}</label><input id="cd-company-${key}" data-cd-company="${key}" value="${e(c[key]||'')}" ${editable()?'':'disabled'}></div>`).join('')}</div>${quote&&custom?`<div class="cd-company-logo">${logo?`<img class="cd-logo-preview" src="${e(logo)}" alt="Logo de la empresa emisora">`:'<p class="hint">Presupuesto sin logo. Podés adjuntar el de la empresa emisora.</p>'}${editable()?`${logos.length?`<div class="field"><label for="cdLogoCandidate">Imágenes encontradas en la hoja</label><select id="cdLogoCandidate"><option value="">Sin logo / logo adjunto</option>${logos.map((l,i)=>`<option value="${i}" ${l.data_url===logo?'selected':''}>${e(l.name)}</option>`).join('')}</select></div>`:''}<label class="btn" for="cdLogoFile">Adjuntar o cambiar logo</label><input class="wo-file" id="cdLogoFile" type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg">${logo?'<button class="btn" id="cdRemoveLogo" type="button">Quitar logo</button>':''}${C.current.importFiles?'<button class="btn" id="cdCropLogo" type="button">Recortar logo del original</button>':''}<p class="hint">PNG o JPG · hasta 300 KB · máximo 2 megapíxeles.</p>`:''}</div>`:''}${quote?themeFields():''}</div>`;
  }
