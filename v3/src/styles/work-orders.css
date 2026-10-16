@@ -15,3 +15,4 @@ body.commercial-authorized .nav [data-page="commercial"]{display:flex!important}
 @media(max-width:900px){.cd-line-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.wo-document-head{flex-wrap:wrap}.wo-actions .btn{white-space:normal;text-align:center}}
 @media(max-width:760px){body.production-mode.commercial-authorized .nav{grid-template-columns:repeat(4,minmax(0,1fr))!important}.cd-document .wo-grid{grid-template-columns:1fr}}
 .cd-company-logo{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px}.cd-logo-preview{max-width:180px;max-height:96px;object-fit:contain;background:#fff;border:1px solid var(--line);padding:8px;border-radius:8px}.cd-company-logo .field{min-width:180px}
+.cd-crop-stage{max-height:55vh;overflow:auto;background:#e8ece9;border:1px solid var(--line);margin:12px 0}.cd-crop-stage canvas{display:block;width:100%;height:auto;touch-action:none;cursor:crosshair}.cd-import input[hidden],.cd-import select[hidden]{display:none}

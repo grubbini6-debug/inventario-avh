@@ -57,6 +57,7 @@
     "src/features/work-orders/inventory-view.js",
     "edge-functions/_shared/quote-excel-model.js",
     "edge-functions/_shared/company-logo.js",
+    "src/features/work-orders/quote-files.js",
     "src/features/work-orders/commercial-model.js",
     "src/features/work-orders/commercial.js",
     "src/features/help/user-guide.js"
@@ -74,7 +75,11 @@
     "src/assets/logo-avh.jpg",
     "src/assets/logo-avh.png",
     "src/assets/logo-maqmoveis.jpg",
-    "src/assets/xlsx-0.20.3.min.js"
+    "src/assets/xlsx-0.20.3.min.js",
+    "node_modules/pdfjs-dist/legacy/build/pdf.min.mjs",
+    "node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs",
+    "node_modules/pdfjs-dist/LICENSE"
   ],
+  "assetDirectories": ["node_modules/pdfjs-dist/standard_fonts", "node_modules/pdfjs-dist/cmaps", "node_modules/pdfjs-dist/wasm"],
   "template": "src/index.template.html"
 }

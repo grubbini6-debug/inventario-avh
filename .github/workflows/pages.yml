@@ -38,6 +38,16 @@ jobs:
           fi
           echo "Commit asociado a PR mergeado: OK"
 
+      - name: Configurar Node para construir
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: v3/package-lock.json
+
+      - name: Instalar dependencias de construcción
+        working-directory: v3
+        run: npm ci --ignore-scripts --omit=optional
 
       - name: Validar y construir AVH V3
         working-directory: v3
