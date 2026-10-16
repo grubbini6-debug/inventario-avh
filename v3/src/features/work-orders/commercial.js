@@ -31,7 +31,7 @@
     if(c.brand_color_mode!=='manual'&&(!T.normalize(c.brand_color)||changed)){const color=prepared?.color||await automaticColor(c);if(color){c.brand_color=color;c.brand_color_mode='auto';changed=true;}}
    }else if(prepared)d.brandingPreview={...c,logo_data_url:prepared.data_url,brand_color:c.brand_color_mode!=='manual'&&prepared.removedRules?prepared.color:c.brand_color};
   }
-  if(profile?.id!==owner||epoch!==C.epoch)return;C.current=d;C.dirty=changed;C.kind=d.kind;render();
+  if(profile?.id!==owner||epoch!==C.epoch||C.dirty)return;C.current=d;C.dirty=changed;C.kind=d.kind;render();
  }
  function newDraft(kind,order){
   if(kind==='purchase_order'&&!admin())throw Error('Solo Administración puede crear órdenes de compra.');if(C.dirty)throw Error('Guardá el borrador antes de crear otro documento.');
