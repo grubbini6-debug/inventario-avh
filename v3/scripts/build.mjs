@@ -36,5 +36,10 @@ for (const asset of manifest.assets || []) {
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   fs.copyFileSync(source, dest);
 }
+for (const directory of manifest.assetDirectories || []) {
+  const source = path.join(root, directory);
+  if (!fs.existsSync(source)) throw new Error(`Falta directorio de assets: ${directory}`);
+  fs.cpSync(source, path.join(dist, 'assets', path.basename(directory)), { recursive: true });
+}
 
 console.log(`AVH V3 build OK: ${sourceModules.length} módulos JS + ${manifest.styles?.length || 0} CSS + ${(manifest.assets||[]).length} assets + plantilla HTML · dependencia legacy: 0`);
