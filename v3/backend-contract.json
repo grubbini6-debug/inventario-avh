@@ -53,6 +53,7 @@
     "bi_purchase_facts",
     "bi_purchase_item_facts",
     "commercial_documents",
+    "commercial_document_events",
     "correction_requests",
     "documents",
     "fabrication_access",

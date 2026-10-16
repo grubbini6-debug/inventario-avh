@@ -11,9 +11,12 @@ test('Global work prices and price-per-kg or area columns remain explicit and re
  const global=Q.parse([['Moneda','PYG'],['Trabajo','Importe'],['Varado','₲ 1.500.000'],['Total','1.500.000']]);assert.equal(global.items[0].quantity,1);assert.equal(global.items[0].unit_price,1500000);assert.equal(global.items[0].unit,'trabajo');assert.match(global.warnings.join(' '),/1 trabajo/);
  const area=Q.parse([['Moneda','USD'],['Descripción','m²','Precio por m2','Importe'],['Pintura',25,2.5,62.5]]);assert.equal(area.items[0].unit,'m²');assert.equal(area.items[0].quantity,25);assert.equal(area.items[0].unit_price,2.5);
 });
-test('Missing unit prices may be derived only from a matching source total; conflicts remain pending',()=>{
- const a=Q.parse([['Moneda','USD'],['Descripción','Cantidad','Precio unitario','Importe'],['Soldadura',4,null,10],['Chapa',2,5,50],['Sin precio',3,null,null]]);assert.equal(a.items[0].unit_price,2.5);assert.equal(a.items[1].unit_price,null);assert.equal(a.items[2].unit_price,null);assert.match(a.warnings.join(' '),/no coincide/);assert.equal(a.calculated_total,null);
+test('Missing prices use explicit line amounts; conflicting billing bases retain money as a reviewable global job',()=>{
+ const a=Q.parse([['Moneda','USD'],['Descripción','Cantidad','Precio unitario','Importe'],['Soldadura',4,null,10],['Chapa',2,5,50],['Sin precio',3,null,null]]);assert.equal(a.items[0].unit_price,2.5);assert.equal(a.items[1].unit_price,50);assert.equal(a.items[1].quantity,1);assert.equal(a.items[1].unit,'trabajo');assert.equal(a.items[1].source_values.unit_price,5);assert.match(a.items[1].description,/original: 2/);assert.equal(a.items[2].unit_price,null);assert.match(a.warnings.join(' '),/no coincide/);assert.equal(a.calculated_total,null);
  const b=Q.parse([['Moneda','USD'],['Descripción','Cantidad','Precio unitario'],['Cero',0,5],['Negativo',1,-5]]);assert.equal(b.items[0].quantity,null);assert.equal(b.items[1].unit_price,null);
+});
+test('A tariff per kg selects weight rather than pieces and preserves dimensions and physical count',()=>{
+ const a=Q.parse([['Moneda','USD'],['Descripción','Cantidad','kg','Espesor mm','Precio por kg','Importe'],['Chapa',2,1286,7.9,4.2,5401.2]]);assert.equal(a.items[0].quantity,1286);assert.equal(a.items[0].unit,'kg');assert.equal(a.items[0].unit_price,4.2);assert.match(a.items[0].description,/Cantidad: 2/);assert.match(a.items[0].description,/Espesor mm: 7.9/);assert.equal(a.calculated_total,5401.2);
 });
 test('Totals use the same decimal rounding as the quote; different sheet totals are called out',()=>{
  const a=Q.parse([['Moneda','USD'],['Descripción','Cantidad','Precio unitario','Importe'],['Trabajo',1,2.675,2.68],['Total',null,null,2.68]]);assert.equal(a.items[0].unit_price,2.675);assert.equal(a.calculated_total,2.68);

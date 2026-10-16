@@ -40,7 +40,7 @@ test('Production creates, reviews and emits quotes, retains edits on refresh and
   click('#cdAi');await wait(()=>w.document.querySelector('#cdApplyAi')&&!w.AVHCommercial.state.busy);click('#cdApplyAi');assert.equal(w.AVHCommercial.state.dirty,true);assert.equal(w.AVHCommercial.state.current.payload.items[0].unit_price,.335);
   click('#cdSave');await wait(()=>!w.AVHCommercial.state.busy&&!w.AVHCommercial.state.dirty);click('#cdIssue');await wait(()=>!w.AVHCommercial.state.busy&&w.document.querySelector('#commercialError').textContent.includes('perdida'));
   click('#cdIssue');await wait(()=>!w.AVHCommercial.state.busy&&w.AVHCommercial.state.current.number);assert.equal(numbers,1);assert.equal(w.document.querySelector('#cd-payment_terms').disabled,true);assert.equal(w.document.querySelector('#cdIssue'),null);
-  click('#cdPdf');await wait(()=>downloads.length===1&&!w.AVHCommercial.state.busy);assert.match(downloads[0].name,/PRE-AVH/);assert.ok(downloads[0].blob.size>40000);
+  await wait(()=>downloads.length===1&&!w.AVHCommercial.state.busy);assert.match(downloads[0].name,/PRE-AVH/);assert.ok(downloads[0].blob.size>40000);assert.match(w.document.querySelector('.cd-status').textContent,/PRE-AVH/);
   role=null;await w.AVHCommercial.refresh();assert.equal(w.AVHCommercial.state.current,null);assert.match(w.document.querySelector('#commercialPanel').textContent,/requiere/);
  }finally{w.close();}
 });

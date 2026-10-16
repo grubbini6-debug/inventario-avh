@@ -18,5 +18,27 @@
   if(!items.length)items.push({id:crypto.randomUUID(),description:'',quantity:null,unit:'unidad',unit_price:null});
   return{title:(kind==='quote'?'Presupuesto de trabajos':'Adquisición de insumos')+(p?.vessel?' - '+p.vessel:''),document_date:today(),valid_until:'',delivery_date:'',currency:'PYG',tax_mode:'included',tax_rate:0,recipient_name:kind==='quote'?p?.client||'':'',recipient_tax_id:'',recipient_address:'',recipient_contact:'',supplier_id:null,location:p?.location||user?.work_location||'',reference:[order?.number,p?.vessel].filter(Boolean).join(' - '),issuer_name:user?.full_name||user?.username||'',introduction:'',payment_terms:'',delivery_terms:'',notes:'',items};
  }
- window.AVHCommercialModel={totals,draft};
+ function requirements(p){
+  const missing=[],add=(label,target)=>missing.push({label,target}),validDate=v=>/^\d{4}-\d\d-\d\d$/.test(v||'')&&!Number.isNaN(Date.parse(v+'T00:00:00Z'))&&new Date(v+'T00:00:00Z').toISOString().slice(0,10)===v,decimal=(v,min,max)=>typeof v==='number'&&Number.isFinite(v)&&v>=min&&v<=max&&Number(v.toFixed(6))===v;
+  for(const [k,label] of [['title','Título'],['recipient_name','Cliente / destinatario'],['issuer_name','Preparado por'],['payment_terms','Condición de pago'],['delivery_terms','Plazo y condiciones de ejecución']])if(!String(p[k]||'').trim())add(label,'#cd-'+k);
+  if(!validDate(p.document_date)||Number(p.document_date.slice(0,4))<2000||Number(p.document_date.slice(0,4))>2100)add('Fecha del presupuesto válida','#cd-document_date');
+  if(!validDate(p.valid_until)||p.valid_until<p.document_date)add('Vigencia igual o posterior a la fecha del presupuesto','#cd-valid_until');
+  if(!['USD','PYG'].includes(p.currency))add('Moneda','#cd-currency');
+  if(!['none','included','add'].includes(p.tax_mode))add('Tratamiento del IVA','#cd-tax_mode');
+  if(p.tax_mode!=='none'&&(!decimal(p.tax_rate,0,100)||p.tax_rate===0))add('Porcentaje de IVA, o seleccionar Sin IVA','#cd-tax_rate');
+  for(const [k,label] of [['legal_name','Razón social de la empresa emisora'],['tax_id','RUC de la empresa emisora']])if(!String(p.company?.[k]||'').trim())add(label,'#cd-company-'+k);
+  if(!p.items?.length||p.items.length>300)add('Entre 1 y 300 trabajos','#cdAdd');
+  (p.items||[]).forEach((i,n)=>{const target=k=>`[data-cd-item="${n}"] [data-cd-line="${k}"]`;if(!String(i.description||'').trim()||i.description.length>4000)add(`Ítem ${n+1}: descripción técnica (hasta 4.000 caracteres)`,target('description'));if(!String(i.unit||'').trim()||i.unit.length>50)add(`Ítem ${n+1}: unidad`,target('unit'));if(!decimal(i.quantity,.000001,1000000))add(`Ítem ${n+1}: cantidad y precio · completá una cantidad válida`,target('quantity'));if(!decimal(i.unit_price,0,1000000000))add(`Ítem ${n+1}: cantidad y precio · completá un precio válido`,target('unit_price'));});
+  return missing;
+ }
+ function sourceMatches(p,analysis,links=[]){
+  const names=new Map();analysis.items.forEach((i,n)=>{for(const name of new Set([i.source_description||i.description,i.description].map(v=>v.trim()))){if(!names.has(name))names.set(name,[]);names.get(name).push(n);}});
+  return p.items.map(item=>{const linked=links.find(l=>l.id===item.id),indices=names.get(item.description.trim())||[],index=linked?.index??(indices.length===1?indices[0]:-1);return Number.isInteger(index)&&index>=0?analysis.items[index]||null:null;});
+ }
+ function recover(p,analysis,links=[]){
+  let count=0;const matches=sourceMatches(p,analysis,links);
+  p.items.forEach((item,n)=>{const original=matches[n];if(!original||item.unit_price!=null||original.unit_price==null||original.quantity==null)return;const physical=globalThis.AVHQuoteExcelModel.number(original.source_values?.quantity,p.currency);if(item.quantity!=null&&item.quantity!==original.quantity&&item.quantity!==physical)return;item.quantity=original.quantity;item.unit=original.unit;item.unit_price=original.unit_price;if(original.pricing_basis==='source_amount'&&physical!==original.quantity&&physical!=null)item.description+=` - Cantidad indicada en el original: ${original.source_values.quantity}${original.source_values.unit?' '+original.source_values.unit:''}`;count++;});
+  return count;
+ }
+ window.AVHCommercialModel={totals,draft,requirements,sourceMatches,recover};
 })();
