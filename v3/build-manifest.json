@@ -57,6 +57,7 @@
     "src/features/work-orders/inventory-view.js",
     "edge-functions/_shared/quote-excel-model.js",
     "edge-functions/_shared/company-logo.js",
+    "edge-functions/_shared/quote-theme.js",
     "src/features/work-orders/quote-files.js",
     "src/features/work-orders/commercial-model.js",
     "src/features/work-orders/commercial.js",

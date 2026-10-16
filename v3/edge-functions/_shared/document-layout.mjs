@@ -11,11 +11,13 @@ export function wrapText(value,font,size,width){
   }result.push(line);
  }return result.length?result:[''];
 }
-export async function documentLayout(lib,{company={},title,number,date='',status='',reference='',institutionalLogo=true}){
+export async function documentLayout(lib,{company={},title,number,date='',status='',reference='',institutionalLogo=true,theme=null}){
  const {PDFDocument,StandardFonts,rgb}=lib,pdf=await PDFDocument.create(),regular=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold),custom=company.brand_avh===false&&company.logo_data_url?globalThis.AVHCompanyLogo.read(company.logo_data_url):null;
  const logo=custom?await (custom.mime==='image/png'?pdf.embedPng(custom.bytes):pdf.embedJpg(custom.bytes)):institutionalLogo&&company.brand_avh!==false?await embedAvhLogo(pdf):null;
  const companyName=company.legal_name||company.name||(company.brand_avh===false?'Empresa emisora por completar':'Astillero Villa Hayes S.A.');
  const color={green:rgb(.07,.32,.18),ink:rgb(.14,.19,.16),muted:rgb(.4,.47,.43),line:rgb(.82,.87,.83),pale:rgb(.95,.975,.96),white:rgb(1,1,1),warn:rgb(.66,.24,.12)};
+ color.header=color.green;color.headerText=color.white;color.accent=color.green;
+ if(theme){const asRgb=hex=>rgb(...[1,3,5].map(n=>parseInt(hex.slice(n,n+2),16)/255));Object.assign(color,{green:asRgb(theme.heading),header:asRgb(theme.primary),headerText:asRgb(theme.headerText),accent:asRgb(theme.primary),pale:asRgb(theme.pale),line:asRgb(theme.line),ink:rgb(.12,.15,.18),muted:rgb(.34,.38,.42)});}
  const left=36,width=523,bottom=64;let page,y;
  function text(value,x,yy,size=9,font=regular,ink=color.ink){page.drawText(cleanText(value).replace(/\n/g,' '),{x,y:yy,size,font,color:ink});}
  function fixed(value,x,top,w,size,font=regular,ink=color.ink){const lines=wrapText(value,font,size,w);lines.forEach((line,i)=>text(line,x,top-i*(size+3),size,font,ink));return top-lines.length*(size+3);}
@@ -27,7 +29,7 @@ export async function documentLayout(lib,{company={},title,number,date='',status
    b=fixed(title,404,807,155,12,bold,color.green);b=fixed(number,404,b-5,155,9.2,bold,color.green);if(date)b=fixed('Fecha: '+date,404,b-3,155,8,regular,color.muted);
   }else{const x=logo?87:36;a=fixed(title,x,807,logo?300:351,10,bold,color.green);if(reference)a=fixed(reference,x,a-3,logo?300:351,8,regular,color.muted);b=fixed(number,404,807,155,9,bold,color.green);}
   if(status)b=fixed(status,404,b-5,155,8,bold,color.warn);
-  y=Math.min(a,b,first?747:774)-12;page.drawLine({start:{x:left,y},end:{x:559,y},color:color.green,thickness:1.2});y-=23;
+  y=Math.min(a,b,first?747:774)-12;page.drawLine({start:{x:left,y},end:{x:559,y},color:color.accent,thickness:1.2});y-=23;
  }
  function ensure(height){if(y-height<bottom)add();}
  function paragraph(value,{size=9,font=regular,ink=color.ink,after=8}={}){for(const line of wrapText(value,font,size,width)){ensure(size+5);text(line,left,y,size,font,ink);y-=size+4;}y-=after;}
@@ -35,7 +37,7 @@ export async function documentLayout(lib,{company={},title,number,date='',status
  function table(headers,widths,rows,{size=8.5,lineHeight=11,rowPadding=10,align=[]}={}){
   const xs=[];let x=left;for(const w of widths){xs.push(x);x+=w;}if(Math.abs(widths.reduce((a,b)=>a+b,0)-width)>.1)throw Error('Ancho de tabla inválido');
   const cellsH=headers.map((h,i)=>wrapText(h,bold,8,widths[i]-12)),hh=Math.max(...cellsH.map(c=>c.length))*10+12;
-  function header(){ensure(hh+30);page.drawRectangle({x:left,y:y-hh,width,height:hh,color:color.green});cellsH.forEach((c,i)=>c.forEach((s,j)=>text(s,xs[i]+6,y-14-j*10,8,bold,color.white)));y-=hh;}
+  function header(){ensure(hh+30);page.drawRectangle({x:left,y:y-hh,width,height:hh,color:color.header});cellsH.forEach((c,i)=>c.forEach((s,j)=>text(s,xs[i]+6,y-14-j*10,8,bold,color.headerText)));y-=hh;}
   header();rows.forEach((row,index)=>{
    const cells=row.map((v,i)=>wrapText(v,regular,size,widths[i]-12));let remaining=Math.max(...cells.map(c=>c.length)),offset=0;const h=remaining*lineHeight+rowPadding;
    if(y-h<bottom&&h<600){add();header();}

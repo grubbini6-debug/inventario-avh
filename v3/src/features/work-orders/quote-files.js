@@ -44,7 +44,7 @@
   fileSelect.onchange=()=>void loadPage(true);pageSelect.onchange=()=>void loadPage(false);for(const key of ['x','y','width','height'])find('cdCrop-'+key).oninput=draw;
   const point=event=>{const b=canvas.getBoundingClientRect();return{x:Math.max(0,Math.min(1,(event.clientX-b.left)/b.width)),y:Math.max(0,Math.min(1,(event.clientY-b.top)/b.height))};};
   canvas.onpointerdown=event=>{if(!base)return;start=point(event);canvas.setPointerCapture(event.pointerId);};canvas.onpointermove=event=>{if(!start)return;const p=point(event),values={x:Math.min(p.x,start.x),y:Math.min(p.y,start.y),width:Math.abs(p.x-start.x),height:Math.abs(p.y-start.y)};for(const [key,value] of Object.entries(values))find('cdCrop-'+key).value=String(Math.round(value*1000)/10);draw();};canvas.onpointerup=canvas.onpointercancel=()=>{start=null;};
-  button.onclick=async()=>{if(!valid())return closeModal();button.disabled=true;const chosen=region();try{const logo=await crop(source,chosen);if(valid()){onApply(logo,chosen);closeModal();}}catch(e){message.textContent=e.message;}finally{if(button.isConnected)button.disabled=false;}};
+  button.onclick=async()=>{if(!valid())return closeModal();button.disabled=true;const chosen=region();try{const logo=await crop(source,chosen);if(valid()){await onApply(logo,chosen);closeModal();}}catch(e){message.textContent=e.message;}finally{if(button.isConnected)button.disabled=false;}};
   await loadPage(true);
  }
  window.AVHQuoteFiles={kind,hash,readDocuments,release,crop,showPicker};
