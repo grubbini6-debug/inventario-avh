@@ -1,6 +1,7 @@
 import {documentLayout} from './document-layout.mjs';
 import './quote-theme.js';
 import {quoteBranding,quoteFonts} from './quote-branding.mjs';
+import {quoteDescription,quoteUnit} from './quote-presentation.mjs';
 export const money=(value,currency)=>value==null?'Por definir':Number(value).toLocaleString('es-PY',{minimumFractionDigits:currency==='USD'?2:0,maximumFractionDigits:currency==='USD'?2:0});
 export async function makeCommercialPdf(order,lib){
  const p=order.issued_payload||order.payload,quote=order.kind==='quote',number=order.number||'BORRADOR - SIN EMITIR',cancelled=order.status==='cancelled'||order.purchase_status==='cancelled';
@@ -14,7 +15,7 @@ export async function makeCommercialPdf(order,lib){
  if(p.introduction)doc.paragraph(p.introduction);
  doc.heading(quote?'Detalle del presupuesto':'Bienes y servicios solicitados');
  const currency=p.currency||'PYG',items=p.items||[],pending=items.some(i=>i.quantity==null||i.unit_price==null);
- doc.table(['Ítem','Descripción','Cantidad / unidad','Precio unit. '+currency,'Importe '+currency],quote?[31,268,64,80,80]:[31,231,77,92,92],items.map((i,n)=>[n+1,i.description,i.quantity==null?'Por definir':Number(i.quantity).toLocaleString('es-PY',{maximumFractionDigits:6})+' '+i.unit,i.unit_price==null?'Por definir':Number(i.unit_price).toLocaleString('es-PY',{minimumFractionDigits:currency==='USD'?2:0,maximumFractionDigits:6}),money(i.amount,currency)]),{size:quote?9:8,lineHeight:quote?12.5:11,rowPadding:quote?8:10,align:['','','right','right','right']});
+ doc.table(['Ítem',quote?'Descripción del trabajo':'Descripción','Cantidad / unidad','Precio unit. '+currency,'Importe '+currency],quote?[34,273,72,72,72]:[31,231,77,92,92],items.map((i,n)=>[n+1,quote?quoteDescription(i.description):i.description,i.quantity==null?'Por definir':Number(i.quantity).toLocaleString('es-PY',{maximumFractionDigits:6})+' '+(quote?quoteUnit(i.unit,i.quantity):i.unit),i.unit_price==null?'Por definir':Number(i.unit_price).toLocaleString('es-PY',{minimumFractionDigits:currency==='USD'?2:0,maximumFractionDigits:6}),money(i.amount,currency)]),{size:quote?9:8,lineHeight:quote?12:11,rowPadding:quote?8:10,align:['','','right','right','right']});
  if(pending)doc.paragraph('Importes pendientes de completar. El borrador no tiene un total definitivo.',{ink:doc.color.warn});
  else{
   doc.ensure(110);const rows=[['Subtotal',money(p.subtotal,currency)]];
@@ -22,10 +23,10 @@ export async function makeCommercialPdf(order,lib){
   if(p.tax_mode==='add')rows.push(['IVA '+p.tax_rate+'%',money(p.tax_amount,currency)]);
   if(p.tax_mode==='included')rows.push(['IVA '+p.tax_rate+'% incluido',money(p.tax_amount,currency)]);
   if(p.tax_mode==='none')rows.push(['Tratamiento de impuestos','Sin IVA']);
-  doc.table(['Concepto','Importe / moneda'],[353,170],rows.concat([['TOTAL '+currency,money(p.total,currency)]]),{align:['','right'],size:9});
+  doc.table(['Concepto','Importe / moneda'],[353,170],rows.concat([['TOTAL '+currency,money(p.total,currency)]]),{align:['','right'],size:9,emphasizeLast:quote});
  }
  if(quote)doc.ensure(190);
- doc.heading('Condiciones comerciales');doc.paragraph('Pago: '+(p.payment_terms||'Por definir'));doc.paragraph('Entrega / ejecución: '+(p.delivery_terms||'Por definir'));
+ doc.heading('Condiciones comerciales');doc.paragraph('Pago: '+(quote?String(p.payment_terms||'Por definir').replace(/^(?:condiciones|condici[oó]n|condiones|forma) de pago:\s*/i,''):p.payment_terms||'Por definir'));doc.paragraph('Entrega / ejecución: '+(p.delivery_terms||'Por definir'));
  if(p.notes){doc.heading('Observaciones');doc.paragraph(p.notes);}
  doc.signatures(quote?['Preparado por','Aceptación del cliente']:['Preparado por','Autorización de Compras'],[p.issuer_name||'']);return doc.save();
 }

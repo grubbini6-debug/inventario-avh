@@ -23,7 +23,7 @@ export async function documentLayout(lib,{company={},title,number,date='',status
  function fixed(value,x,top,w,size,font=regular,ink=color.ink){const lines=wrapText(value,font,size,w);lines.forEach((line,i)=>text(line,x,top-i*(size+3),size,font,ink));return top-lines.length*(size+3);}
  function quoteHeader(first){
   const top=805;let a=top,b;
-  if(logo){const maxW=first?172:108,maxH=first?60:32;if(custom){const scale=Math.min(maxW/logo.width,maxH/logo.height),h=logo.height*scale;page.drawImage(logo,{x:left,y:top-h,width:logo.width*scale,height:h});a=top-h-15;}else{drawAvhLogo(page,logo,lib,left,top-maxH,maxH);a=top-maxH-15;}}
+  if(logo){const maxW=first?192:96,maxH=first?64:28;if(custom){const scale=Math.min(maxW/logo.width,maxH/logo.height),h=logo.height*scale;page.drawImage(logo,{x:left,y:top-h,width:logo.width*scale,height:h});a=top-h-15;}else{drawAvhLogo(page,logo,lib,left,top-maxH,maxH);a=top-maxH-15;}}
   a=fixed(companyName,left,a,310,first?10.5:9,bold);
   if(first)for(const detail of [company.tax_id?'RUC '+company.tax_id:'',company.address,[company.phone,company.email].filter(Boolean).join(' | ')].filter(Boolean))a=fixed(detail,left,a-2,310,8,regular,color.muted);
   else if(reference)a=fixed(reference,left,a-1,310,8,regular,color.muted);
@@ -45,17 +45,18 @@ export async function documentLayout(lib,{company={},title,number,date='',status
  function ensure(height){if(y-height<bottom)add();}
  function paragraph(value,{size=9,font=regular,ink=color.ink,after=8}={}){for(const line of wrapText(value,font,size,width)){ensure(size+5);text(line,left,y,size,font,ink);y-=size+4;}y-=after;}
  function heading(value,{size=professional?11.5:11}={}){const lines=wrapText(value,bold,size,width);ensure(Math.min(lines.length*(size+4)+44,580));y-=4;for(const line of lines){ensure(size+7);text(line,left,y,size,bold,color.green);y-=size+4;}y-=7;}
- function table(headers,widths,rows,{size=8.5,lineHeight=11,rowPadding=10,align=[],tone='brand'}={}){
+ function table(headers,widths,rows,{size=8.5,lineHeight=11,rowPadding=10,align=[],tone='brand',emphasizeLast=false}={}){
   const xs=[];let x=left;for(const w of widths){xs.push(x);x+=w;}if(Math.abs(widths.reduce((a,b)=>a+b,0)-width)>.1)throw Error('Ancho de tabla inválido');
   const cellsH=headers.map((h,i)=>wrapText(h,bold,8,widths[i]-12)),hh=Math.max(...cellsH.map(c=>c.length))*10+12;
   function header(){ensure(hh+30);page.drawRectangle({x:left,y:y-hh,width,height:hh,color:tone==='quiet'?color.pale:color.header});cellsH.forEach((c,i)=>c.forEach((s,j)=>text(s,xs[i]+6,y-14-j*10,8,bold,tone==='quiet'?color.green:color.headerText)));y-=hh;}
   header();rows.forEach((row,index)=>{
-   const cells=row.map((v,i)=>wrapText(v,regular,size,widths[i]-12));let remaining=Math.max(...cells.map(c=>c.length)),offset=0;const h=remaining*lineHeight+rowPadding;
+   const strong=emphasizeLast&&index===rows.length-1,font=strong?bold:regular,cells=row.map((v,i)=>wrapText(v,font,size,widths[i]-12));let remaining=Math.max(...cells.map(c=>c.length)),offset=0;const h=remaining*lineHeight+rowPadding;
    if(y-h<bottom&&h<600){add();header();}
    while(remaining>0){
     if(y-lineHeight-rowPadding<bottom){add();header();}const count=Math.min(remaining,Math.max(1,Math.floor((y-bottom-rowPadding)/lineHeight))),height=count*lineHeight+rowPadding;
-    if(index%2===0&&tone!=='quiet')page.drawRectangle({x:left,y:y-height,width,height,color:color.pale});
-    cells.forEach((lines,i)=>lines.slice(offset,offset+count).forEach((s,j)=>text(s,align[i]==='right'?xs[i]+widths[i]-6-regular.widthOfTextAtSize(s,size):xs[i]+6,y-13-j*lineHeight,size)));
+    if((index%2===0||strong)&&tone!=='quiet')page.drawRectangle({x:left,y:y-height,width,height,color:color.pale});
+    if(strong&&offset===0)page.drawLine({start:{x:left,y},end:{x:559,y},color:color.accent,thickness:.8});
+    cells.forEach((lines,i)=>lines.slice(offset,offset+count).forEach((s,j)=>text(s,align[i]==='right'?xs[i]+widths[i]-6-font.widthOfTextAtSize(s,size):xs[i]+6,y-13-j*lineHeight,size,font)));
     page.drawLine({start:{x:left,y:y-height},end:{x:559,y:y-height},color:color.line,thickness:.45});y-=height;remaining-=count;offset+=count;if(remaining>0){add();header();}
    }
   });y-=12;
