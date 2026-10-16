@@ -28,7 +28,7 @@ test('Production creates, reviews and emits quotes, retains edits on refresh and
   const bytes=await makeCommercialPdf(d,pdfLib);return{data:{filename:d.number+'.pdf',pdf_base64:Buffer.from(bytes).toString('base64')}};
  };
  try{
-  w.eval(read('../src/features/work-orders/commercial-model.js'));w.eval(read('../src/features/work-orders/commercial.js'));await w.AVHCommercial.refresh();
+  w.structuredClone=structuredClone;w.eval(read('../edge-functions/_shared/company-logo.js'));w.eval(read('../src/features/work-orders/commercial-model.js'));w.eval(read('../src/features/work-orders/commercial.js'));await w.AVHCommercial.refresh();
   assert.equal(w.document.querySelector('#cdNewOc'),null);assert.equal(w.document.querySelector('[data-cd-kind="purchase_order"]'),null);
   assert.doesNotMatch(w.document.querySelector('#commercialPanel').textContent,/\bOC\b|órdenes de compra/i);
   await assert.rejects(w.AVHCommercial.editPurchaseOrder(randomUUID()),/Solo Administración/);

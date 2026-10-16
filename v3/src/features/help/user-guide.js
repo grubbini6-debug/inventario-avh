@@ -30,8 +30,8 @@
         step('Definí los insumos','Revisá las operaciones y controles propuestos. Vinculá materiales al catálogo, completá cantidades y marcá únicamente las confirmadas.'),
         step('Guardá y revisá','Guardar borrador archiva el Excel original. Usá Vista previa OT para revisar el documento antes de emitirlo.')
       ],'Las propuestas de IA requieren revisión del responsable técnico.','work-orders'),
-      topic('production-quotes','Presupuestos','Preparar un presupuesto profesional','Crear y enviar presupuestos con el membrete AVH.',[
-        step('Subí el Excel con precios','En Presupuestos elegí Seleccionar Excel, seleccioná la hoja y pulsá Preparar presupuesto. También podés crear uno a mano o desde una OT.'),
+      topic('production-quotes','Presupuestos','Preparar un presupuesto profesional','Crear y enviar presupuestos con la empresa emisora y su logo.',[
+        step('Subí el Excel con precios','En Presupuestos elegí Seleccionar Excel, seleccioná la hoja y pulsá Preparar presupuesto. Revisá la empresa emisora y el cliente por separado. Elegí el logo encontrado en la hoja o adjuntalo en PNG/JPG. También podés crear uno a mano o desde una OT.'),
         step('Completá los importes','Revisá destinatario, cantidades, precios, moneda, IVA, vigencia y condiciones. La IA puede proponer una redacción para revisar.'),
         step('Revisá y emití','Guardá el borrador, abrí Vista previa PDF y luego Emitir presupuesto numerado. El PDF definitivo queda listo para enviar.')
       ],'Revisá el alcance y los importes antes de emitir el presupuesto.','commercial'),
