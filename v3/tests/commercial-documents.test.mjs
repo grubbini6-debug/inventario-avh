@@ -47,6 +47,16 @@ test('Commercial authority, exact totals, immutable snapshots and central purcha
    await assert.rejects(q('select avh_commercial_private.quote_company($1,false)',[JSON.stringify(custom)]),/permission/);await assert.rejects(q('update purchase_companies set legal_name=$1 where id=$2',['Cambiar catálogo',ids.company]),/permission/);
    await db.exec('reset role');assert.equal((await q('select legal_name from purchase_companies where id=$1',[ids.company])).rows[0].legal_name,company.legal_name);await login(ids.galo);
   });
+  await t.test('Quote colors are validated, canonicalized and frozen in the issued snapshot',async()=>{
+   const id=randomUUID(),company={brand_avh:false,legal_name:'Empresa Azul S.A.',tax_id:'123-4',logo_data_url:logoDataUrl(),brand_color:'#1842AA',brand_color_mode:'auto'},p={...payload(),company};
+   for(const bad of ['red','#fff','#000000;display:none',123,{},'#12zz99'])await assert.rejects(cmd('save',{document_id:id,kind:'quote',payload:{...p,company:{...company,brand_color:bad}}}),/Color del presupuesto/);
+   await assert.rejects(cmd('save',{document_id:id,kind:'quote',payload:{...p,company:{...company,brand_color_mode:'unsafe'}}}),/Modo de color/);
+   await assert.rejects(cmd('save',{document_id:id,kind:'quote',payload:{...p,company:{...company,brand_color:null,brand_color_mode:'manual'}}}),/Elegí el color/);
+   await cmd('save',{document_id:id,kind:'quote',payload:p});assert.equal((await get(id)).payload.company.brand_color,'#1842aa');
+   await cmd('save',{document_id:id,kind:'quote',expected_version:1,payload:{...p,company:{...company,brand_color:'#FFEE5A',brand_color_mode:'manual'}}});await cmd('issue',{document_id:id,expected_version:2});
+   const d=await get(id);assert.equal(d.issued_payload.company.brand_color,'#ffee5a');assert.equal(d.issued_payload.company.brand_color_mode,'manual');
+   await assert.rejects(cmd('save',{document_id:id,kind:'quote',expected_version:3,payload:{...p,company:{...company,brand_color:'#000000'}}}),/borrador/);
+  });
   await t.test('Only Administration can create, view and issue OC into the central purchase flow',async()=>{
    const p=payload();p.supplier_id=ids.supplier;p.recipient_name='Proveedor de prueba';p.items[0].unit_price=12.5;
    assert.equal((await q('select commercial_context() c')).rows[0].c.suppliers.length,0);
