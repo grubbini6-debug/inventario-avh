@@ -19,6 +19,6 @@ Deno.serve(async(req:Request)=>{
   const response=await fetch(`${url}/rest/v1/rpc/commercial_document`,{method:'POST',headers,body:JSON.stringify({p_id:id})});
   if(!response.ok)return json({error:'Documento inexistente o sin acceso'},403);
   const order=await response.json();if(!order?.payload)return json({error:'Documento inexistente'},404);
-  const bytes=await makeCommercialPdf(order,pdfLib);return json({pdf_base64:base64(bytes),filename:(order.number||'BORRADOR_'+(order.kind==='quote'?'PRE':'OC')+'_'+id.slice(0,8))+'.pdf'});
- }catch{return json({error:'No se pudo generar el documento PDF'},500);}
+  const started=performance.now(),bytes=await makeCommercialPdf(order,pdfLib);console.info(JSON.stringify({event:'commercial_pdf_generated',document_id:id,items:(order.issued_payload||order.payload).items?.length,render_ms:Math.round(performance.now()-started),bytes:bytes.length}));return json({pdf_base64:base64(bytes),filename:(order.number||'BORRADOR_'+(order.kind==='quote'?'PRE':'OC')+'_'+id.slice(0,8))+'.pdf'});
+ }catch(error){console.error('commercial_pdf_generation_failed',error instanceof Error?error.message:'Unknown error');return json({error:'No se pudo generar el documento PDF'},500);}
 });
