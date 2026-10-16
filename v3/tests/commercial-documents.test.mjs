@@ -75,7 +75,20 @@ test('Commercial authority, exact totals, immutable snapshots and central purcha
   });
  }finally{await db.close();}
 });
-function printedText(doc){return doc.getPages().flatMap(p=>p.node.Contents().asArray().flatMap(ref=>[...new TextDecoder().decode(pdfLib.decodePDFRawStream(doc.context.lookup(ref)).decode()).matchAll(/<([0-9A-F]+)>\s*Tj/g)].map(m=>Buffer.from(m[1],'hex').toString('latin1')))).join(' ');}
+function printedText(doc){
+ return doc.getPages().flatMap(page=>{
+  const fonts=page.node.Resources().lookup(pdfLib.PDFName.of('Font')),maps=new Map();
+  for(const key of fonts.keys()){
+   const font=fonts.lookup(key),ref=font.get(pdfLib.PDFName.of('ToUnicode'));if(!ref)continue;
+   const cmap=new TextDecoder().decode(pdfLib.decodePDFRawStream(doc.context.lookup(ref)).decode()),map=new Map();
+   for(const section of cmap.matchAll(/beginbfchar([\s\S]*?)endbfchar/g))for(const pair of section[1].matchAll(/<([0-9a-f]+)>\s*<([0-9a-f]+)>/gi)){const words=pair[2].match(/.{4}/g)||[];map.set(pair[1].toUpperCase(),String.fromCharCode(...words.map(w=>parseInt(w,16))));}maps.set(key.decodeText(),map);
+  }
+  let active='';return page.node.Contents().asArray().flatMap(ref=>{
+   const result=[],stream=new TextDecoder().decode(pdfLib.decodePDFRawStream(doc.context.lookup(ref)).decode());
+   for(const token of stream.matchAll(/\/([^\s]+)\s+[0-9.]+\s+Tf|<([0-9A-F]+)>\s*Tj/g)){if(token[1])active=token[1];else{const map=maps.get(active);result.push(map?(token[2].match(/.{4}/g)||[]).map(code=>map.get(code)||'').join(''):Buffer.from(token[2],'hex').toString('latin1'));}}return result;
+  });
+ }).join(' ');
+}
 test('All document fields wrap, overlong words split, long rows paginate, and every PDF embeds the institutional logo',async()=>{
  const p=payload();p.company=company;p.title='TÍTULO '.repeat(60);p.recipient_name='CLIENTE '.repeat(50);p.location='LUGAR '.repeat(60);p.items=[{...p.items[0],description:'DESCRIPCIÓN '.repeat(600)+'ULTIMO-MARCADOR'}];Object.assign(p,M.totals(p));
  const document=await pdfLib.PDFDocument.load(await makeCommercialPdf({kind:'quote',status:'issued',number:'PRE-AVH-2026-00001',issued_payload:p},pdfLib));assert.ok(document.getPageCount()>1);assert.match(printedText(document),/ULTIMO-MARCADOR/);assert.match(printedText(document),/TOTAL USD/);assert.ok(document.getPages().every(page=>page.node.Resources().lookup(pdfLib.PDFName.of('XObject')).keys().length>0));

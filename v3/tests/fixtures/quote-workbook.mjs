@@ -9,6 +9,14 @@ export function logoDataUrl(width=192,height=64){
  const rows=Buffer.alloc(height*(width*3+1));for(let y=0;y<height;y++)for(let x=0;x<width;x++){const pos=y*(width*3+1)+1+x*3;rows[pos]=x<width/4?240:24;rows[pos+1]=x<width/4?154:66;rows[pos+2]=x<width/4?40:128;}
  return 'data:image/png;base64,'+Buffer.concat([Buffer.from('89504e470d0a1a0a','hex'),chunk('IHDR',header),chunk('IDAT',deflateSync(rows)),chunk('IEND',Buffer.alloc(0))]).toString('base64');
 }
+export function logoWithTableStrip(){
+ const width=340,height=188,rgba=new Uint8Array(width*height*4).fill(255),rows=Buffer.alloc(height*(width*3+1)),header=Buffer.alloc(13);header.writeUInt32BE(width);header.writeUInt32BE(height,4);header[8]=8;header[9]=2;
+ for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+  const color=y>=170?[18,78,25]:x>=12&&x<82&&y>=10&&y<80?[38,56,74]:x>=100&&x<300&&y>=15&&y<48||x>=100&&x<210&&y>=61&&y<76?[24,24,24]:[255,255,255];
+  const i=(y*width+x)*4;rgba.set(color,i);const pos=y*(width*3+1)+1+x*3;rows.set(color,pos);
+ }
+ const data_url='data:image/png;base64,'+Buffer.concat([Buffer.from('89504e470d0a1a0a','hex'),chunk('IHDR',header),chunk('IDAT',deflateSync(rows)),chunk('IEND',Buffer.alloc(0))]).toString('base64');return{width,height,rgba,data_url};
+}
 export function workbookWithLogos(X,bytes,entries){
  const zip=X.CFB.read(new Uint8Array(bytes),{type:'array'}),add=(path,data)=>X.CFB.utils.cfb_add(zip,path,typeof data==='string'?Buffer.from(data):data),read=path=>Buffer.from(zip.FileIndex[zip.FullPaths.findIndex(p=>p===path||p.endsWith('/'+path))].content).toString();
  const sheetGroups=new Map();for(const entry of entries){if(!sheetGroups.has(entry.sheet))sheetGroups.set(entry.sheet,[]);sheetGroups.get(entry.sheet).push(entry);}
