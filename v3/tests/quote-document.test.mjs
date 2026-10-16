@@ -13,7 +13,10 @@ test('PDF/photo readings conserve raw prices, issuer and exact totals; doubtful 
  raw.items[0].uncertain_fields=['quantity'];let b=Q.normalize(raw,files);assert.equal(b.items[0].quantity,null);assert.equal(b.calculated_total,null);
  raw.items[0].uncertain_fields=['unit_price'];b=Q.normalize(raw,files);assert.equal(b.items[0].unit_price,null,'a clear line amount must not fill a price explicitly marked uncertain');
  raw.items[0].confidence=.5;b=Q.normalize(raw,files);assert.equal(b.items[0].quantity,null);assert.equal(b.items[0].unit_price,null);
- const conflict=reading();conflict.items[0].line_total_raw='5.00';assert.equal(Q.normalize(conflict,files).items[0].unit_price,null);
+ const conflict=reading();conflict.items[0].line_total_raw='5.00';const c=Q.normalize(conflict,files).items[0];assert.equal(c.unit_price,5);assert.equal(c.quantity,1);assert.equal(c.unit,'trabajo');assert.equal(c.source_values.unit_price,'0.335');assert.match(c.description,/original: 3/);
+});
+test('The complete source billing quantity, specifications and conditions survive without multiplying pieces by a kg tariff',()=>{
+ const r=reading();Object.assign(r.items[0],{quantity_raw:'2',unit:'piezas',billing_quantity_raw:'1.286,00',billing_unit:'kg',unit_price_raw:'4,20',line_total_raw:'5.401,20',details:'Largo 4.000 mm / Ancho 2.000 mm / Espesor 7,9 mm'});r.source_total_raw='5.416,20';const a=Q.normalize(r,files);assert.equal(a.items[0].quantity,1286);assert.equal(a.items[0].unit,'kg');assert.equal(a.items[0].unit_price,4.2);assert.equal(a.calculated_total,5416.2);assert.match(a.items[0].description,/Espesor 7,9 mm/);assert.match(a.items[0].description,/Cantidad física: 2 piezas/);
 });
 test('Partial readings, mixed companies, invalid pages and non-source numeric values cannot become a budget',()=>{
  for(const change of [r=>r.complete=false,r=>r.same_issuer=false,r=>r.items[0].source_page=3,r=>r.items[0].source_file=2,r=>r.items[0].unit_price_raw=100,r=>r.items[0].confidence=undefined]){const raw=reading();change(raw);assert.throws(()=>Q.normalize(raw,files));}
