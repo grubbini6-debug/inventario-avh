@@ -17,6 +17,15 @@ export function logoWithTableStrip(){
  }
  const data_url='data:image/png;base64,'+Buffer.concat([Buffer.from('89504e470d0a1a0a','hex'),chunk('IHDR',header),chunk('IDAT',deflateSync(rows)),chunk('IEND',Buffer.alloc(0))]).toString('base64');return{width,height,rgba,data_url};
 }
+export function logoWithTableGrid(){
+ const width=369,height=269,rgba=new Uint8Array(width*height*4).fill(255),rows=Buffer.alloc(height*(width*3+1)),header=Buffer.alloc(13);header.writeUInt32BE(width);header.writeUInt32BE(height,4);header[8]=8;header[9]=2;
+ for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+  let color=x>=24&&x<94&&y>=4&&y<84?[38,56,74]:x>=114&&x<328&&y>=8&&y<39||x>=114&&x<230&&y>=49&&y<67||x>=114&&x<328&&y>=79&&y<87?[24,24,24]:[255,255,255];
+  if(y>=165)color=y<183?[18,77,25]:y<198?[173,210,145]:(y-198)%15<2||[202,203,252,253,305,306,356,357].includes(x)?[110,110,110]:[255,255,255];
+  const i=(y*width+x)*4;rgba.set(color,i);rows.set(color,y*(width*3+1)+1+x*3);
+ }
+ const data_url='data:image/png;base64,'+Buffer.concat([Buffer.from('89504e470d0a1a0a','hex'),chunk('IHDR',header),chunk('IDAT',deflateSync(rows)),chunk('IEND',Buffer.alloc(0))]).toString('base64');return{width,height,rgba,data_url};
+}
 export function workbookWithLogos(X,bytes,entries){
  const zip=X.CFB.read(new Uint8Array(bytes),{type:'array'}),add=(path,data)=>X.CFB.utils.cfb_add(zip,path,typeof data==='string'?Buffer.from(data):data),read=path=>Buffer.from(zip.FileIndex[zip.FullPaths.findIndex(p=>p===path||p.endsWith('/'+path))].content).toString();
  const sheetGroups=new Map();for(const entry of entries){if(!sheetGroups.has(entry.sheet))sheetGroups.set(entry.sheet,[]);sheetGroups.get(entry.sheet).push(entry);}

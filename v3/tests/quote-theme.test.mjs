@@ -4,7 +4,7 @@ import * as pdfLib from 'pdf-lib';
 import '../edge-functions/_shared/quote-theme.js';
 import {makeCommercialPdf} from '../edge-functions/_shared/commercial-pdf.mjs';
 import {quoteBranding} from '../edge-functions/_shared/quote-branding.mjs';
-import {logoWithTableStrip} from './fixtures/quote-workbook.mjs';
+import {logoWithTableStrip,logoWithTableGrid} from './fixtures/quote-workbook.mjs';
 import jpeg from 'jpeg-js';
 const T=globalThis.AVHQuoteTheme;
 const pixels=(...groups)=>Uint8Array.from(groups.flatMap(([rgba,count])=>Array.from({length:count},()=>rgba).flat()));
@@ -35,4 +35,10 @@ test('The issued PDF uses its saved palette on every page and ignores later draf
  const doc=await pdfLib.PDFDocument.load(await makeCommercialPdf({kind:'quote',status:'issued',number:'PRE-2026-00001',issued_payload:p,payload:{...p,company:{...company,brand_color:'#ff0000'}}},lib));
  assert.ok(doc.getPageCount()>1);assert.ok(seen.some(c=>c.every((v,i)=>v===[24,66,128][i]/255)));assert.ok(!seen.some(c=>c[0]===1&&c[1]===0&&c[2]===0));
  for(const page of doc.getPages()){const contents=page.node.Contents(),stream=contents.lookup(0);const raw=new TextDecoder().decode(pdfLib.decodePDFRawStream(stream).decode());assert.match(raw,/0\.09411764705882353 0\.25882352941176473 0\.5019607843137255 rg/);}
+});
+test('A whole table header and multiple grid rows cannot shrink the logo or supply its palette',()=>{
+ const source=logoWithTableGrid(),a=T.analyze(source.rgba,source.width,source.height);assert.equal(a.removedTables,1);assert.equal(a.color,'#26384a');assert.ok(a.bounds.height<100);assert.ok(a.bounds.width>300);
+ const company={brand_avh:false,logo_data_url:source.data_url,brand_color:'#124d19',brand_color_mode:'auto'},before=structuredClone(company),b=quoteBranding(company),logo=globalThis.AVHCompanyLogo.read(b.company.logo_data_url);assert.equal(b.theme.primary,'#26384a');assert.ok(logo.height<100);assert.deepEqual(company,before);assert.equal(quoteBranding({...company,brand_color:'#aa2233',brand_color_mode:'manual'}).theme.primary,'#aa2233');
+ // A grid-shaped image by itself has no separate issuer logo to identify safely.
+ const table=source.rgba.slice(165*source.width*4),alone=T.analyze(table,source.width,source.height-165);assert.equal(alone.removedTables,0);
 });

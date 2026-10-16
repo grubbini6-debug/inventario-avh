@@ -34,11 +34,20 @@
   const bands=[],gap=Math.max(2,Math.round(height*.035));let band;
   for(let y=0;y<height;y++){if(!rows[y].count)continue;if(!band||y-band.bottom>gap){band={top:y,bottom:y,left:width,right:0,count:0};bands.push(band);}band.bottom=y;band.left=Math.min(band.left,rows[y].left);band.right=Math.max(band.right,rows[y].right);band.count+=rows[y].count;}
   const rule=b=>{const w=b.right-b.left+1,h=b.bottom-b.top+1;return w>width*.75&&w/h>8&&b.count/(w*h)>.55&&h<height*.22&&(b.top<height*.08||b.bottom>height*.85);};
-  let kept=bands.filter(b=>!rule(b));if(!kept.length||kept.reduce((s,b)=>s+b.count,0)<total*.15)kept=bands;
+  // A cropped table can include the header AND several rows. It is not a thin strip:
+  // require both repeated full-width rules and persistent vertical grid lines below a
+  // separate logo, so a wordmark or a solid brand banner is never discarded on density alone.
+  const table=b=>{
+   const w=b.right-b.left+1,h=b.bottom-b.top+1;if(bands.length<2||b!==bands.at(-1)||b.top<height*.25||w<width*.8||h>height*.7)return false;
+   let horizontal=0,last=-2;for(let y=b.top;y<=b.bottom;y++)if(rows[y].count>w*.88){if(y>last+1)horizontal++;last=y;}if(horizontal<3)return false;
+   let vertical=0,previous=-2;for(let x=b.left;x<=b.right;x++){let count=0;for(let y=b.top;y<=b.bottom;y++){const i=(y*width+x)*4,a=rgba[i+3]/255;if(a>=.2&&Math.min(rgba[i],rgba[i+1],rgba[i+2])*a+255*(1-a)<225)count++;}if(count>h*.65){if(x>previous+1)vertical++;previous=x;}}
+   return vertical>=3;
+  };
+  const tables=new Set(bands.filter(table));let kept=bands.filter(b=>!rule(b)&&!tables.has(b));if(!kept.length||kept.reduce((s,b)=>s+b.count,0)<(tables.size?30:total*.15))kept=bands;
   const pad=Math.max(2,Math.round(Math.max(width,height)*.012)),x=Math.max(0,Math.min(...kept.map(b=>b.left))-pad),y=Math.max(0,kept[0].top-pad),right=Math.min(width,Math.max(...kept.map(b=>b.right))+1+pad),bottom=Math.min(height,kept.at(-1).bottom+1+pad),bounds={x,y,width:right-x,height:bottom-y};
   const step=Math.max(1,Math.ceil(Math.sqrt(bounds.width*bounds.height/16384))),sample=[];
   for(let sy=y;sy<bottom;sy+=step)for(let sx=x;sx<right;sx+=step){const i=(sy*width+sx)*4;sample.push(rgba[i],rgba[i+1],rgba[i+2],rgba[i+3]);}
-  return{bounds,color:fromPixels(sample),removedRules:bands.length-kept.length};
+  return{bounds,color:fromPixels(sample),removedRules:bands.length-kept.length,removedTables:[...tables].filter(b=>!kept.includes(b)).length};
  }
  async function raster(url){
   root.AVHCompanyLogo.read(url);
