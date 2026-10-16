@@ -5,7 +5,16 @@ import {regular,bold} from './quote-font-data.mjs';
 import './company-logo.js';
 import './quote-theme.js';
 const UPNG=UPNGModule.default||UPNGModule,bytes=value=>Uint8Array.from(atob(value),c=>c.charCodeAt(0));
-export async function quoteFonts(pdf){pdf.registerFontkit(fontkit);return{regular:await pdf.embedFont(bytes(regular),{subset:true}),bold:await pdf.embedFont(bytes(bold),{subset:true})};}
+// document-layout cleans all PDF strings to Latin-1. Complex-script shaping for every
+// width measurement is unnecessary here and exceeds the Edge CPU budget on long quotes.
+// Keep the embedded Inter outlines and Unicode maps; use the same glyph advances for
+// measuring and encoding, with a per-font character cache and no optional ligatures.
+const latinFontkit={create(data){
+ const font=fontkit.create(data),glyphs=new Map();
+ font.layout=value=>({glyphs:Array.from(value,char=>{const code=char.codePointAt(0);if(!glyphs.has(code))glyphs.set(code,font.glyphForCodePoint(code));return glyphs.get(code);})});
+ return font;
+}};
+export async function quoteFonts(pdf){pdf.registerFontkit(latinFontkit);return{regular:await pdf.embedFont(bytes(regular),{subset:true}),bold:await pdf.embedFont(bytes(bold),{subset:true})};}
 export function quoteBranding(company){
  const T=globalThis.AVHQuoteTheme,L=globalThis.AVHCompanyLogo,c={...company};let detected=null;
  if(c.brand_avh===false&&c.logo_data_url){
