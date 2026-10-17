@@ -181,6 +181,16 @@ try{
   await other.page.locator('#guideSearch').fill('');await other.page.locator('.guide-footer [data-guide-action="home"]').click();
   await other.page.locator('#depInitialPriority').click();assert.equal(await other.page.locator('#depInitialProduct').evaluate(e=>e.tagName),'SELECT');await other.page.locator('#depInitialProduct').selectOption(ids.counted);await other.page.locator('#depInitialQty').fill('1');await other.page.locator('#depInitialSaveNext').click();await other.page.locator('.success').waitFor();
   assert.equal(initialRequests.at(-1).table,'record_initial_inventory');assert.equal((await q('select sum(quantity_remaining)::float n from inventory_batches where warehouse_id=$1',[ids.w2])).rows[0].n,1);
+  // An ordinary depositor can count an existing kg product in boxes, with an explicit equivalence.
+  await other.page.locator('#depInitialProduct').selectOption(ids.raw);
+  for(const unit of ['caja','unidad','kg','metro','litro'])assert.ok(await other.page.locator('#depInitialPresentation option').filter({hasText:new RegExp('^'+unit+'$')}).count()>0,unit);
+  await other.page.locator('#depInitialPresentation').selectOption({label:'caja'});await other.page.locator('#depInitialQty').fill('2');
+  await other.page.locator('#depInitialSaveNext').click();await other.page.locator('#depInitialMsg').getByText('Indicá cuántos kg tiene 1 caja.').waitFor();
+  await other.page.locator('#depInitialFactor').fill('15');assert.match(await other.page.locator('#depInitialEquivalence').textContent(),/30 kg/);
+  await other.page.evaluate(()=>loadAll(true));assert.equal(await other.page.locator('#depInitialFactor').inputValue(),'15');
+  await other.page.locator('#depInitialSaveNext').click();await other.page.waitForFunction(()=>document.querySelector('#depInitialQty')?.value===''&&document.querySelector('.success'));
+  assert.equal(initialRequests.at(-1).body.p_items[0].unit,'caja');assert.equal(initialRequests.at(-1).body.p_items[0].factor_to_base,15);
+  assert.equal((await q('select sum(quantity_remaining)::float n from inventory_batches where warehouse_id=$1',[ids.w2])).rows[0].n,31);
   await other.context.close();
   await q('update profiles set must_change_password=true where id=$1',[ids.other]);
   const firstLogin=await pageFor(ids.other,{width:390,height:844},{firstLogin:true});

@@ -73,6 +73,7 @@
       topic('initial','Depósito','Cargar el inventario inicial','Contar lo que ya existe físicamente en el depósito.',[
         step('Esperá la apertura','Administración debe abrir el inventario inicial. Cuando esté habilitado, en Inicio aparece Continuar inventario inicial.'),
         step('Identificá el material',a.operator?'Elegí una sugerencia del catálogo o escribí un material nuevo. Para un material nuevo, indicá su unidad base.':'Elegí el material del catálogo y su unidad o presentación. Si falta un producto, pedí a Compras que lo incorpore.'),
+        step('Elegí cómo contar','Podés seleccionar caja, unidad, kg, metro y otras unidades. Si el producto usa otra unidad base, indicá cuánto contiene cada presentación; el sistema muestra el total que se sumará al stock.'),
         step('Cargá el conteo físico','Ingresá cantidad y, si corresponde, lote y observación. Guardar y cargar otro permite seguir con el próximo material. Administración completa los precios después.'),
         step('Revisá lo cargado','Consultá Último cargado y el stock. Contá una misma existencia una sola vez; cada guardado agrega cantidad al inventario.')
       ],'Después de registrar la existencia inicial, los materiales que llegan se cargan como recepción de compra o entrada, según corresponda.','home'),
