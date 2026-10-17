@@ -10,6 +10,7 @@ import {PGlite} from '@electric-sql/pglite';
 import * as pdfLib from 'pdf-lib';
 import {makeFabricationPdf,base64} from '../../edge-functions/_shared/fabrication-pdf.mjs';
 import {setupInitialInventory} from '../helpers/initial-inventory-fixture.mjs';
+import {setupInventoryCorrections} from '../helpers/inventory-corrections-fixture.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..'),read=p=>fs.readFileSync(path.join(root,p),'utf8');
 const db=new PGlite(),ids={admin:randomUUID(),isaac:randomUUID(),other:randomUUID(),w:randomUUID(),w2:randomUUID(),w3:randomUUID(),w4:randomUUID(),raw:randomUUID(),finished:randomUUID(),counted:randomUUID()};
 let browser,server,date,dropNamedResponse=false;const errors=[],initialRequests=[];
@@ -17,7 +18,7 @@ const q=(sql,args=[])=>db.query(sql,args);
 const command=async(action,data)=>{await q("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:ids.admin,role:'authenticated'})]);return (await q('select fabrication_command($1,$2::jsonb,$3) r',[action,JSON.stringify(data),randomUUID()])).rows[0].r;};
 try{
   await db.exec(read('tests/fixtures/fabrication-inventory.sql'));await db.exec(read('migrations/20261008232715_fabricacion_naval.sql'));
-  await setupInitialInventory(db);await db.exec(read('migrations/20261009123306_initial_inventory_named_material.sql'));
+  await setupInitialInventory(db);await setupInventoryCorrections(db);await db.exec(read('migrations/20261009123306_initial_inventory_named_material.sql'));
   await q('insert into auth.users(id) select unnest($1::uuid[])',[[ids.admin,ids.isaac,ids.other]]);
   await q("insert into warehouses(id,code,name) values($1,'TALLER','Taller naval existente'),($2,'OTRO','Otro depósito'),($3,'VH','Villa Hayes de prueba'),($4,'VILLETA','Villeta de prueba')",[ids.w,ids.w2,ids.w3,ids.w4]);
   await q("insert into profiles(id,username,full_name,role,warehouse_id) values($1,'compras','Encargado de Compras','admin',null),($2,'isaac','Isaac','depositor',$4),($3,'otro','Otro depositario','depositor',$5)",[ids.admin,ids.isaac,ids.other,ids.w,ids.w2]);
@@ -39,6 +40,7 @@ try{
         if(table==='fabrication_context')return (await tx.query('select fabrication_context() r')).rows[0].r;
         if(table==='fabrication_day')return (await tx.query('select fabrication_day($1,$2) r',[body.p_warehouse,body.p_date])).rows[0].r;
         if(table==='fabrication_command')return (await tx.query('select fabrication_command($1,$2::jsonb,$3) r',[body.p_action,JSON.stringify(body.p_data),body.p_request_id])).rows[0].r;
+        if(table==='admin_void_movement')return (await tx.query('select admin_void_movement($1,$2) r',[body.p_movement_id,body.p_reason])).rows[0].r;
         if(table==='record_initial_inventory'||table==='record_initial_inventory_named'){
           initialRequests.push({table,body});
           return (await tx.query(`select public.${table}($1,$2::jsonb,$3) r`,[body.p_warehouse_id,JSON.stringify(body.p_items),body.p_notes])).rows[0].r;
@@ -47,10 +49,16 @@ try{
       }
       if(!known.has(table))return [];
       const filters=[],args=[];
-      for(const [k,v] of params){if(['select','order','limit','offset'].includes(k))continue;if(!/^[a-z_]+$/.test(k)||!v.startsWith('eq.'))continue;args.push(v.slice(3));filters.push(`t.${k}=$${args.length}`);}
+      for(const [k,v] of params){
+        if(['select','order','limit','offset'].includes(k))continue;
+        if(table==='movements'&&['matched_lines.id','matched_lines.product_id'].includes(k)&&v.startsWith('eq.')){args.push(v.slice(3));filters.push(`exists(select 1 from movement_lines ml where ml.movement_id=t.id and ml.${k.split('.')[1]}=$${args.length})`);continue}
+        if(table==='movements'&&k==='type'&&v==='in.(initial,entry,return)'){filters.push("t.type in ('initial','entry','return')");continue}
+        if(table==='movements'&&k==='status'&&v==='neq.cancelled'){filters.push("t.status<>'cancelled'");continue}
+        if(!/^[a-z_]+$/.test(k)||!v.startsWith('eq.'))continue;args.push(v.slice(3));filters.push(`t.${k}=$${args.length}`);
+      }
       let order='';const orderParam=params.get('order');if(orderParam&&/^[a-z_. ,]+$/.test(orderParam))order=' order by '+orderParam.split(',').map(x=>{const [key,direction]=x.split('.');return `t.${key} ${direction==='desc'?'desc':'asc'}`;}).join(',');
       const limit=Math.min(Number(params.get('limit')||1000),1000),offset=Math.max(Number(params.get('offset')||0),0);
-      let select='t.*';if(table==='movements')select=`t.*,(select coalesce(jsonb_agg(to_jsonb(l)||jsonb_build_object('products',jsonb_build_object('name',p.name,'base_unit',p.base_unit))),'[]') from movement_lines l join products p on p.id=l.product_id where l.movement_id=t.id) as movement_lines`;
+      let select='t.*';if(table==='movements')select=`t.*,(select coalesce(jsonb_agg(to_jsonb(l)||jsonb_build_object('products',jsonb_build_object('name',p.name,'base_unit',p.base_unit))),'[]') from movement_lines l join products p on p.id=l.product_id where l.movement_id=t.id) as movement_lines,(select coalesce(jsonb_agg(jsonb_build_object('id',pr.id,'purchase_id',pr.purchase_id)),'[]') from purchase_receipts pr where pr.movement_id=t.id) purchase_receipts`;
       if(table==='fabrication_stock_links')select=`t.*,(select jsonb_build_object('movement_no',m.movement_no) from movements m where m.id=t.movement_id) as movements`;
       const result=await tx.query(`select ${select} from public.${table} t ${filters.length?'where '+filters.join(' and '):''}${order} limit ${limit} offset ${offset}`,args);
       // PostgREST serializes SQL date columns as YYYY-MM-DD; PGlite uses Date objects.
@@ -170,6 +178,21 @@ try{
   await supervisor.page.locator('.nav [data-page="fabrication"]').click();await supervisor.page.waitForSelector('[data-fn-order]');assert.equal(await supervisor.page.locator('#fnNewOrder').count(),0);await supervisor.page.locator('[data-fn-order]').click();await supervisor.page.waitForSelector('#fnBack');assert.equal(await supervisor.page.locator('#fnLog').count(),0);
   await supervisor.page.locator('.nav [data-page="home"]').click();await assertGeneralHome();
   await supervisor.page.locator('.nav [data-page="stock"]').click();assert.equal(await supervisor.page.locator('#stockWarehouse').inputValue(),'all');
+  // Admin corrects a load from the real inventory UI; the original and audit survive.
+  await supervisor.page.locator(`[data-remove-inventory="${ids.w}|${counted[0].id}"]`).click();
+  assert.match(await supervisor.page.locator('#inventoryCorrection').textContent(),/Perfil U 80 mm galvanizado/);
+  await supervisor.page.locator('[data-review-inventory-load]').click();
+  assert.ok(await supervisor.page.locator('#inventoryCorrectionSave').isDisabled());
+  await supervisor.page.locator('#inventoryCorrectionConfirm').check();await supervisor.page.locator('#inventoryCorrectionSave').click();
+  await supervisor.page.locator('#inventoryCorrectionMsg').getByText('Escribí el motivo de la eliminación.').waitFor();
+  await supervisor.page.locator('#inventoryCorrectionReason').fill('Carga de prueba ingresada por error');
+  await supervisor.page.locator('#inventoryCorrectionSave').click();await supervisor.page.locator('#inventoryCorrectionDone').waitFor();
+  assert.equal((await q('select sum(quantity_remaining)::float n from inventory_batches where product_id=$1',[counted[0].id])).rows[0].n,0);
+  assert.equal((await q("select count(*)::int n from movements m join movement_lines l on l.movement_id=m.id where l.product_id=$1 and m.status='cancelled'",[counted[0].id])).rows[0].n,1);
+  await supervisor.page.locator('#inventoryCorrectionDone').click();
+  // The product record exposes the same correction in each warehouse.
+  await supervisor.page.locator(`[data-stock="${ids.w}|${ids.counted}"]`).click();
+  await supervisor.page.locator('[data-correct-stock]').first().click();await supervisor.page.locator('[data-review-inventory-load]').waitFor();await supervisor.page.locator('#modalClose').click();
   await supervisor.page.locator('.nav [data-page="fabrication"]').click();await supervisor.page.locator('#fnBack').waitFor();
   if(process.env.AVH_QA_DIR)await supervisor.page.screenshot({path:path.join(process.env.AVH_QA_DIR,'fabricacion-supervision.png'),fullPage:true});await supervisor.context.close();
   const other=await pageFor(ids.other,{width:390,height:844},{preferences:guidePreferences});assert.equal(await other.page.locator('.fabrication-nav').isVisible(),false);await other.page.evaluate(()=>goPage('fabrication'));assert.equal(await other.page.locator('#page-fabrication').evaluate(e=>e.classList.contains('on')),false);

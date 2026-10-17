@@ -158,6 +158,7 @@
       topic('opening-admin','Administración','Habilitar y cerrar un inventario inicial','Autorizar el conteo del depositario y completar su valoración.',[
         step('Elegí el depósito','En Administración → Inventario inicial seleccioná el depósito existente y usá Abrir inventario inicial.'),
         step('Revisá el conteo','El depositario carga existencias físicas. Revisá productos, cantidades y lotes que registró.'),
+        step('Eliminá una carga incorrecta','Usá Eliminar carga en el ítem, revisá todos los productos de esa carga, escribí el motivo y confirmá. También está disponible desde Inventario y la ficha del producto. La carga queda anulada en el historial y se descuenta del stock; si ya se utilizó, el sistema bloquea la eliminación.'),
         step('Completá la valoración','Cargá precios y monedas con datos reales. El cierre se habilita cuando se cumplen las validaciones de las líneas.'),
         step('Cerrá la sesión','Usá Cerrar inventario al finalizar. Para corregir después, utilizá la reapertura explícita y el circuito de control correspondiente.')
       ],'La apertura permite cargar stock físico; revisá el conteo antes de cerrarlo.','admin-opening'),
