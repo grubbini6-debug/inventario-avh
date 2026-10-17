@@ -37,7 +37,7 @@ async function queryAll(table,select='*',extra='',pageSize=1000,maxRows=100000){
 async function insert(table,body,object=false){return request(`/rest/v1/${table}`,{method:'POST',headers:{Prefer:object?'return=representation':'return=minimal',...(object?{Accept:'application/vnd.pgrst.object+json'}:{})},body})}
 async function patch(table,filter,body){return request(`/rest/v1/${table}?${filter}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body})}
 async function upsert(table,body){return request(`/rest/v1/${table}`,{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body})}
-const STOCK_MUTATION_RPCS=new Set(['record_initial_inventory','record_initial_inventory_named','record_entry','record_exit','record_transfer','record_return','receive_purchase']);
+const STOCK_MUTATION_RPCS=new Set(['record_initial_inventory','record_initial_inventory_named','record_entry','record_exit','record_transfer','record_return','receive_purchase','edit_inventory_load']);
 const OPERATION_REQUEST_IDS_KEY='avh_operation_request_ids_v1',OPERATION_REQUEST_ID_TTL=24*60*60*1000;
 function canonicalOperationValue(v){if(Array.isArray(v))return v.map(canonicalOperationValue);if(v&&typeof v==='object'){const o={};for(const k of Object.keys(v).sort()){if(k!=='request_id')o[k]=canonicalOperationValue(v[k])}return o}return v}
 function operationFingerprint(name,args){return name+':'+JSON.stringify(canonicalOperationValue(args))}
@@ -45,12 +45,13 @@ function readOperationRequestIds(){try{const v=JSON.parse(localStorage.getItem(O
 function writeOperationRequestIds(v){try{localStorage.setItem(OPERATION_REQUEST_IDS_KEY,JSON.stringify(v))}catch{}}
 function prepareOperationRequest(name,args){
   if(!STOCK_MUTATION_RPCS.has(name)||!Array.isArray(args?.p_items)||!args.p_items.length)return{body:args};
-  if(args.p_items[0]?.request_id)return{body:args};
+  const rootRequest=name==='edit_inventory_load';
+  if(rootRequest?args.p_request_id:args.p_items[0]?.request_id)return{body:args};
   const now=Date.now(),store=readOperationRequestIds();
   for(const [k,v] of Object.entries(store))if(!v?.created_at||now-v.created_at>OPERATION_REQUEST_ID_TTL)delete store[k];
   const key=operationFingerprint(name,args),requestId=store[key]?.id||crypto.randomUUID();
   store[key]={id:requestId,created_at:store[key]?.created_at||now};writeOperationRequestIds(store);
-  return{key,requestId,body:{...args,p_items:args.p_items.map((item,index)=>index===0?{...item,request_id:requestId}:item)}};
+  return{key,requestId,body:rootRequest?{...args,p_request_id:requestId}:{...args,p_items:args.p_items.map((item,index)=>index===0?{...item,request_id:requestId}:item)}};
 }
 function clearOperationRequestId(key,requestId){if(!key)return;const store=readOperationRequestIds();if(store[key]?.id===requestId){delete store[key];writeOperationRequestIds(store)}}
 async function rpc(name,args={}){

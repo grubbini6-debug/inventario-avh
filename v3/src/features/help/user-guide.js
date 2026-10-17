@@ -103,11 +103,12 @@
         step('Describí la necesidad','Elegí un material o escribí su nombre. Indicá cantidad, unidad, urgencia, motivo y una observación que explique para qué se necesita.'),
         step('Seguí la solicitud','Cada envío queda registrado para que Compras revise la necesidad y actualice su estado. Consultá el seguimiento disponible en tu cuenta o pedí a Compras la respuesta.')
       ],'La solicitud informa una necesidad. El stock aumenta cuando se registra la recepción del material.','home'),
-      topic('correction','Depósito','Revisar movimientos y pedir una corrección','Qué hacer si cargaste un producto o una cantidad equivocada.',[
+      topic('correction','Depósito','Editar una carga de inventario','Corregir tus productos, cantidades, unidades y equivalencias.',[
         step('Encontrá el registro','En Inicio consultá Mis últimos movimientos y ubicá el movimiento que cargaste.'),
-        step('Solicitá la corrección','Usá Solicitar corrección cuando esté disponible. Explicá el error y detallá producto, cantidad o destino correctos.'),
-        step('Esperá la revisión','Compras o administración revisa la solicitud y aplica la operación que corresponda, conservando la trazabilidad.')
-      ],'Para corregir un registro confirmado, informá el error antes de cargar otra entrada o salida que altere las cantidades.','home')
+        step('Editá tu carga','Usá Editar carga en Inicio o en el último conteo guardado. Desde Inventario → Editar mis cargas también podés buscar registros anteriores. Solo editás lo que vos ingresaste en tu depósito.'),
+        step('Revisá y guardá','Corregí producto, cantidad, unidad, equivalencia y lote. Escribí el motivo y usá Guardar cambios y actualizar stock. El historial conserva los valores anteriores.'),
+        step('Revisá los bloqueos','Si el material ya se utilizó o corresponde a una recepción de compra, usá Solicitar corrección a Administración. Un inventario inicial cerrado requiere reapertura. Los registros de fabricación y gases se corrigen desde sus propios sectores.')
+      ],'Las entradas o devoluciones ya valorizadas permiten corregir cantidades; Administración revisa los cambios de producto o unidad para conservar los costos.','home')
     ];
     const manufacturing=[
       topic('factory-start','Fabricación','Preparar el taller, el personal y los componentes','Primeros pasos antes de crear una orden.',[

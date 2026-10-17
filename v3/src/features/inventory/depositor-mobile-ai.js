@@ -21,7 +21,7 @@
   const stockAlerts=()=> (D.stockStatus||[]).filter(x=>x.warehouse_id===profile?.warehouse_id&&(x.is_critical||(x.minimum_qty!==null&&num(x.minimum_qty)>0&&num(x.stock_qty)<=num(x.minimum_qty)*1.25)));
   const openingInventory=()=> (D.openingInventorySessions||[]).find(x=>x.warehouse_id===profile?.warehouse_id&&x.status==='open')||null;
   const ownMoves=()=> (D.moves||[]).filter(m=>m.warehouse_from_id===profile?.warehouse_id||m.warehouse_to_id===profile?.warehouse_id);
-  const initialSessionMoves=()=>{const s=openingInventory();if(!s)return[];const since=s.opened_at?new Date(s.opened_at).getTime():0;return ownMoves().filter(m=>m.type==='initial'&&new Date(m.created_at).getTime()>=since)};
+  const initialSessionMoves=()=>{const s=openingInventory();if(!s)return[];const since=s.opened_at?new Date(s.opened_at).getTime():0;return ownMoves().filter(m=>m.type==='initial'&&m.status!=='cancelled'&&new Date(m.created_at).getTime()>=since)};
   const initialProgress=()=>{const moves=initialSessionMoves(),products=new Set;let lines=0;moves.forEach(m=>(m.movement_lines||[]).forEach(l=>{lines++;if(l.product_id)products.add(l.product_id)}));return{moves:moves.length,lines,products:products.size}};
   const initialChoices=productId=>{
     const p=product(productId),base={label:p?.base_unit||'unidad',unit:p?.base_unit||'unidad',factor:1,presentation_label:null};
@@ -70,8 +70,9 @@
       <div id="depInitialMsg"></div>
       <div class="dep-initial-recent">
         <div class="section-head"><div><h2>Último cargado</h2><p>Solo esta sesión de inventario inicial</p></div></div>
-        <div class="list">${initialSessionMoves().slice(0,4).map(m=>`<div class="row"><div class="title">#${safe(m.movement_no)}</div><div class="subtext">${(m.movement_lines||[]).map(l=>`${fmt(l.quantity)} ${safe(l.presentation_label||l.unit)} ${safe(l.products?.name||'')}`).join(' · ')||'Sin detalle'} · ${dt(m.created_at)}</div></div>`).join('')||'<div class="empty">Todavía no cargaste productos en esta sesión.</div>'}</div>
+        <div class="list">${initialSessionMoves().slice(0,4).map(m=>`<div class="row"><div class="title">#${safe(m.movement_no)}</div><div class="subtext">${(m.movement_lines||[]).map(l=>`${fmt(l.quantity)} ${safe(l.presentation_label||l.unit)} ${safe(l.products?.name||'')}`).join(' · ')||'Sin detalle'} · ${dt(m.created_at)}</div>${window.AVHInventoryEditor?.canEdit(m)?`<button type="button" class="btn sm soft" data-initial-edit-load="${m.id}" style="margin-top:8px">Editar carga</button>`:''}</div>`).join('')||'<div class="empty">Todavía no cargaste productos en esta sesión.</div>'}</div>
       </div>`);
+    $$('[data-initial-edit-load]').forEach(b=>b.onclick=()=>window.AVHInventoryEditor.open(b.dataset.initialEditLoad));
     const resolveMaterial=()=>{
       const value=$('#depInitialProduct').value,name=initialName(value);
       if(!canName)return{product:products.find(p=>p.id===value)};
