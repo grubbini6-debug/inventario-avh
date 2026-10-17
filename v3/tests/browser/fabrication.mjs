@@ -180,6 +180,7 @@ try{
   await supervisor.page.locator('.nav [data-page="stock"]').click();assert.equal(await supervisor.page.locator('#stockWarehouse').inputValue(),'all');
   // Admin corrects a load from the real inventory UI; the original and audit survive.
   await supervisor.page.locator(`[data-remove-inventory="${ids.w}|${counted[0].id}"]`).click();
+  await supervisor.page.locator('[data-review-inventory-load]').waitFor();
   assert.match(await supervisor.page.locator('#inventoryCorrection').textContent(),/Perfil U 80 mm galvanizado/);
   await supervisor.page.locator('[data-review-inventory-load]').click();
   assert.ok(await supervisor.page.locator('#inventoryCorrectionSave').isDisabled());
