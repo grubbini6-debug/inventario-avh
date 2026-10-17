@@ -23,7 +23,12 @@
   const ownMoves=()=> (D.moves||[]).filter(m=>m.warehouse_from_id===profile?.warehouse_id||m.warehouse_to_id===profile?.warehouse_id);
   const initialSessionMoves=()=>{const s=openingInventory();if(!s)return[];const since=s.opened_at?new Date(s.opened_at).getTime():0;return ownMoves().filter(m=>m.type==='initial'&&new Date(m.created_at).getTime()>=since)};
   const initialProgress=()=>{const moves=initialSessionMoves(),products=new Set;let lines=0;moves.forEach(m=>(m.movement_lines||[]).forEach(l=>{lines++;if(l.product_id)products.add(l.product_id)}));return{moves:moves.length,lines,products:products.size}};
-  const initialChoices=productId=>{const p=product(productId),base={label:p?.base_unit||'unidad',unit:p?.base_unit||'unidad',factor:1,presentation_label:null},extra=(D.presentations||[]).filter(x=>x.product_id===productId).map(x=>({label:x.label,unit:x.unit,factor:num(x.factor_to_base)||1,presentation_label:x.label}));return[base,...extra]};
+  const initialChoices=productId=>{
+    const p=product(productId),base={label:p?.base_unit||'unidad',unit:p?.base_unit||'unidad',factor:1,presentation_label:null};
+    const extra=(D.presentations||[]).filter(x=>x.product_id===productId).map(x=>({label:x.label,unit:x.unit,factor:num(x.factor_to_base)>0?num(x.factor_to_base):null,presentation_label:x.label}));
+    const used=new Set([base,...extra].map(x=>x.unit));
+    return[base,...extra,...initialBaseUnits.filter(unit=>!used.has(unit)).map(unit=>({label:unit,unit,factor:null,presentation_label:unit}))];
+  };
   // Same base units as products_base_unit_check. New materials never invent conversions.
   const initialBaseUnits=['unidad','pieza','kg','tonelada','rollo','bobina','caja','paquete','bolsa','metro','m²','m³','litro','cilindro','tambor','pallet','plancha','barra','tubo','perfil','bidón','servicio','viaje','hora','día','otro'];
   const initialName=s=>String(s??'').trim().replace(/\s+/g,' ');
@@ -55,8 +60,10 @@
       <div class="field"><label for="depInitialProduct">Material *</label>${canName?`<input id="depInitialProduct" list="depInitialCatalog" maxlength="300" autocomplete="off" placeholder="Elegí una opción o escribí el material" aria-describedby="depInitialMaterialHint"><datalist id="depInitialCatalog">${products.map(p=>`<option value="${safe(p.name)}">${safe(p.sku||'')} · ${safe(p.base_unit)}</option>`).join('')}</datalist><div id="depInitialMaterialHint" class="subtext" aria-live="polite"></div>`:`<select id="depInitialProduct">${products.map(p=>`<option value="${p.id}">${safe(p.name)} · ${safe(p.base_unit)}</option>`).join('')}</select>`}</div>
       <div class="two">
         <div class="field"><label>Cantidad *</label><input id="depInitialQty" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></div>
-        <div class="field"><label>Unidad / presentación</label><select id="depInitialPresentation"></select></div>
+        <div class="field"><label for="depInitialPresentation">Unidad / presentación</label><select id="depInitialPresentation" aria-describedby="depInitialEquivalence"></select></div>
       </div>
+      <div class="field hide" id="depInitialFactorBlock"><label for="depInitialFactor" id="depInitialFactorLabel">Equivalencia de la presentación</label><input id="depInitialFactor" type="number" inputmode="decimal" min="0.000001" step="any" placeholder="Ej.: 15" aria-describedby="depInitialEquivalence"></div>
+      <div class="hint" id="depInitialEquivalence" aria-live="polite"></div>
       <div class="field"><label>Lote / referencia</label><input id="depInitialLot" placeholder="Opcional"></div>
       <div class="field"><label>Observación</label><textarea id="depInitialNotes" placeholder="Opcional"></textarea></div>
       <button id="depInitialSaveNext" class="btn primary" style="width:100%">Guardar y cargar otro</button>
@@ -71,22 +78,38 @@
       const exact=products.filter(p=>p.name===name||p.sku===name),matches=exact.length?exact:products.filter(p=>initialName(p.name).toLowerCase()===name.toLowerCase()||(p.sku&&initialName(p.sku).toLowerCase()===name.toLowerCase()));
       return{name,product:matches.length===1?matches[0]:null,ambiguous:matches.length>1};
     };
-    let presentationMode;
+    let presentationMode,conversionKey,choices=[];
+    const selectedChoice=()=>{const material=resolveMaterial();return material.product?choices[Number($('#depInitialPresentation').value)]:{unit:$('#depInitialPresentation').value,factor:1,presentation_label:null};};
+    const drawEquivalence=()=>{
+      const material=resolveMaterial(),choice=selectedChoice(),key=(material.product?.id||'new')+'|'+$('#depInitialPresentation').value,input=$('#depInitialFactor');
+      if(key!==conversionKey){input.value='';conversionKey=key;}
+      const needsFactor=!!material.product&&!!choice&&choice.factor==null;
+      $('#depInitialFactorBlock').classList.toggle('hide',!needsFactor);
+      $('#depInitialFactorLabel').textContent=needsFactor?`¿Cuántos ${material.product.base_unit} tiene 1 ${choice.unit}?`:'Equivalencia de la presentación';
+      if(!material.product){$('#depInitialEquivalence').textContent=choice?.unit?`El material nuevo se contará en ${choice.unit}.`:'';return;}
+      const factor=needsFactor?Number(input.value):choice?.factor,quantity=num($('#depInitialQty').value),base=material.product.base_unit;
+      $('#depInitialEquivalence').textContent=Number.isFinite(factor)&&factor>0?(quantity>0?`Se registrarán ${fmt(quantity*factor)} ${base} en el inventario.`:`El inventario de este material se registra en ${base}.`):`Indicá la equivalencia para contar en ${choice?.unit||'esta unidad'} y registrar el stock en ${base}.`;
+    };
     const drawPresentations=()=>{
       const material=resolveMaterial(),pid=material.product?.id,mode=pid||'new',select=$('#depInitialPresentation');
       if(canName)$('#depInitialMaterialHint').textContent=material.ambiguous?'Hay varias coincidencias. Elegí el nombre exacto del catálogo.':pid?`Material del catálogo · unidad base: ${material.product.base_unit}`:material.name?'Material nuevo: elegí su unidad. Se agregará al catálogo al guardar el conteo.':'El catálogo ofrece sugerencias. También podés escribir un material nuevo.';
       // Typing another letter must preserve the chosen unit, quantity, lot and notes.
-      if(mode===presentationMode)return;presentationMode=mode;
-      select.innerHTML=pid?initialChoices(pid).map((x,i)=>`<option value="${i}">${safe(x.label)}${x.factor!==1?` · 1 = ${fmt(x.factor)} ${safe(material.product.base_unit)}`:''}</option>`).join(''):`<option value="">Elegí la unidad</option>${initialBaseUnits.map(unit=>`<option value="${safe(unit)}">${safe(unit)}</option>`).join('')}`;
+      if(mode===presentationMode){drawEquivalence();return;}presentationMode=mode;
+      choices=pid?initialChoices(pid):[];
+      select.innerHTML=pid?choices.map((x,i)=>`<option value="${i}">${safe(x.label)}${x.factor!=null&&x.factor!==1?` · 1 = ${fmt(x.factor)} ${safe(material.product.base_unit)}`:''}</option>`).join(''):`<option value="">Elegí la unidad</option>${initialBaseUnits.map(unit=>`<option value="${safe(unit)}">${safe(unit)}</option>`).join('')}`;
+      drawEquivalence();
     };
     drawPresentations();$('#depInitialProduct').onchange=drawPresentations;if(canName)$('#depInitialProduct').oninput=drawPresentations;
+    $('#depInitialPresentation').onchange=drawEquivalence;$('#depInitialQty').oninput=drawEquivalence;$('#depInitialFactor').oninput=drawEquivalence;
     $('#depInitialSaveNext').onclick=async()=>{
       const out=$('#depInitialMsg'),material=resolveMaterial(),pid=material.product?.id,q=num($('#depInitialQty').value);
       if(material.ambiguous)return msg(out,'Elegí el nombre exacto de un material del catálogo.');
       if((!pid&&!material.name)||q<=0)return msg(out,'Ingresá un material y una cantidad mayor a cero.');
-      const choice=pid?initialChoices(pid)[Number($('#depInitialPresentation').value)]:{unit:$('#depInitialPresentation').value,factor:1,presentation_label:null};
+      const choice=selectedChoice();
       if(!choice?.unit)return msg(out,'Elegí la unidad del material.');
-      const item={quantity:q,unit:choice.unit,factor_to_base:choice.factor,presentation_label:choice.presentation_label,lot_reference:$('#depInitialLot').value.trim()||''};
+      const factor=choice.factor==null?Number($('#depInitialFactor').value):choice.factor;
+      if(!Number.isFinite(factor)||factor<=0)return msg(out,`Indicá cuántos ${material.product?.base_unit||'unidades base'} tiene 1 ${choice.unit}.`);
+      const item={quantity:q,unit:choice.unit,factor_to_base:factor,presentation_label:choice.presentation_label,lot_reference:$('#depInitialLot').value.trim()||''};
       if(pid)item.product_id=pid;else item.product_name=material.name;
       const b=$('#depInitialSaveNext');b.disabled=true;b.textContent='Guardando…';
       try{
