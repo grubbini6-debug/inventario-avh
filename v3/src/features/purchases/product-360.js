@@ -126,6 +126,7 @@
     return rows.map(x=>`<div class="p360-stock ${x.warehouse_id===focusId?'focus':''}">
       <div class="line"><div><b>${esc(x.warehouse_name||whName(x.warehouse_id))}</b><div class="subtext">Mínimo ${x.minimum_qty==null?'no definido':fmt(x.minimum_qty)+' '+esc(x.base_unit||'')}</div></div><div style="text-align:right"><div class="num">${fmt(x.stock_qty)} ${esc(x.base_unit||'')}</div><span class="badge ${x.alert_level==='critical'?'red':x.alert_level==='low'?'amber':'green'}">${x.alert_level==='critical'?'CRÍTICO':x.alert_level==='low'?'REVISAR':'NORMAL'}</span></div></div>
       <div class="metric-pills">${x.coverage_days!=null?`<span>${fmt(x.coverage_days)} días cobertura</span>`:''}${x.policy_configured?`<span>objetivo ${fmt(x.target_coverage_days)} días</span>`:''}${n(x.inbound_qty)>0?`<span>${fmt(x.inbound_qty)} ${esc(x.base_unit||'')} en camino</span>`:''}${x.next_expected_date?`<span>llega ${d(x.next_expected_date)}</span>`:''}${x.preferred_supplier_name?`<span>preferido: ${esc(x.preferred_supplier_name)}</span>`:''}</div>
+      <div class="split-actions" style="margin-top:10px"><button type="button" class="btn sm danger" data-correct-stock="${x.warehouse_id}">Eliminar carga</button></div>
     </div>`).join('')||'<div class="empty">Sin stock ni parámetros registrados en depósitos.</div>';
   }
 
@@ -381,6 +382,7 @@
     $('#productPriceHistory').onclick=()=>window.openPriceAnalysis?.(productId);
     $('#productPriceHistory2').onclick=()=>window.openPriceAnalysis?.(productId);
     bindTabs();
+    document.querySelectorAll('[data-correct-stock]').forEach(b=>b.onclick=()=>window.AVHInventoryCorrections.open(b.dataset.correctStock,productId,{onSuccess:()=>window.openProduct360(productId,b.dataset.correctStock)}));
     document.querySelectorAll('[data-product-tab-jump]').forEach(b=>b.onclick=()=>document.querySelector(`[data-product-tab="${b.dataset.productTabJump}"]`)?.click());
     document.querySelectorAll('[data-product-purchase]').forEach(x=>x.onclick=()=>window.openPurchaseDetail?.(x.dataset.productPurchase));
     document.querySelectorAll('[data-p360-supplier]').forEach(x=>x.onclick=e=>{e.stopPropagation();window.openSupplierProfile?.(x.dataset.p360Supplier)});
