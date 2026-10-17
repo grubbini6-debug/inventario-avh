@@ -33,7 +33,8 @@ window.movementRows=function(arr){
     const badgeText=cancelled?'ANULADO':m.status==='in_transit'?'EN TRÁNSITO':type.toUpperCase();
     const adminCanVoid=profile.role==='admin'&&!cancelled&&m.type!=='correction';
     const depositorCanRequest=profile.role!=='admin'&&!cancelled&&m.type!=='correction';
-    return`<div class="row clickable movement-row" data-movement="${m.id}"><div class="line"><div class="grow"><div class="title">${esc(type)} #${m.movement_no}</div><div class="subtext">${esc(lines||'Sin detalle')}<br>${esc(route)}${detail?` · ${esc(detail)}`:''}<br>${dt(m.created_at)}</div></div><span class="badge ${badgeClass}">${esc(badgeText)}</span></div><div class="split-actions">${m.type==='transfer'&&m.status==='in_transit'&&(profile.role==='admin'||profile.warehouse_id===m.warehouse_to_id)?`<button class="btn sm primary" data-receive="${m.id}">Confirmar recepción</button>`:''}${depositorCanRequest?`<button class="btn sm" data-correct="${m.id}">Solicitar corrección</button>`:''}${adminCanVoid?`<button class="btn sm danger" data-void-movement="${m.id}">Anular movimiento</button>`:''}</div></div>`;
+    const editAction=window.AVHInventoryEditor?.canEdit(m)?`<button type="button" class="btn sm primary" data-edit-own-load="${m.id}">Editar carga</button>`:'';
+    return`<div class="row clickable movement-row" data-movement="${m.id}"><div class="line"><div class="grow"><div class="title">${esc(type)} #${m.movement_no}</div><div class="subtext">${esc(lines||'Sin detalle')}<br>${esc(route)}${detail?` · ${esc(detail)}`:''}<br>${dt(m.created_at)}</div></div><span class="badge ${badgeClass}">${esc(badgeText)}</span></div><div class="split-actions">${m.type==='transfer'&&m.status==='in_transit'&&(profile.role==='admin'||profile.warehouse_id===m.warehouse_to_id)?`<button class="btn sm primary" data-receive="${m.id}">Confirmar recepción</button>`:''}${editAction}${depositorCanRequest?`<button class="btn sm" data-correct="${m.id}">Solicitar corrección</button>`:''}${adminCanVoid?`<button class="btn sm danger" data-void-movement="${m.id}">Anular movimiento</button>`:''}</div></div>`;
   }).join('');
 };
 
@@ -42,5 +43,6 @@ window.bindMovementRows=function(){
   $$('[data-receive]').forEach(x=>x.onclick=async e=>{e.stopPropagation();x.disabled=true;const r=await rpc('receive_transfer',{p_movement_id:x.dataset.receive});if(r.error)alert(r.error);await loadAll(true)});
   $$('[data-correct]').forEach(x=>x.onclick=e=>{e.stopPropagation();requestCorrection(x.dataset.correct)});
   $$('[data-void-movement]').forEach(x=>x.onclick=e=>{e.stopPropagation();voidMovement(x.dataset.voidMovement)});
+  $$('[data-edit-own-load]').forEach(x=>x.onclick=e=>{e.stopPropagation();window.AVHInventoryEditor.open(x.dataset.editOwnLoad)});
 };
 })();

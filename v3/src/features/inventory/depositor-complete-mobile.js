@@ -23,7 +23,7 @@
     .dep-complete-section{display:grid;gap:9px}.dep-complete-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}.dep-complete-head h2{margin:0;font-size:18px}.dep-complete-head p{margin:3px 0 0;color:#6d7d74;font-size:12px}
     .dep-ops-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.dep-op{border:1px solid #dce8e0;background:#fff;border-radius:15px;padding:13px;text-align:left;min-height:88px;cursor:pointer}.dep-op:active{transform:scale(.985)}.dep-op .ico{display:block;font-size:22px;margin-bottom:7px}.dep-op b{display:block;font-size:14px}.dep-op small{display:block;margin-top:4px;color:#708078;line-height:1.3}.dep-op.warn{background:#fffaf0;border-color:#ebd79e}.dep-op.request{background:#f3f8ff;border-color:#cfdef2}
     .dep-attention{display:grid;gap:8px}.dep-attention-row{border:1px solid #dfe8e2;border-radius:13px;padding:11px;background:#fff}.dep-attention-row.amber{border-left:4px solid #dfa62d}.dep-attention-row.red{border-left:4px solid #cc473f}.dep-attention-row.blue{border-left:4px solid #547ab7}.dep-attention-row .line{gap:8px}.dep-attention-row .title{font-size:13px}.dep-attention-row .subtext{font-size:11px;line-height:1.4}
-    .dep-history-row{border:1px solid #e0e8e3;border-radius:12px;padding:10px;background:#fff}.dep-history-actions{display:flex;justify-content:flex-end;margin-top:7px}.dep-doc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.dep-doc-box{border:1px solid #dfe8e2;border-radius:13px;padding:11px}.dep-doc-box h3{margin:0 0 8px}
+    .dep-history-row{border:1px solid #e0e8e3;border-radius:12px;padding:10px;background:#fff}.dep-history-actions{display:flex;justify-content:flex-end;gap:7px;flex-wrap:wrap;margin-top:7px}.dep-doc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.dep-doc-box{border:1px solid #dfe8e2;border-radius:13px;padding:11px}.dep-doc-box h3{margin:0 0 8px}
     @media(max-width:620px){.dep-op{min-height:82px;padding:12px}.dep-doc-grid{grid-template-columns:1fr}.dep-complete-head{align-items:flex-start;flex-direction:column}}
   `;
   document.head.appendChild(style);
@@ -78,7 +78,7 @@
 
   function recentHtml(){
     const rows=ownMoves().filter(m=>m.type!=='correction').slice(0,8);
-    return rows.map(m=>`<div class="dep-history-row"><div class="line"><div class="grow"><div class="title">${safe((typeof TYPE_LABEL!=='undefined'&&TYPE_LABEL[m.type])||m.type)} #${m.movement_no}</div><div class="subtext">${(m.movement_lines||[]).map(l=>`${fmt(l.quantity)} ${safe(l.presentation_label||l.unit)} ${safe(l.products?.name||'')}`).join(' · ')||'Sin detalle'}<br>${dt(m.created_at)}</div></div><span class="badge">${safe(m.status||'')}</span></div>${m.created_by===profile.id?`<div class="dep-history-actions"><button class="btn sm soft" data-dep-correct="${m.id}">Solicitar corrección</button></div>`:''}</div>`).join('')||'<div class="empty">Todavía no hay movimientos.</div>';
+    return rows.map(m=>`<div class="dep-history-row"><div class="line"><div class="grow"><div class="title">${safe((typeof TYPE_LABEL!=='undefined'&&TYPE_LABEL[m.type])||m.type)} #${m.movement_no}</div><div class="subtext">${(m.movement_lines||[]).map(l=>`${fmt(l.quantity)} ${safe(l.presentation_label||l.unit)} ${safe(l.products?.name||'')}`).join(' · ')||'Sin detalle'}<br>${dt(m.created_at)}</div></div><span class="badge">${safe(m.status||'')}</span></div>${m.created_by===profile.id&&m.status!=='cancelled'?`<div class="dep-history-actions">${window.AVHInventoryEditor?.canEdit(m)?`<button type="button" class="btn sm primary" data-dep-edit-load="${m.id}">Editar carga</button>`:''}<button class="btn sm soft" data-dep-correct="${m.id}">Solicitar corrección</button></div>`:''}</div>`).join('')||'<div class="empty">Todavía no hay movimientos.</div>';
   }
 
   function bind(){
@@ -93,13 +93,15 @@
     $$('[data-dep-stock-state]').forEach(b=>b.onclick=()=>goStockState(b.dataset.depStockState));
     $$('[data-dep-complete-docs]').forEach(b=>b.onclick=()=>openCompleteDocs(b.dataset.depCompleteDocs));
     $$('[data-dep-correct]').forEach(b=>b.onclick=()=>requestCorrection(b.dataset.depCorrect));
+    $$('[data-dep-edit-load]').forEach(b=>b.onclick=()=>window.AVHInventoryEditor.open(b.dataset.depEditLoad));
+    $('#depEditLoadsList')?.addEventListener('click',()=>window.AVHInventoryEditor.list());
   }
 
   function decorate(){
     if(!isDep())return;const home=$('#page-home .dep-home');if(!home||$('#depCompleteOps'))return;
     const actions=home.querySelector('.dep-actions');if(actions)actions.insertAdjacentHTML('afterend',`<section id="depCompleteOps" class="dep-complete-section"><div class="dep-complete-head"><div><h2>Más opciones</h2><p>Acciones menos frecuentes del depósito.</p></div></div><div class="dep-ops-grid"><button id="depManualEntry" class="dep-op"><span class="ico">➕</span><b>Entrada manual</b><small>Ingreso que no viene de una OC.</small></button><button id="depSupplyRequest" class="dep-op request"><span class="ico">📝</span><b>Solicitar material</b><small>Pedí reposición o algo nuevo a administración.</small></button></div></section>`);
     const kpis=home.querySelector('.dep-kpis');if(kpis)kpis.insertAdjacentHTML('afterend',`<section id="depAttention" class="dep-complete-section"><div class="dep-complete-head"><div><h2>Atención requerida</h2><p>Transferencias, faltantes, solicitudes y documentos.</p></div></div><div class="dep-attention">${attentionHtml()}</div></section>`);
-    const heads=[...home.querySelectorAll('.section-head')],activity=heads.find(h=>h.querySelector('h2')?.textContent.trim()==='Actividad de hoy');if(activity){const oldList=activity.nextElementSibling;activity.style.display='none';if(oldList)oldList.style.display='none';activity.insertAdjacentHTML('afterend',`<section id="depRecentManaged" class="dep-complete-section"><div class="dep-complete-head"><div><h2>Mis últimos movimientos</h2><p>Revisá lo cargado y pedí corrección si algo quedó mal.</p></div></div><div class="dep-attention">${recentHtml()}</div></section>`)}
+    const heads=[...home.querySelectorAll('.section-head')],activity=heads.find(h=>h.querySelector('h2')?.textContent.trim()==='Actividad de hoy');if(activity){const oldList=activity.nextElementSibling;activity.style.display='none';if(oldList)oldList.style.display='none';activity.insertAdjacentHTML('afterend',`<section id="depRecentManaged" class="dep-complete-section"><div class="dep-complete-head"><div><h2>Mis últimos movimientos</h2><p>Revisá y editá lo que ingresaste en tu depósito.</p></div><button type="button" class="btn sm soft" id="depEditLoadsList">Ver todas mis cargas</button></div><div class="dep-attention">${recentHtml()}</div></section>`)}
     bind();
   }
 

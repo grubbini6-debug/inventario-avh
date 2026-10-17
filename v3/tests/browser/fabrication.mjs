@@ -11,14 +11,15 @@ import * as pdfLib from 'pdf-lib';
 import {makeFabricationPdf,base64} from '../../edge-functions/_shared/fabrication-pdf.mjs';
 import {setupInitialInventory} from '../helpers/initial-inventory-fixture.mjs';
 import {setupInventoryCorrections} from '../helpers/inventory-corrections-fixture.mjs';
+import {setupOwnLoadEditor} from '../helpers/own-load-editor-fixture.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..'),read=p=>fs.readFileSync(path.join(root,p),'utf8');
 const db=new PGlite(),ids={admin:randomUUID(),isaac:randomUUID(),other:randomUUID(),w:randomUUID(),w2:randomUUID(),w3:randomUUID(),w4:randomUUID(),raw:randomUUID(),finished:randomUUID(),counted:randomUUID()};
-let browser,server,date,dropNamedResponse=false;const errors=[],initialRequests=[];
+let browser,server,date,dropNamedResponse=false,dropEditResponse=false;const errors=[],initialRequests=[],editRequests=[];
 const q=(sql,args=[])=>db.query(sql,args);
 const command=async(action,data)=>{await q("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:ids.admin,role:'authenticated'})]);return (await q('select fabrication_command($1,$2::jsonb,$3) r',[action,JSON.stringify(data),randomUUID()])).rows[0].r;};
 try{
   await db.exec(read('tests/fixtures/fabrication-inventory.sql'));await db.exec(read('migrations/20261008232715_fabricacion_naval.sql'));
-  await setupInitialInventory(db);await setupInventoryCorrections(db);await db.exec(read('migrations/20261009123306_initial_inventory_named_material.sql'));
+  await setupInitialInventory(db);await setupInventoryCorrections(db);await setupOwnLoadEditor(db);await db.exec(read('migrations/20261009123306_initial_inventory_named_material.sql'));
   await q('insert into auth.users(id) select unnest($1::uuid[])',[[ids.admin,ids.isaac,ids.other]]);
   await q("insert into warehouses(id,code,name) values($1,'TALLER','Taller naval existente'),($2,'OTRO','Otro depósito'),($3,'VH','Villa Hayes de prueba'),($4,'VILLETA','Villeta de prueba')",[ids.w,ids.w2,ids.w3,ids.w4]);
   await q("insert into profiles(id,username,full_name,role,warehouse_id) values($1,'compras','Encargado de Compras','admin',null),($2,'isaac','Isaac','depositor',$4),($3,'otro','Otro depositario','depositor',$5)",[ids.admin,ids.isaac,ids.other,ids.w,ids.w2]);
@@ -41,6 +42,11 @@ try{
         if(table==='fabrication_day')return (await tx.query('select fabrication_day($1,$2) r',[body.p_warehouse,body.p_date])).rows[0].r;
         if(table==='fabrication_command')return (await tx.query('select fabrication_command($1,$2::jsonb,$3) r',[body.p_action,JSON.stringify(body.p_data),body.p_request_id])).rows[0].r;
         if(table==='admin_void_movement')return (await tx.query('select admin_void_movement($1,$2) r',[body.p_movement_id,body.p_reason])).rows[0].r;
+        if(table==='inventory_load_edit_context')return (await tx.query('select inventory_load_edit_context($1) r',[body.p_movement_id])).rows[0].r;
+        if(table==='edit_inventory_load'){
+          editRequests.push(body);
+          return (await tx.query('select edit_inventory_load($1,$2,$3::jsonb,$4,$5,$6) r',[body.p_movement_id,body.p_expected_version,JSON.stringify(body.p_items),body.p_notes,body.p_reason,body.p_request_id])).rows[0].r;
+        }
         if(table==='record_initial_inventory'||table==='record_initial_inventory_named'){
           initialRequests.push({table,body});
           return (await tx.query(`select public.${table}($1,$2::jsonb,$3) r`,[body.p_warehouse_id,JSON.stringify(body.p_items),body.p_notes])).rows[0].r;
@@ -82,6 +88,7 @@ try{
         }
         const result=await adapter(url,req.method(),body,user);
         if(dropNamedResponse&&url.pathname.endsWith('/record_initial_inventory_named')){dropNamedResponse=false;return route.abort('failed');}
+        if(dropEditResponse&&url.pathname.endsWith('/edit_inventory_load')){dropEditResponse=false;return route.abort('failed');}
         return route.fulfill({headers,json:result});
       }catch(e){return route.fulfill({status:400,headers,json:{message:e.message}});}
     });
@@ -215,6 +222,23 @@ try{
   await other.page.locator('#depInitialSaveNext').click();await other.page.waitForFunction(()=>document.querySelector('#depInitialQty')?.value===''&&document.querySelector('.success'));
   assert.equal(initialRequests.at(-1).body.p_items[0].unit,'caja');assert.equal(initialRequests.at(-1).body.p_items[0].factor_to_base,15);
   assert.equal((await q('select sum(quantity_remaining)::float n from inventory_batches where warehouse_id=$1',[ids.w2])).rows[0].n,31);
+  // The depositor edits their own saved count, including a retry after the response is lost.
+  const editable=(await q("select m.id from movements m join movement_lines l on l.movement_id=m.id where m.created_by=$1 and m.type='initial' and l.product_id=$2 order by m.created_at desc limit 1",[ids.other,ids.raw])).rows[0].id;
+  await other.page.locator(`[data-initial-edit-load="${editable}"]`).click();await other.page.locator('#ownLoadSave').waitFor();
+  assert.equal(await other.page.locator('[data-own-quantity]').inputValue(),'2');assert.equal(await other.page.locator('[data-own-factor]').inputValue(),'15');
+  assert.ok((await other.page.locator('[data-own-unit] option').allTextContents()).includes('metro'));
+  await other.page.locator('[data-own-quantity]').fill('3');await other.page.locator('#ownLoadReason').fill('Se ingresó mal la cantidad de cajas');
+  await other.page.evaluate(()=>loadAll(true));assert.equal(await other.page.locator('[data-own-quantity]').inputValue(),'3');assert.equal(await other.page.locator('#ownLoadReason').inputValue(),'Se ingresó mal la cantidad de cajas');
+  const editWidth=await other.page.evaluate(()=>({viewport:innerWidth,content:document.documentElement.scrollWidth}));assert.ok(editWidth.content<=editWidth.viewport+1,JSON.stringify(editWidth));
+  dropEditResponse=true;await other.page.locator('#ownLoadSave').click();await other.page.locator('#ownLoadMsg').getByText('No se pudo conectar con el servidor. Revisá tu conexión.').waitFor();
+  assert.equal(await other.page.locator('[data-own-quantity]').inputValue(),'3');await other.page.locator('#ownLoadSave').click();await other.page.locator('#ownLoadDone').waitFor();
+  assert.equal(editRequests.length,2);assert.equal(editRequests[0].p_request_id,editRequests[1].p_request_id);
+  assert.equal((await q('select sum(quantity_remaining)::float n from inventory_batches where warehouse_id=$1 and product_id=$2',[ids.w2,ids.raw])).rows[0].n,45);
+  assert.equal((await q("select count(*)::int n from audit_events where movement_id=$1 and action='inventory_load_edited'",[editable])).rows[0].n,1);
+  await other.page.locator('#ownLoadDone').click();await other.page.locator(`[data-dep-edit-load="${editable}"]`).waitFor();
+  await other.page.locator('#depEditLoadsList').click();await other.page.locator(`[data-open-own-load="${editable}"]`).waitFor();await other.page.locator('#modalClose').click();
+  await other.page.locator('#depGoStock').click();await other.page.locator(`[data-edit-own-stock="${ids.raw}"]`).click();await other.page.locator(`[data-open-own-load="${editable}"]`).click();await other.page.locator('#ownLoadSave').waitFor();
+  assert.equal(await other.page.locator('[data-own-quantity]').inputValue(),'3');await other.page.locator('#ownLoadCancel').click();
   await other.context.close();
   await q('update profiles set must_change_password=true where id=$1',[ids.other]);
   const firstLogin=await pageFor(ids.other,{width:390,height:844},{firstLogin:true});
