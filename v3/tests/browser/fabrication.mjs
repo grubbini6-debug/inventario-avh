@@ -244,7 +244,7 @@ try{
   await other.page.locator('.nav [data-page="home"]').click();await other.page.locator('#depInitialPriority').click();
   await other.page.locator('#depInitialProduct').fill('Disco');await other.page.locator('#depInitialPresentation').selectOption('pieza');
   await other.page.locator('#depInitialQty').fill('6');await other.page.locator('#depInitialLot').fill('L-DEPOSITO');await other.page.locator('#depInitialNotes').fill('Conteo físico manual');
-  await other.page.locator('#depInitialProduct').pressSequentially(' de corte 7 pulgadas');
+  await other.page.locator('#depInitialProduct').press('End');await other.page.locator('#depInitialProduct').pressSequentially(' de corte 7 pulgadas');
   assert.equal(await other.page.locator('#depInitialProduct').inputValue(),'Disco de corte 7 pulgadas');assert.equal(await other.page.locator('#depInitialPresentation').inputValue(),'pieza');
   await other.page.evaluate(()=>loadAll(true));assert.equal(await other.page.locator('#depInitialQty').inputValue(),'6');assert.equal(await other.page.locator('#depInitialLot').inputValue(),'L-DEPOSITO');
   await other.page.locator('#depInitialSaveNext').click();await other.page.waitForFunction(()=>document.querySelector('#depInitialProduct')?.value===''&&document.querySelector('.success'));
