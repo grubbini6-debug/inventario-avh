@@ -3,6 +3,7 @@
     "src/core/config.js",
     "src/core/state.js",
     "src/core/utils.js",
+    "edge-functions/_shared/purchase-receiving-model.js",
     "src/core/api.js",
     "src/core/auth.js",
     "src/core/data-views.js",
