@@ -32,7 +32,8 @@
   // Same base units as products_base_unit_check. New materials never invent conversions.
   const initialBaseUnits=['unidad','pieza','kg','tonelada','rollo','bobina','caja','paquete','bolsa','metro','m²','m³','litro','cilindro','tambor','pallet','plancha','barra','tubo','perfil','bidón','servicio','viaje','hora','día','otro'];
   const initialName=s=>String(s??'').trim().replace(/\s+/g,' ');
-  const canNameInitialMaterial=()=>isDep()&&window.AVHManufacturing?.writable()&&window.AVHManufacturing?.state?.warehouse===profile.warehouse_id;
+  // Counting physical stock is available to every assigned depositor, independently of manufacturing.
+  const canNameInitialMaterial=()=>isDep()&&!!profile.warehouse_id&&!!openingInventory();
   const pItems=id=>(D.purchaseItems||[]).filter(x=>x.purchase_id===id&&num(x.received_qty)<num(x.quantity));
   const product=id=>(D.products||[]).find(x=>x.id===id);
   const purchase=id=>(D.purchases||[]).find(x=>x.id===id);

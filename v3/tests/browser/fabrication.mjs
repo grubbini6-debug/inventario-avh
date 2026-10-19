@@ -20,6 +20,7 @@ const command=async(action,data)=>{await q("select set_config('request.jwt.claim
 try{
   await db.exec(read('tests/fixtures/fabrication-inventory.sql'));await db.exec(read('migrations/20261008232715_fabricacion_naval.sql'));
   await setupInitialInventory(db);await setupInventoryCorrections(db);await setupOwnLoadEditor(db);await db.exec(read('migrations/20261009123306_initial_inventory_named_material.sql'));
+  await db.exec(read('migrations/20261019131602_depositor_manual_initial_inventory.sql'));
   await q('insert into auth.users(id) select unnest($1::uuid[])',[[ids.admin,ids.isaac,ids.other]]);
   await q("insert into warehouses(id,code,name) values($1,'TALLER','Taller naval existente'),($2,'OTRO','Otro depósito'),($3,'VH','Villa Hayes de prueba'),($4,'VILLETA','Villeta de prueba')",[ids.w,ids.w2,ids.w3,ids.w4]);
   await q("insert into profiles(id,username,full_name,role,warehouse_id) values($1,'compras','Encargado de Compras','admin',null),($2,'isaac','Isaac','depositor',$4),($3,'otro','Otro depositario','depositor',$5)",[ids.admin,ids.isaac,ids.other,ids.w,ids.w2]);
@@ -210,10 +211,10 @@ try{
   await other.page.locator('#guideSearch').fill('una palabra inexistente');await other.page.locator('#guideEmpty:not(.hide)').waitFor();
   assert.equal(await other.page.locator('[data-guide-topic]:visible').count(),0);
   await other.page.locator('#guideSearch').fill('');await other.page.locator('.guide-footer [data-guide-action="home"]').click();
-  await other.page.locator('#depInitialPriority').click();assert.equal(await other.page.locator('#depInitialProduct').evaluate(e=>e.tagName),'SELECT');await other.page.locator('#depInitialProduct').selectOption(ids.counted);await other.page.locator('#depInitialQty').fill('1');await other.page.locator('#depInitialSaveNext').click();await other.page.locator('.success').waitFor();
+  await other.page.locator('#depInitialPriority').click();assert.equal(await other.page.locator('#depInitialProduct').evaluate(e=>e.tagName),'INPUT');await other.page.locator('#depInitialProduct').fill('AL-1');await other.page.locator('#depInitialQty').fill('1');await other.page.locator('#depInitialSaveNext').click();await other.page.locator('.success').waitFor();
   assert.equal(initialRequests.at(-1).table,'record_initial_inventory');assert.equal((await q('select sum(quantity_remaining)::float n from inventory_batches where warehouse_id=$1',[ids.w2])).rows[0].n,1);
   // An ordinary depositor can count an existing kg product in boxes, with an explicit equivalence.
-  await other.page.locator('#depInitialProduct').selectOption(ids.raw);
+  await other.page.locator('#depInitialProduct').fill('Acero ASTM A36');
   for(const unit of ['caja','unidad','kg','metro','litro'])assert.ok(await other.page.locator('#depInitialPresentation option').filter({hasText:new RegExp('^'+unit+'$')}).count()>0,unit);
   await other.page.locator('#depInitialPresentation').selectOption({label:'caja'});await other.page.locator('#depInitialQty').fill('2');
   await other.page.locator('#depInitialSaveNext').click();await other.page.locator('#depInitialMsg').getByText('Indicá cuántos kg tiene 1 caja.').waitFor();
@@ -239,10 +240,21 @@ try{
   await other.page.locator('#depEditLoadsList').click();await other.page.locator(`[data-open-own-load="${editable}"]`).waitFor();await other.page.locator('#modalClose').click();
   await other.page.locator('#depGoStock').click();await other.page.locator(`[data-edit-own-stock="${ids.raw}"]`).click();await other.page.locator(`[data-open-own-load="${editable}"]`).click();await other.page.locator('#ownLoadSave').waitFor();
   assert.equal(await other.page.locator('[data-own-quantity]').inputValue(),'3');await other.page.locator('#ownLoadCancel').click();
+  // A depositor without manufacturing access types and saves a new material from a phone.
+  await other.page.locator('.nav [data-page="home"]').click();await other.page.locator('#depInitialPriority').click();
+  await other.page.locator('#depInitialProduct').fill('Disco');await other.page.locator('#depInitialPresentation').selectOption('pieza');
+  await other.page.locator('#depInitialQty').fill('6');await other.page.locator('#depInitialLot').fill('L-DEPOSITO');await other.page.locator('#depInitialNotes').fill('Conteo físico manual');
+  await other.page.locator('#depInitialProduct').pressSequentially(' de corte 7 pulgadas');
+  assert.equal(await other.page.locator('#depInitialProduct').inputValue(),'Disco de corte 7 pulgadas');assert.equal(await other.page.locator('#depInitialPresentation').inputValue(),'pieza');
+  await other.page.evaluate(()=>loadAll(true));assert.equal(await other.page.locator('#depInitialQty').inputValue(),'6');assert.equal(await other.page.locator('#depInitialLot').inputValue(),'L-DEPOSITO');
+  await other.page.locator('#depInitialSaveNext').click();await other.page.waitForFunction(()=>document.querySelector('#depInitialProduct')?.value===''&&document.querySelector('.success'));
+  assert.equal(initialRequests.at(-1).table,'record_initial_inventory_named');assert.equal(initialRequests.at(-1).body.p_items[0].product_name,'Disco de corte 7 pulgadas');
+  const manualCount=(await q("select b.warehouse_id,b.quantity_remaining,b.unit_cost,b.currency,p.base_unit,p.created_by from inventory_batches b join products p on p.id=b.product_id where p.name='Disco de corte 7 pulgadas'")).rows;
+  assert.equal(manualCount.length,1);assert.equal(manualCount[0].warehouse_id,ids.w2);assert.equal(Number(manualCount[0].quantity_remaining),6);assert.equal(manualCount[0].base_unit,'pieza');assert.equal(manualCount[0].created_by,ids.other);assert.equal(manualCount[0].unit_cost,null);assert.equal(manualCount[0].currency,null);
   await other.context.close();
   await q('update profiles set must_change_password=true where id=$1',[ids.other]);
   const firstLogin=await pageFor(ids.other,{width:390,height:844},{firstLogin:true});
   assert.ok(await firstLogin.page.locator('#pwForm').isVisible());assert.equal(await firstLogin.page.locator('#guideWelcome').count(),0);
   await firstLogin.page.evaluate(()=>window.AVHGuide.open());assert.equal(await firstLogin.page.locator('#page-help').evaluate(e=>e.classList.contains('on')),false);await firstLogin.context.close();
-  assert.deepEqual(errors,[]);console.log('Browser OK: role-based guide, welcome per account, persistent search and permitted shortcuts; initial catalog selection and existing presentation; typed material → atomic count → lost-response retry without duplication; drafts survive refresh; other depositor unchanged; mobile fabrication lifecycle, PDF, quality, inventory, delivery and supervisor permissions.');
+  assert.deepEqual(errors,[]);console.log('Browser OK: role-based guide, welcome per account, persistent search and permitted shortcuts; initial catalog selection and existing presentation; typed material → atomic count → lost-response retry without duplication; ordinary depositor types and saves new materials without manufacturing access; drafts survive refresh; mobile fabrication lifecycle, PDF, quality, inventory, delivery and supervisor permissions.');
 }finally{await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));await db.close();}

@@ -18,6 +18,7 @@ test('Initial inventory by name: original stock, atomic catalog creation and sco
     await db.exec(read('../migrations/20261008232715_fabricacion_naval.sql'));
     await setupInitialInventory(db);
     await db.exec(read('../migrations/20261009123306_initial_inventory_named_material.sql'));
+    await db.exec(read('../migrations/20261019131602_depositor_manual_initial_inventory.sql'));
     await q('insert into auth.users(id) select unnest($1::uuid[])',[[ids.admin,ids.isaac,ids.other,ids.same]]);
     await q("insert into warehouses(id,code,name) values($1,'W','Taller existente'),($2,'W2','Otro depósito')",[ids.w,ids.w2]);
     await q("insert into profiles(id,username,role,warehouse_id) values($1,'compras','admin',null),($2,'isaac','depositor',$5),($3,'otro','depositor',$6),($4,'mismo','depositor',$5)",[ids.admin,ids.isaac,ids.other,ids.same,ids.w,ids.w2]);
@@ -64,14 +65,20 @@ test('Initial inventory by name: original stock, atomic catalog creation and sco
       await assert.rejects(q('select record_initial_inventory_named($1,$2::jsonb,null)',[ids.w,JSON.stringify([item(),item()])]),/por vez/);
       assert.deepEqual(await snapshot(),before);
     });
-    await t.test('only the assigned fabrication operator with an open initial session may use the new privilege',async()=>{
+    await t.test('an ordinary depositor can count a new material without fabrication access or an enabled workshop',async()=>{
+      await owner();await q('update fabrication_settings set enabled=false where warehouse_id=$1',[ids.w]);
+      await login(ids.same);const id=await count(item('Material del depositario',{unit:'unidad',quantity:2}));
+      await owner();const saved=(await q('select p.created_by,b.warehouse_id,b.quantity_remaining,b.unit_cost,b.currency from inventory_batches b join movement_lines l on l.id=b.source_line_id join products p on p.id=b.product_id where l.movement_id=$1',[id])).rows[0];
+      assert.equal(saved.created_by,ids.same);assert.equal(saved.warehouse_id,ids.w);assert.equal(Number(saved.quantity_remaining),2);assert.equal(saved.unit_cost,null);assert.equal(saved.currency,null);
+      await q('update fabrication_settings set enabled=true where warehouse_id=$1',[ids.w]);
+    });
+    await t.test('only an active depositor assigned to the warehouse with an open initial session may count by name',async()=>{
       const before=await snapshot();
-      for(const user of [ids.same,ids.other,ids.admin]){await login(user);await assert.rejects(count(item('Sin permiso')),/operador autorizado|No autorizado/);}
+      for(const user of [ids.other,ids.admin]){await login(user);await assert.rejects(count(item('Sin permiso')),/depositario asignado|No autorizado/);}
       await login(ids.isaac);await assert.rejects(count(item('Depósito ajeno'),ids.w2),/No autorizado/);
       await owner();await q("update warehouse_opening_inventory set status='closed' where warehouse_id=$1",[ids.w]);await login(ids.isaac);await assert.rejects(count(item('Cerrado')),/no está abierto/);
-      await owner();await q("update warehouse_opening_inventory set status='open' where warehouse_id=$1",[ids.w]);await q('update profiles set active=false where id=$1',[ids.isaac]);await login(ids.isaac);await assert.rejects(count(item('Inactivo')),/No autorizado|operador autorizado/);
-      await owner();await q('update profiles set active=true where id=$1',[ids.isaac]);await q('update fabrication_settings set enabled=false where warehouse_id=$1',[ids.w]);await login(ids.isaac);await assert.rejects(count(item('Taller cerrado')),/operador autorizado/);
-      await owner();await q('update fabrication_settings set enabled=true where warehouse_id=$1',[ids.w]);assert.deepEqual(await snapshot(),before);
+      await owner();await q("update warehouse_opening_inventory set status='open' where warehouse_id=$1",[ids.w]);await q('update profiles set active=false where id=$1',[ids.isaac]);await login(ids.isaac);await assert.rejects(count(item('Inactivo')),/No autorizado|depositario asignado/);
+      await owner();await q('update profiles set active=true where id=$1',[ids.isaac]);assert.deepEqual(await snapshot(),before);
     });
     await t.test('anonymous calls and direct catalog insertion stay forbidden; other depot stock stays empty',async()=>{
       await login(ids.isaac);await assert.rejects(q("insert into products(name,base_unit) values('Directo','metro')"),/row-level security/);
