@@ -2,3 +2,5 @@
 
 @media(min-width:1024px){.nav [data-page="gases"]{order:35}}
 body.depositor-mode.fabrication-authorized .nav{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+
+.gas-weight{margin:8px 0;color:#12553b;font-size:14px}.gas-weight b{font-size:20px}.gas-size-buttons{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}.gas-presentation-draft h4{margin-top:0}.gas-count-group>[data-remove-presentation]{margin-bottom:8px}

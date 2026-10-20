@@ -9,7 +9,7 @@ import {chromium} from 'playwright';
 import {PGlite} from '@electric-sql/pglite';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 const ids={admin:randomUUID(),dep:randomUUID(),w:randomUUID(),other:randomUUID(),co2:randomUUID(),oxygen:randomUUID(),glp:randomUUID()};
-const db=new PGlite(),errors=[];let server,browser,loseNextExit=false,queue=Promise.resolve();
+const db=new PGlite(),errors=[];let server,browser,loseNextExit=false,loseNextCount=false,queue=Promise.resolve();
 const q=(sql,args=[])=>db.query(sql,args);
 function asUser(user,fn){const job=queue.then(async()=>{await db.exec('reset role');await q("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:user,role:'authenticated'})]);await db.exec('set role authenticated');return fn();});queue=job.catch(()=>{});return job;}
 try{
@@ -18,7 +18,7 @@ try{
  await q("insert into warehouses(id,code,name) values($1,'ACOMAR','ACOMAR'),($2,'OTHER','Otro depósito')",[ids.w,ids.other]);
  await q("insert into profiles(id,username,full_name,role,warehouse_id,active) values($1,'admin','Compras AVH','admin',null,true),($2,'nuevo','Depositario nuevo','depositor',$3,true)",[ids.admin,ids.dep,ids.w]);
  await q("insert into products(id,sku,name,base_unit) values($1,'CO2','CO₂','cilindro'),($2,'OXIGENO','Oxígeno','cilindro'),($3,'GLP-10KG','GLP 10 kg','cilindro')",[ids.co2,ids.oxygen,ids.glp]);
- await db.exec(fs.readFileSync(path.join(root,'migrations/20261014121312_control_gases.sql'),'utf8'));
+ for(const file of ['20261014121312_control_gases.sql','20261020133036_gas_presentations_kg.sql','20261020133040_gas_presentation_commands.sql'])await db.exec(fs.readFileSync(path.join(root,'migrations',file),'utf8'));
  server=http.createServer((req,res)=>{const name=req.url==='/'?'index.html':req.url.slice(1).split('?')[0],full=path.join(root,'dist',name);if(name.includes('..')||!fs.existsSync(full))return res.writeHead(404).end();res.writeHead(200,{'Content-Type':name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':name.endsWith('.html')?'text/html':'image/jpeg'});res.end(fs.readFileSync(full));});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  browser=await chromium.launch({headless:true,...(process.env.AVH_CHROME_BIN?{executablePath:process.env.AVH_CHROME_BIN}:{}),args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
@@ -29,9 +29,14 @@ try{
    if(req.method()==='OPTIONS')return route.fulfill({headers,body:''});
    if(url.pathname.endsWith('/rpc/fabrication_context'))return route.fulfill({headers,json:{workshops:[],active_orders:0,produced_qty:0}});
    try{
+    if(table==='gas_ensure_presentation'){
+     const args=req.postDataJSON(),result=await asUser(user,async()=>(await q('select public.gas_ensure_presentation($1,$2,$3::numeric) result',[args.p_warehouse_id,args.p_gas_kind,args.p_kg_per_cylinder])).rows[0].result);
+     return route.fulfill({headers,json:result});
+    }
     if(table==='gas_command'){
      const args=req.postDataJSON(),result=await asUser(user,async()=>(await q('select public.gas_command($1,$2::jsonb,$3::uuid) result',[args.p_action,JSON.stringify(args.p_data),args.p_request_id])).rows[0].result);
      if(args.p_action==='exit'&&loseNextExit){loseNextExit=false;return route.fulfill({headers,status:503,json:{message:'Respuesta perdida de prueba. Volvé a intentar.'}});}
+     if(args.p_action==='count'&&loseNextCount){loseNextCount=false;return route.fulfill({headers,status:503,json:{message:'Respuesta de conteo perdida. Volvé a intentar.'}});}
      return route.fulfill({headers,json:result});
     }
     if(url.pathname.includes('/rpc/'))return route.fulfill({headers,json:[]});
@@ -77,5 +82,26 @@ try{
  if(process.env.AVH_QA_OUTPUT){await m.evaluate(()=>window.scrollTo(0,0));await m.screenshot({path:path.join(process.env.AVH_QA_OUTPUT,'gases-mobile.png'),fullPage:true});}
  await m.locator('#gasCount').click();await m.locator(`[name="full_${ids.co2}"]`).fill('17');await m.locator('#gas-notes').fill('Conteo aún sin guardar');await m.evaluate(()=>loadAll(false));assert.equal(await m.locator('#gas-notes').inputValue(),'Conteo aún sin guardar');
  if(process.env.AVH_QA_OUTPUT)await m.screenshot({path:path.join(process.env.AVH_QA_OUTPUT,'gases-conteo-mobile.png'),fullPage:true});
+ await m.evaluate(()=>closeModal());await m.locator('#gasCount').click();
+ const current=await asUser(ids.dep,async()=>(await q('select * from v_gas_stock_status where warehouse_id=$1',[ids.w])).rows);
+ for(const r of current){await m.locator(`[name="full_${r.product_id}"]`).fill(String(r.full_qty));await m.locator(`[name="empty_${r.product_id}"]`).fill(String(r.empty_qty));}
+ for(const [kg,full,empty] of [[25,2,1],[50,3,2],[22.5,2,0]]){
+  await m.locator('#gas-new_kind').selectOption('co2');
+  if(kg===22.5)await m.locator('#gas-new_kg').fill('22.5');else await m.locator(`[data-gas-size="${kg}"]`).click();
+  await m.locator('#gasAddCountSize').click();const draft=m.locator('[data-gas-count^="draft-"]').last();await draft.locator('[name^="full_"]').fill(String(full));await draft.locator('[name^="empty_"]').fill(String(empty));
+ }
+ await m.locator('#gas-new_kg').fill('25');await m.locator('#gasAddCountSize').click();assert.match(await m.locator('#gasSizeError').textContent(),/ya está/);assert.equal(await m.locator('[data-gas-count^="draft-"]').count(),3);await m.locator('#gas-new_kg').fill('');
+ await m.locator('#gas-notes').fill('Conteo de cilindros por presentación en kg');await m.locator('#gasForm input[type="checkbox"]').check();
+ loseNextCount=true;await m.locator('#gasForm button[type="submit"]').click();await m.waitForSelector('#gasFormError .error');assert.match(await m.locator('#gasFormError').textContent(),/conteo perdida/);await m.locator('#gasForm button[type="submit"]').click();await m.waitForSelector('#modal.hide',{state:'attached'});
+ const weighted=await asUser(ids.dep,async()=>(await q('select * from v_gas_stock_status where warehouse_id=$1 and kg_per_cylinder in (25,50,22.5)',[ids.w])).rows),p25=weighted.find(r=>Number(r.kg_per_cylinder)===25),p50=weighted.find(r=>Number(r.kg_per_cylinder)===50);
+ assert.equal(Number(p25.full_kg),50);assert.equal(Number(p50.full_kg),150);assert.equal(await m.locator('#gasCards .gas-card').count(),6);assert.ok(await m.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1));
+ const countEvents=await asUser(ids.dep,async()=>(await q("select count(*)::int n from gas_events where action='count' and product_id=$1",[p25.product_id])).rows[0].n);assert.equal(countEvents,1,'respuesta perdida no duplica conteo ni cambia versiones del reintento');
+ await m.locator(`[data-gas-exit="${p25.product_id}"]`).click();await m.locator('#gas-quantity').fill('1');assert.match(await m.locator('#gasWeightPreview').textContent(),/1 cilindros.*25 kg = 25 kg/);await m.locator('#gas-person').fill('Soldador kg');await m.locator('#gas-destination').fill('Barcaza 5');await m.locator('#gasForm button[type="submit"]').click();await m.waitForSelector('#modal.hide',{state:'attached'});
+ let balance=await asUser(ids.dep,async()=>(await q('select * from v_gas_stock_status where warehouse_id=$1 and product_id=$2',[ids.w,p25.product_id])).rows[0]);assert.equal(Number(balance.full_kg),25);
+ await m.locator('#gasPending .row').filter({hasText:'Soldador kg'}).locator('button').click();await m.locator('#gas-quantity').fill('1');assert.match(await m.locator('#gasWeightPreview').textContent(),/no suma kg/);await m.locator('#gasForm button[type="submit"]').click();await m.waitForSelector('#modal.hide',{state:'attached'});
+ await m.locator('#gasRefill').click();await m.locator('#gas-product_id').selectOption(p25.product_id);await m.locator('#gas-quantity').fill('1');await m.locator('#gas-empty_quantity').fill('1');await m.locator('#gas-person').fill('Proveedor kg');await m.locator('#gasForm button[type="submit"]').click();await m.waitForSelector('#modal.hide',{state:'attached'});
+ balance=await asUser(ids.dep,async()=>(await q('select * from v_gas_stock_status where warehouse_id=$1 and product_id=$2',[ids.w,p25.product_id])).rows[0]);assert.equal(Number(balance.full_kg),50);assert.equal(balance.empty_qty,1);
+ assert.equal(await asUser(ids.dep,async()=>Number((await q('select full_kg from v_gas_stock_status where warehouse_id=$1 and product_id=$2',[ids.w,p50.product_id])).rows[0].full_kg)),150,'la presentación de 50 kg conserva su saldo');
+ if(process.env.AVH_QA_OUTPUT)await m.screenshot({path:path.join(process.env.AVH_QA_OUTPUT,'gases-presentaciones-mobile.png'),fullPage:true});
  await dep.context.close();await admin.context.close();assert.deepEqual(errors,[]);console.log('Gases browser OK: conteo real, salidas, respuesta perdida sin duplicación, devolución vacía, diferencial, CSV, roles y borradores.');
 }finally{await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));await db.close();}
