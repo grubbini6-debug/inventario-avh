@@ -12,10 +12,7 @@
     const n=Number(s);return Number.isFinite(n)?n:0;
   }
 
-  function findProduct(description){
-    const d=norm(description);if(!d)return null;const ps=(D.products||[]).filter(x=>x.active);
-    return ps.find(p=>norm(p.name)===d||norm(p.code||'')===d)||ps.find(p=>{const pn=norm(p.name);return pn.length>=8&&(d.includes(pn)||pn.includes(d))})||null;
-  }
+  function findProduct(description){const rows=window.AVHReceiving.matches({description},D.products||[],D.presentations||[]);return rows.length===1?rows[0]:null;}
 
   function detectedItems(){
     const tables=[...document.querySelectorAll('#pcImportResult .pc-import-preview table')];

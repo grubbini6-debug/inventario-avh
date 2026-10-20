@@ -8,7 +8,7 @@ const presentations=[{product_id:'wst',unit:'rollo',label:'Rollo 15 kg',factor_t
 function ui(){
   const dom=new JSDOM('<main id="modalBody"></main>',{url:'https://avh.test',runScripts:'outside-only'}),w=dom.window;
   Object.assign(w,{$:s=>w.document.querySelector(s),$$:s=>[...w.document.querySelectorAll(s)],profile:{id:'admin',role:'admin'},D:{products:[wire],presentations,suppliers:[],purchaseCompanies:[],warehouses:[],barges:[]},fmt:n=>String(n),money:(n,c)=>`${c} ${Number(n).toFixed(2)}`,msg:(el,text)=>{el.textContent=text;},openModal:(title,subtitle,html)=>{w.document.querySelector('#modalBody').innerHTML=html;},closeModal:()=>{},loadAll:async()=>{},openPurchaseDetail:async()=>{}});
-  w.eval(read('../edge-functions/_shared/purchase-receiving-model.js'));return{dom,w};
+  w.eval(read('../edge-functions/_shared/product-identity.js'));w.eval(read('../edge-functions/_shared/purchase-receiving-model.js'));return{dom,w};
 }
 
 test('quote preview uses the catalog stock unit and refuses a manually restored 15x count factor',async()=>{
@@ -23,9 +23,23 @@ test('quote preview uses the catalog stock unit and refuses a manually restored 
     assert.equal(w.document.querySelector('[data-product]').value,'wst');
     assert.equal(w.document.querySelector('[data-factor]').value,'1');
     assert.match(w.document.querySelector('[data-smart-stock-preview]').textContent,/72 unidad.*15 kg.*1080 kg/);
-    w.document.querySelector('[data-factor]').value='15';await w.document.querySelector('#smartGenerate').onclick();
+    w.document.querySelector('#smartCompany').value='maq';w.document.querySelector('[data-factor]').value='15';await w.document.querySelector('#smartGenerate').onclick();
     assert.match(w.document.querySelector('#smartGenerateMsg').textContent,/conversión debe ser 1/);assert.equal(saves,0);
   }finally{w.close();}
+});
+
+test('another abrasive brand stays new, missing prices remain blank and a conflicting manual link cannot be saved',async()=>{
+ const {w}=ui();let saves=0;
+ try{
+  w.D.products=[{id:'max',sku:'1633',name:'Disco de corte 4 1/2 pulgadas x 1,2 mm Maxflexx',brand:'Maxflexx',base_unit:'unidad',active:true}];w.D.warehouses=[{id:'ac',name:'ACOMAR',active:true}];w.D.purchaseCompanies=[{id:'maq',name:'MAQMOVEIS',active:true}];
+  const doc={currency:null,confidence:.8,supplier_name:'Proveedor',items:[{brand:'Norton',description:'Disco de corte 4 1/2 pulgadas x 1,2 mm Norton',quantity:50,unit:'UN',unit_price:null,product_code:'1633'}]};
+  w.FileReader=class{readAsDataURL(){this.result='data:application/pdf;base64,AAAA';queueMicrotask(()=>this.onload());}};w.edge=async()=>({data:{document:doc}});w.rpc=async()=>{saves++;return{error:'Unexpected save'};};
+  w.eval(read('../src/features/purchases/smart-purchase-flow.js'));w.AVHSmartPurchase.open();const input=w.document.querySelector('#smartFile');Object.defineProperty(input,'files',{value:[new w.File(['PDF'],'source.pdf',{type:'application/pdf'})]});await input.onchange();
+  assert.equal(w.document.querySelector('[data-product]').value,'__auto__');assert.equal(w.document.querySelector('[data-price]').value,'');assert.equal(w.document.querySelector('#smartCurrency').value,'');assert.equal(w.document.querySelector('#smartCompany').value,'');
+  await w.document.querySelector('#smartGenerate').onclick();assert.match(w.document.querySelector('#smartGenerateMsg').textContent,/moneda/);
+  w.document.querySelector('#smartCurrency').value='PYG';w.document.querySelector('#smartCompany').value='maq';w.document.querySelector('[data-price]').value='2550';w.document.querySelector('[data-product]').value='max';
+  await w.document.querySelector('#smartGenerate').onclick();assert.match(w.document.querySelector('#smartGenerateMsg').textContent,/marca no coincide/);assert.equal(saves,0);
+ }finally{w.close();}
 });
 
 test('invoice control distinguishes included IVA, pending legacy readings and invalid stock conversion',async()=>{
@@ -58,6 +72,7 @@ test('an unidentified delivery does not preselect the first pending OC',()=>{
     w.AVHDepositorAI.confirm({matched_purchase_id:null,confidence:.3,detected_items:[]},null);
     assert.equal(w.document.querySelector('#depReceiptPurchase').value,'');assert.equal(w.document.querySelector('#depConfirmReceipt').disabled,true);
     assert.equal(w.document.querySelector('[data-dep-receipt-qty]'),null);
+    assert.equal(w.document.querySelector('#depReceiptDocDate').value,'');
   }finally{w.close();}
 });
 test('mobile reception recognizes UN as units, shows kg separately and controls its saved invoice automatically',async()=>{

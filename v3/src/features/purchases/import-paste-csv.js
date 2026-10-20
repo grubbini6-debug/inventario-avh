@@ -90,7 +90,7 @@
     return{document_type,currency,supplier,ruc,reference,date:detectDate(raw),payment_terms:paymentLine?paymentLine.replace(/^.*?(?:pago|terms)\s*[:\-]?/i,'').trim():null,delivery:deliveryLine?.trim()||null,total};
   }
 
-  function findProduct(description){const d=norm(description);if(!d)return null;const ps=(D.products||[]).filter(x=>x.active);return ps.find(p=>norm(p.name)===d||norm(p.code||'')===d)||ps.find(p=>{const pn=norm(p.name);return pn.length>=8&&d.includes(pn)})||null}
+  function findProduct(description){const rows=window.AVHReceiving.matches({description},D.products||[],D.presentations||[]);return rows.length===1?rows[0]:null;}
 
   function extractItems(data){
     const body=data.rows.slice(data.headerIndex+1).filter(r=>r.some(Boolean)),map=data.mapping,items=[];

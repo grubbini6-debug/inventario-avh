@@ -3,6 +3,7 @@
     "src/core/config.js",
     "src/core/state.js",
     "src/core/utils.js",
+    "edge-functions/_shared/product-identity.js",
     "edge-functions/_shared/purchase-receiving-model.js",
     "src/core/api.js",
     "src/core/auth.js",
@@ -85,6 +86,10 @@
     "node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs",
     "node_modules/pdfjs-dist/LICENSE"
   ],
-  "assetDirectories": ["node_modules/pdfjs-dist/standard_fonts", "node_modules/pdfjs-dist/cmaps", "node_modules/pdfjs-dist/wasm"],
+  "assetDirectories": [
+    "node_modules/pdfjs-dist/standard_fonts",
+    "node_modules/pdfjs-dist/cmaps",
+    "node_modules/pdfjs-dist/wasm"
+  ],
   "template": "src/index.template.html"
 }

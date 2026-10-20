@@ -282,10 +282,11 @@
     let selected=pending.some(p=>p.id===a.matched_purchase_id)?a.matched_purchase_id:'';
     openModal('Confirmar recepción','Revisá la OC y las cantidades que llegaron',`
       <div class="dep-ai-result ${num(a.confidence)<.65?'low':''}"><div class="dep-confirm-title">${selected?`¿Corresponde a ${safe(a.matched_po_number||'esta OC')} · ${safe(a.matched_supplier_name||'proveedor')}?`:'Elegí la OC: no se pudo identificar con suficiente seguridad.'}</div><div class="subtext">${safe(a.summary||'Confirmá la compra y lo que recibiste físicamente.')}</div></div>
+      ${(a.warnings||[]).length?`<div class="dep-warning">${a.warnings.map(x=>safe(x)).join('<br>')}</div>`:''}
       <div class="field"><label>Compra / OC *</label><select id="depReceiptPurchase"><option value="">Elegí la orden de compra</option>${pending.map(p=>`<option value="${p.id}" ${p.id===selected?'selected':''}>${safe(p.po_number||'Sin OC')} · ${safe(p.supplier_name||'Proveedor')}</option>`).join('')}</select></div>
       <div id="depReceiptItems"></div><div class="section-head"><h2>Documento de la foto</h2></div>
       <div class="two"><div class="field"><label>Tipo</label><select id="depReceiptDocKind"><option value="none">No guardar como documento</option><option value="invoice" ${a.document_kind==='invoice'?'selected':''}>Factura</option><option value="remittance" ${a.document_kind==='remittance'?'selected':''}>Remito</option><option value="other" ${a.document_kind==='other'?'selected':''}>Otro</option></select></div><div class="field"><label>Número</label><input id="depReceiptDocNo" value="${safe(a.document_number||'')}" placeholder="Si aparece en la foto"></div></div>
-      <div class="field"><label>Fecha documento</label><input id="depReceiptDocDate" type="date" value="${safe(a.document_date||new Date().toISOString().slice(0,10))}"></div>
+      <div class="field"><label>Fecha documento</label><input id="depReceiptDocDate" type="date" value="${safe(a.document_date||'')}"></div>
       <div class="field"><label>Observación</label><textarea id="depReceiptNotes" placeholder="Faltantes, golpes, entrega parcial, etc."></textarea></div>
       <button id="depConfirmReceipt" class="btn primary" style="width:100%" ${selected?'':'disabled'}>✅ Confirmar recepción</button><div id="depReceiptMsg"></div>`);
     function draw(){

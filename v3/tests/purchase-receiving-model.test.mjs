@@ -1,3 +1,4 @@
+import '../edge-functions/_shared/product-identity.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import '../edge-functions/_shared/purchase-receiving-model.js';

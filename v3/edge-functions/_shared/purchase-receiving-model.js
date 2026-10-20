@@ -58,9 +58,13 @@
     return{key:[brand,spec,Number(diameter.replace(',','.'))].join('|'),kg:weight?Number(weight.replace(',','.')):null};
   }
   function matches(item,products=[],presentations=[]){
-    const rows=products.filter(p=>p.active!==false),code=norm(item?.product_code||item?.barcode).replace(/[^a-z0-9]/g,''),description=norm(item?.description).replace(/\s+/g,' ');
+    if(!(item?.description||item?.name)&&item?.product_code)return products.filter(p=>p.active!==false&&norm(p.sku||p.code).replace(/[^a-z0-9]/g,'')===norm(item.product_code).replace(/[^a-z0-9]/g,''));
+    const active=products.filter(p=>p.active!==false),rows=active.filter(p=>!root.AVHProductIdentity||root.AVHProductIdentity.automatic(item,p,active)),code=norm(item?.product_code||item?.barcode).replace(/[^a-z0-9]/g,''),description=norm(item?.description).replace(/\s+/g,' ');
     if(code){const exact=rows.filter(p=>norm(p.sku||p.code).replace(/[^a-z0-9]/g,'')===code);if(exact.length)return exact;}
     const exact=rows.filter(p=>norm(p.name).replace(/\s+/g,' ')===description);if(exact.length)return exact;
+    if(root.AVHProductIdentity){const I=root.AVHProductIdentity,key=I.key,canonical=rows.filter(p=>key(p.name)===key(item?.description));if(canonical.length)return canonical;
+      const source=I.identity(item,active);if(source.brand&&source.model){const technical=rows.filter(p=>{const candidate=I.identity(p,active);return candidate.brand&&key(candidate.brand)===key(source.brand)&&candidate.model===source.model;});if(technical.length)return technical;}
+    }
     const identity=wireIdentity(item);
     if(identity)return rows.filter(p=>{const candidate=wireIdentity(p);if(!candidate||candidate.key!==identity.key)return false;const weight=candidate.kg||packageKg(p,presentations);return !identity.kg||!weight||identity.kg===weight;});
     return rows.filter(p=>{const name=norm(p.name).replace(/\s+/g,' ');return description.length>=8&&name.length>=8&&(description.includes(name)||name.includes(description));});
@@ -93,5 +97,14 @@
     }
     return{mode,total,tax,net:mode==='included'&&total!==null&&tax!==null?Math.round((total-tax)*100)/100:mode==='excluded'?subtotal:null,issues};
   }
-  root.AVHReceiving=Object.freeze({unit,number,packageKg,factor,quantity,stockProblem,comparable,matches,financial});
+  function documentIssues(doc){
+    const issues=financial(doc).issues.map(x=>x.text);
+    if(doc?.complete===false)issues.unshift('La lectura no cubre todo el documento. Dividí el archivo o cargá páginas más claras.');
+    if(!['PYG','USD'].includes(doc?.currency))issues.push('La moneda no está identificada; debe elegirse antes de guardar.');
+    if(!doc?.supplier_name)issues.push('Falta identificar el proveedor.');
+    for(const field of ['date','document_date','valid_until','delivery_date'])if(doc?.[field]){const v=doc[field];if(!/^\d{4}-\d\d-\d\d$/.test(v)||Number.isNaN(Date.parse(v+'T00:00:00Z'))||new Date(v+'T00:00:00Z').toISOString().slice(0,10)!==v)issues.push('Revisar la fecha '+field+': no es una fecha válida.');}
+    (doc?.items||[]).forEach((x,i)=>{if(!String(x.unit||'').trim())issues.push(`Ítem ${i+1}: falta la unidad de compra.`);if(number(x.quantity)===null||number(x.quantity)<=0)issues.push(`Ítem ${i+1}: falta una cantidad positiva.`);if(number(x.confidence)!==null&&number(x.confidence)<.9)issues.push(`Ítem ${i+1}: lectura dudosa; revisar contra el original.`);});
+    return [...new Set([...issues,...(Array.isArray(doc?.warnings)?doc.warnings:[])])].slice(0,40);
+  }
+  root.AVHReceiving=Object.freeze({unit,number,packageKg,factor,quantity,stockProblem,comparable,matches,financial,documentIssues});
 })(globalThis);

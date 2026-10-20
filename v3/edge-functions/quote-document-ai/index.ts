@@ -1,3 +1,4 @@
+import {requestAI,readAIInput,aiFailure,aiStatus} from '../_shared/ai-runtime.mjs';
 import {PDFDocument} from 'npm:pdf-lib@1.17.1';
 import '../_shared/quote-excel-model.js';
 import '../_shared/quote-document-model.js';
@@ -33,10 +34,7 @@ Deno.serve(async(req:Request)=>{
   const headers={apikey:key,Authorization:auth,'Content-Type':'application/json'},user=await fetch(url+'/auth/v1/user',{headers});if(!user.ok)return json({error:'Sesión inválida'},401);
   const access=await fetch(url+'/rest/v1/rpc/commercial_context',{method:'POST',headers,body:'{}'}),context=await access.json();if(!access.ok||!['admin','editor'].includes(context?.access_level))return json({error:'No autorizado para preparar presupuestos'},403);
   const {files,content}=await attachments(await boundedBody(req)),apiKey=Deno.env.get('OPENAI_API_KEY');if(!apiKey)return json({error:'La lectura de PDF y fotos todavía no está configurada.'},503);
-  const response=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${apiKey}`,'Content-Type':'application/json'},signal:AbortSignal.timeout(110000),body:JSON.stringify({model:Deno.env.get('OPENAI_WORK_ORDER_MODEL')||'gpt-5.4-mini',store:false,max_output_tokens:22000,input:[{role:'developer',content:Q.rules},{role:'user',content:[{type:'input_text',text:'Prepará un presupuesto editable con los trabajos, precios y empresa emisora de estos archivos.'},...content]}],text:{format:{type:'json_schema',name:'avh_quote_document',strict:true,schema:Q.schema}}})});
-  const data=await response.json();if(!response.ok)return json({error:response.status===429?'La lectura está ocupada. Reintentá en un momento.':'No se pudo leer el archivo con IA. Reintentá o subí páginas más claras.'},response.status===429?429:502);
-  if(data.status==='incomplete')return json({error:'La lectura quedó incompleta. Dividí el presupuesto en menos páginas.'},422);
-  const output=data.output_text||data.output?.flatMap((x:any)=>x.content||[]).find((x:any)=>x.type==='output_text')?.text;if(!output)return json({error:'No se pudieron extraer trabajos legibles del archivo.'},422);
-  const analysis=Q.normalize(JSON.parse(output),files);return json({ok:true,analysis,files});
- }catch(e){return json({error:e instanceof Error&&e.name==='TimeoutError'?'La lectura tardó demasiado. Reintentá con menos páginas.':e instanceof Error?e.message:'No se pudo leer el presupuesto.'},400);}
+  const {value}=await requestAI(apiKey,{model:Deno.env.get('OPENAI_WORK_ORDER_MODEL')||'gpt-5.4-mini',max_output_tokens:22000,input:[{role:'developer',content:Q.rules},{role:'user',content:[{type:'input_text',text:'Prepará un presupuesto editable con los trabajos, precios y empresa emisora de estos archivos.'},...content]}],text:{format:{type:'json_schema',name:'avh_quote_document',strict:true,schema:Q.schema}}},{fetcher:fetch});
+  const analysis=Q.normalize(value,files);return json({ok:true,analysis,files});
+ }catch(e){return json(aiFailure(e),aiStatus(e));}
 });
