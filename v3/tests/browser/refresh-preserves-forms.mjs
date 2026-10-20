@@ -104,11 +104,35 @@ try{
   stock=37;await p.evaluate(()=>loadAll(false));assert.equal(await p.evaluate(()=>D.stocks[0].stock_qty),37);
   await p.locator('.nav [data-page="stock"]').click();await admin.tick();assert.match(await p.locator('#stockList').innerText(),/37/);assert.equal(await p.locator('#page-stock').evaluate(e=>e.classList.contains('on')),true);assert.equal(await p.locator('#sectionTitle').innerText(),'Inventario');await admin.context.close();
 
+  // Two physical deliveries share one purchase. Only the newer one has its invoice.
+  const oldReceipt=randomUUID(),newReceipt=randomUUID(),voidReceipt=randomUUID();
+  data.purchase_receipts=[
+    {id:oldReceipt,purchase_id:ids.purchase,received_at:'2026-10-10T12:00:00Z',received_by:ids.depositor},
+    {id:newReceipt,purchase_id:ids.purchase,received_at:'2026-10-12T12:00:00Z',received_by:ids.depositor},
+    {id:voidReceipt,purchase_id:ids.purchase,received_at:'2026-10-13T12:00:00Z',voided_at:'2026-10-14T12:00:00Z',received_by:ids.depositor}
+  ];
+  data.purchase_documents=[{id:randomUUID(),purchase_id:ids.purchase,receipt_id:newReceipt,kind:'invoice',file_name:'factura-segunda-entrega.pdf',file_path:ids.purchase+'/receipts/factura.pdf',document_number:'001-001-0000002',document_date:'2026-10-12',created_at:'2026-10-12T13:00:00Z'}];
   const dep=await open(ids.depositor,{width:390,height:844});
+  await dep.page.waitForSelector('#depAttention');
+  assert.equal(await dep.page.locator('#depAttention').count(),1);
+  assert.equal(await dep.page.locator('[data-dep-complete-docs]').count(),1);
+  assert.equal(await dep.page.locator('[data-dep-complete-docs]').getAttribute('data-dep-receipt-id'),oldReceipt);
+  await dep.tick();await dep.live();
+  assert.equal(await dep.page.locator('#depAttention').count(),1,'synchronization must restore one attention panel');
+  await dep.page.locator('[data-dep-complete-docs]').click();
+  assert.equal(await dep.page.locator('#depDocInvoiceNo').inputValue(),'','the newer receipt invoice must not be copied into the older delivery');
+  assert.equal(await dep.page.locator('#depDocInvoiceDate').inputValue(),'');
+  assert.equal(await dep.page.locator('#depDocRemitDate').inputValue(),'');
+  await dep.page.locator('#depDocInvoiceFile').setInputFiles({name:'factura-primera-entrega.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4 test')});
+  await dep.page.locator('#depDocInvoiceDate').fill('2026-10-10');
+  await dep.tick();await dep.live();
+  assert.equal(await dep.page.locator('#depDocInvoiceDate').inputValue(),'2026-10-10');
+  assert.equal(await dep.page.locator('#depDocInvoiceFile').evaluate(e=>e.files[0]?.name),'factura-primera-entrega.pdf');
+  await dep.page.locator('#modalClose').click();
   await dep.page.locator('.nav [data-page="help"]').click();await dep.page.locator('#guideSearch').fill('remito');await dep.page.locator('#guideSearch').blur();
   await dep.tick();await dep.live();
   assert.equal(await dep.page.locator('#guideSearch').inputValue(),'remito');assert.ok(await dep.page.locator('#page-help').evaluate(e=>e.classList.contains('on')));assert.equal(await dep.page.locator('#sectionTitle').innerText(),'Cómo usar el sistema');assert.ok(await dep.page.locator('[data-guide-topic="receive"]').evaluate(e=>e.open));
   await dep.page.locator('.guide-footer [data-guide-action="home"]').click();
   await dep.page.locator('[data-dep-receive]').first().click();await dep.page.waitForSelector('[data-dep-receipt-qty]');await dep.page.locator('[data-dep-receipt-qty]').first().fill('3');await dep.page.locator('#depReceiptNotes').fill('Recepción móvil sin guardar');await dep.page.locator('#depReceiptNotes').blur();await dep.tick();await dep.live();assert.equal(await dep.page.locator('[data-dep-receipt-qty]').first().inputValue(),'3');assert.equal(await dep.page.locator('#depReceiptNotes').inputValue(),'Recepción móvil sin guardar');await dep.context.close();
-  assert.deepEqual(errors,[]);console.log('Browser OK: 20-second timer, realtime, manual refresh, in-flight edits, focus, inline purchases, filters, selected files, mobile receipts, guide search/expansion/navigation and stock sync preserve the current work.');
+  assert.deepEqual(errors,[]);console.log('Browser OK: 20-second timer, realtime, manual refresh, in-flight edits, focus, inline purchases, filters, selected files, mobile receipts, per-receipt document alerts, actual document dates, guide search/expansion/navigation and stock sync preserve the current work.');
 }finally{await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));}
