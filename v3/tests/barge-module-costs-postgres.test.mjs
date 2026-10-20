@@ -17,7 +17,7 @@ test('Barge costing: destination per line, real FIFO, permissions and reversals'
   await q('insert into auth.users(id) select unnest($1::uuid[])',[[id.admin,id.dep,id.other,id.inactive]]);
   await q("insert into warehouses(id,code,name) values($1,'ACOMAR','Depósito de prueba'),($2,'OTHER','Otro depósito')",[id.w,id.w2]);
   await q("insert into profiles(id,username,role,warehouse_id,active) values($1,'admin','admin',null,true),($2,'depositor','depositor',$5,true),($3,'other','depositor',$6,true),($4,'inactive','depositor',$5,false)",[id.admin,id.dep,id.other,id.inactive,id.w,id.w2]);
-  await q("insert into barges(id,number,name,active) values($1,7,'Barcaza de prueba',true),($2,8,'Inactiva',false)",[id.barge,id.inactiveBarge]);
+  await q("insert into barges(id,number,active) values($1,7,true),($2,8,false)",[id.barge,id.inactiveBarge]);
   await q("insert into products(id,name,base_unit) values($1,'Material unitario de prueba','unidad'),($2,'Material por peso de prueba','kg')",[id.wire,id.plate]);
   await setupHullGases(db);
   await login(id.admin);await entry(id.wire,5,10,'PYG');await entry(id.wire,7,20,'PYG');await entry(id.wire,4,2,'USD');await entry(id.wire,3,null,null);await entry(id.plate,100,3,'PYG');

@@ -16,7 +16,7 @@ try{
  await setupHullBase(db);await q('insert into auth.users(id) values($1),($2)',[id.admin,id.dep]);
  await q("insert into warehouses(id,code,name) values($1,'ACOMAR','Depósito de prueba')",[id.w]);
  await q("insert into profiles(id,username,full_name,role,warehouse_id,active) values($1,'admin','Compras de prueba','admin',null,true),($2,'depositor','Depositario de prueba','depositor',$3,true)",[id.admin,id.dep,id.w]);
- await q("insert into barges(id,number,name,active) values($1,7,'Barcaza de prueba',true)",[id.barge]);
+ await q("insert into barges(id,number,active) values($1,7,true)",[id.barge]);
  await q("insert into products(id,name,base_unit) values($1,'Material de prueba','unidad'),($2,'Material histórico de prueba','kg')",[id.wire,id.old]);
  await setupHullGases(db);
  const entry=async(product,quantity,cost,currency)=>asUser(id.admin,()=>q('select public.record_entry($1,null,null,$2::jsonb,null)',[id.w,JSON.stringify([{product_id:product,quantity,unit:product===id.old?'kg':'unidad',factor_to_base:1,unit_cost:cost??'',currency:currency??'',request_id:randomUUID()}])]));

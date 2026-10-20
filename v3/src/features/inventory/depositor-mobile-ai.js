@@ -234,8 +234,8 @@
     function drawCart(){
       const barge=$('#depExitBarge').value;
       $('#depManualExitCart').innerHTML=cart.length?cart.map((x,i)=>`<div class="row" data-dep-hull-row="${i}"><div class="line"><div class="grow"><div class="title">${safe(product(x.product_id)?.name||'Producto')}</div><div class="subtext">${fmt(x.quantity)} ${safe(x.label)} · descuenta ${fmt(x.quantity*x.factor)} ${safe(product(x.product_id)?.base_unit||'')}</div></div><button type="button" class="btn sm danger" data-dep-manual-remove="${i}">Quitar</button></div>${barge?window.AVHHullCosts.fieldsHTML(x,'dep-hull-'+i):''}</div>`).join(''):'<div class="empty">Todavía no agregaste materiales.</div>';
-      $('[data-dep-manual-remove]').forEach(b=>b.onclick=()=>{cart.splice(Number(b.dataset.depManualRemove),1);drawCart()});
-      $('[data-dep-hull-row]').forEach(el=>window.AVHHullCosts.bindFields(el,cart[Number(el.dataset.depHullRow)],!!barge));
+      $$('[data-dep-manual-remove]').forEach(b=>b.onclick=()=>{cart.splice(Number(b.dataset.depManualRemove),1);drawCart()});
+      $$('[data-dep-hull-row]').forEach(el=>window.AVHHullCosts.bindFields(el,cart[Number(el.dataset.depHullRow)],!!barge));
     }
     $('#depExitSearch').oninput=()=>{
       const sel=$('#depExitProduct'),current=sel.value,opts=manualStockOptions($('#depExitSearch').value,current);
