@@ -1,3 +1,4 @@
+import * as aiRuntime from '../edge-functions/_shared/ai-runtime.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -9,7 +10,7 @@ import * as pdfLib from 'pdf-lib';
 const read=p=>fs.readFileSync(new URL(p,import.meta.url),'utf8');
 function endpoint(file,fetch,env={}){
  let handler;const code=stripTypeScriptTypes(read(file).replace(/^import .*;\n/gm,''),{mode:'strip'});
- vm.runInNewContext(code,{...analysis,...renderer,pdfLib,Deno:{env:{get:n=>env[n]},serve:fn=>handler=fn},fetch,Response,Request,AbortSignal,Uint8Array,btoa,console});return handler;
+ vm.runInNewContext(code,{...aiRuntime,...analysis,...renderer,pdfLib,Deno:{env:{get:n=>env[n]},serve:fn=>handler=fn},fetch,Response,Request,AbortSignal,Uint8Array,btoa,console});return handler;
 }
 const env={SUPABASE_URL:'https://test.supabase.co',SUPABASE_ANON_KEY:'test-public',OPENAI_API_KEY:'test-secret'};
 const request=body=>new Request('https://test.supabase.co/functions/v1/work-order-ai',{method:'POST',headers:{Authorization:'Bearer test-user','Content-Type':'application/json'},body:JSON.stringify(body)});

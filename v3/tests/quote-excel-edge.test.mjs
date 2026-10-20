@@ -1,3 +1,4 @@
+import * as aiRuntime from '../edge-functions/_shared/ai-runtime.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -6,7 +7,7 @@ import {stripTypeScriptTypes} from 'node:module';
 import * as copy from '../edge-functions/_shared/commercial-copy.mjs';
 const read=p=>fs.readFileSync(new URL(p,import.meta.url),'utf8');
 function endpoint(fetch,configured=true){
- const ctx={...copy,fetch,Request,Response,AbortSignal,console,Deno:{env:{get:name=>({SUPABASE_URL:'https://test.supabase.co',SUPABASE_ANON_KEY:'public',OPENAI_API_KEY:configured?'secret':undefined}[name])},serve:handler=>ctx.handler=handler}};
+ const ctx={...aiRuntime,...copy,fetch,Request,Response,AbortSignal,console,Deno:{env:{get:name=>({SUPABASE_URL:'https://test.supabase.co',SUPABASE_ANON_KEY:'public',OPENAI_API_KEY:configured?'secret':undefined}[name])},serve:handler=>ctx.handler=handler}};
  vm.runInNewContext(read('../edge-functions/_shared/quote-excel-model.js'),ctx);vm.runInNewContext(stripTypeScriptTypes(read('../edge-functions/quote-excel-ai/index.ts').replace(/^import .*;\n/gm,''),{mode:'strip'}),ctx);return ctx.handler;
 }
 const request=body=>new Request('https://test/functions/v1/quote-excel-ai',{method:'POST',headers:{Authorization:'Bearer caller','Content-Type':'application/json'},body:JSON.stringify(body)});
@@ -30,7 +31,7 @@ test('Known Excel headers work without an AI key; unknown layouts use only valid
  const unknown=[['Operación','Piezas solicitadas','Valor pactado'],['Cambio de estructura',2,75]];assert.equal((await fallback(request({rows:unknown}))).status,400);
  let invalid=false;
  const run=endpoint(async(url,options)=>{if(!url.includes('api.openai.com'))return auth(url);const body=JSON.parse(options.body);if(body.text.format.name==='avh_quote_excel_columns')return Response.json({status:'completed',output_text:JSON.stringify({header_row:1,description:0,quantity:1,unit:null,unit_price:invalid?99:2,total:null,sector:null})});return Response.json({error:'temporarily unavailable'},{status:503});});
- const b=await (await run(request({rows:unknown}))).json();assert.equal(b.analysis.items[0].quantity,2);assert.equal(b.analysis.items[0].unit_price,75);invalid=true;assert.equal((await run(request({rows:unknown}))).status,400);
+ const b=await (await run(request({rows:unknown}))).json();assert.equal(b.analysis.items[0].quantity,2);assert.equal(b.analysis.items[0].unit_price,75);invalid=true;assert.equal((await run(request({rows:unknown}))).status,422);
 });
 test('Oversized sheets, nested values and empty price sheets fail without writing any quote',async()=>{
  const run=endpoint(async url=>url.includes('commercial_context')?Response.json({access_level:'editor'}):Response.json({id:'caller'}),false);
