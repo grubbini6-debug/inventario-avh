@@ -29,16 +29,17 @@ test('quote preview uses the catalog stock unit and refuses a manually restored 
 });
 
 test('another abrasive brand stays new, missing prices remain blank and a conflicting manual link cannot be saved',async()=>{
- const {w}=ui();let saves=0;
+ const {w}=ui();let saves=0,savedItem;
  try{
   w.D.products=[{id:'max',sku:'1633',name:'Disco de corte 4 1/2 pulgadas x 1,2 mm Maxflexx',brand:'Maxflexx',base_unit:'unidad',active:true}];w.D.warehouses=[{id:'ac',name:'ACOMAR',active:true}];w.D.purchaseCompanies=[{id:'maq',name:'MAQMOVEIS',active:true}];
   const doc={currency:null,confidence:.8,supplier_name:'Proveedor',items:[{brand:'Norton',description:'Disco de corte 4 1/2 pulgadas x 1,2 mm Norton',quantity:50,unit:'UN',unit_price:null,product_code:'1633'}]};
-  w.FileReader=class{readAsDataURL(){this.result='data:application/pdf;base64,AAAA';queueMicrotask(()=>this.onload());}};w.edge=async()=>({data:{document:doc}});w.rpc=async()=>{saves++;return{error:'Unexpected save'};};
+  w.FileReader=class{readAsDataURL(){this.result='data:application/pdf;base64,AAAA';queueMicrotask(()=>this.onload());}};w.edge=async()=>({data:{document:doc}});w.D.suppliers=[{id:'supplier',name:'Proveedor'}];w.rpc=async(name,args)=>{saves++;savedItem=args.p_items[0];return{error:'Stopped after validation'};};
   w.eval(read('../src/features/purchases/smart-purchase-flow.js'));w.AVHSmartPurchase.open();const input=w.document.querySelector('#smartFile');Object.defineProperty(input,'files',{value:[new w.File(['PDF'],'source.pdf',{type:'application/pdf'})]});await input.onchange();
   assert.equal(w.document.querySelector('[data-product]').value,'__auto__');assert.equal(w.document.querySelector('[data-price]').value,'');assert.equal(w.document.querySelector('#smartCurrency').value,'');assert.equal(w.document.querySelector('#smartCompany').value,'');
   await w.document.querySelector('#smartGenerate').onclick();assert.match(w.document.querySelector('#smartGenerateMsg').textContent,/moneda/);
   w.document.querySelector('#smartCurrency').value='PYG';w.document.querySelector('#smartCompany').value='maq';w.document.querySelector('[data-price]').value='2550';w.document.querySelector('[data-product]').value='max';
   await w.document.querySelector('#smartGenerate').onclick();assert.match(w.document.querySelector('#smartGenerateMsg').textContent,/marca no coincide/);assert.equal(saves,0);
+  assert.equal(w.document.querySelector('[data-brand]').value,'Norton');w.document.querySelector('[data-brand]').value='Maxflexx';w.document.querySelector('[data-model]').value='MCA-1633';w.document.querySelector('[data-desc]').value=w.D.products[0].name;await w.document.querySelector('#smartGenerate').onclick();assert.equal(saves,1);assert.equal(savedItem.brand,'Maxflexx');assert.equal(savedItem.manufacturer_code,'MCA-1633');assert.equal(savedItem.product_id,'max');
  }finally{w.close();}
 });
 
