@@ -7,7 +7,8 @@
     "test:browser:manufacturing": "node tests/browser/fabrication.mjs",
     "test:browser:refresh": "node tests/browser/refresh-preserves-forms.mjs",
     "test:browser:gases": "node tests/browser/gases.mjs",
-    "test:browser:quotes": "node tests/browser/quotes.mjs"
+    "test:browser:quotes": "node tests/browser/quotes.mjs",
+    "test:browser:barge-modules": "node tests/browser/barge-modules.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",

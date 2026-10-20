@@ -54,6 +54,7 @@
     "src/features/inventory/depositor-mobile-ai.js",
     "src/features/inventory/depositor-role-cleanup.js",
     "src/features/inventory/depositor-complete-mobile.js",
+    "src/features/inventory/barge-modules.js",
     "src/features/manufacturing/naval.js",
     "src/features/inventory/gases.js",
     "src/features/work-orders/model.js",
