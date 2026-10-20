@@ -102,7 +102,18 @@ try{
 
   // Data must still load during editing, then display after leaving the form.
   stock=37;await p.evaluate(()=>loadAll(false));assert.equal(await p.evaluate(()=>D.stocks[0].stock_qty),37);
-  await p.locator('.nav [data-page="stock"]').click();await admin.tick();assert.match(await p.locator('#stockList').innerText(),/37/);assert.equal(await p.locator('#page-stock').evaluate(e=>e.classList.contains('on')),true);assert.equal(await p.locator('#sectionTitle').innerText(),'Inventario');await admin.context.close();
+  await p.locator('.nav [data-page="stock"]').click();await admin.tick();assert.match(await p.locator('#stockList').innerText(),/37/);assert.equal(await p.locator('#page-stock').evaluate(e=>e.classList.contains('on')),true);assert.equal(await p.locator('#sectionTitle').innerText(),'Inventario');
+  // Complete one PO through two separate invoices; the real detail must show both.
+  await p.evaluate(async({purchaseId,productId})=>{
+    const row=D.purchaseItems.find(x=>x.purchase_id===purchaseId);row.received_qty=10;
+    D.purchaseDocuments=[1,2].map(i=>({id:'partial-invoice-'+i,purchase_id:purchaseId,kind:'invoice',file_path:purchaseId+'/partial-'+i+'.pdf',file_name:'partial-'+i+'.pdf',document_number:'001-001-000100'+i,document_date:'2026-10-20',created_at:'2026-10-20T1'+i+':00:00Z',analysis_status:'ok',analysis_data:{currency:'PYG',date:'2026-10-20',supplier_name:'Proveedor de prueba',total:50,subtotal:50,tax:0,tax_mode:'included',complete:true,validation:{reviewed:true,issues:[]},items:[{description:'Acero de prueba',quantity:5,unit:'kg',unit_price:10,line_total:50,confidence:.99}]}}));
+    await window.openPurchaseDetail(purchaseId);
+  },{purchaseId:ids.purchase,productId:ids.product});
+  assert.equal(await p.locator('.pc-invoice-record').count(),2);
+  assert.equal(await p.locator('#purchaseControlCard .pc-control-badge').textContent(),'OK');
+  assert.match(await p.locator('.pc-billing-summary').textContent(),/2 factura.*100/);
+  assert.match(await p.locator('.pc-table').textContent(),/Facturado acumulado/);
+  await admin.context.close();
 
   // Two physical deliveries share one purchase. Only the newer one has its invoice.
   const oldReceipt=randomUUID(),newReceipt=randomUUID(),voidReceipt=randomUUID();

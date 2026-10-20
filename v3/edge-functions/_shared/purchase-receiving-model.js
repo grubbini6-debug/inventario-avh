@@ -1,7 +1,7 @@
 // One conversion model for the purchase preview, physical receipt and invoice control.
 // Package weight is different from the unit in which an existing product is stocked.
 (function(root){
-  const aliases={un:'unidad',und:'unidad',u:'unidad',unidades:'unidad',unidad:'unidad',piezas:'pieza',pieza:'pieza',kgs:'kg',kilogramo:'kg',kilogramos:'kg',kg:'kg',tn:'tonelada',ton:'tonelada',toneladas:'tonelada',tonelada:'tonelada',rollos:'rollo',rollo:'rollo',bobinas:'bobina',bobina:'bobina',bolsas:'bolsa',bolsa:'bolsa',cajas:'caja',caja:'caja',paquetes:'paquete',paquete:'paquete',m:'metro',mt:'metro',mts:'metro',metros:'metro',metro:'metro',l:'litro',lt:'litro',lts:'litro',litros:'litro',litro:'litro',pr:'par',pares:'par',par:'par'};
+  const aliases={un:'unidad',uni:'unidad',und:'unidad',u:'unidad',unidades:'unidad',unidad:'unidad',piezas:'pieza',pieza:'pieza',kgs:'kg',kilogramo:'kg',kilogramos:'kg',kg:'kg',tn:'tonelada',ton:'tonelada',toneladas:'tonelada',tonelada:'tonelada',rollos:'rollo',rollo:'rollo',bobinas:'bobina',bobina:'bobina',bolsas:'bolsa',bolsa:'bolsa',cajas:'caja',caja:'caja',paquetes:'paquete',paquete:'paquete',m:'metro',mt:'metro',mts:'metro',metros:'metro',metro:'metro',l:'litro',lt:'litro',lts:'litro',litros:'litro',litro:'litro',pr:'par',pares:'par',par:'par'};
   const norm=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
   const unit=v=>aliases[norm(v)]||norm(v);
   const number=v=>v===null||v===undefined||v===''?null:Number.isFinite(Number(v))?Number(v):null;
