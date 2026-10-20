@@ -29,6 +29,10 @@ try{
    if(req.method()==='OPTIONS')return route.fulfill({headers,body:''});
    if(url.pathname.endsWith('/rpc/fabrication_context'))return route.fulfill({headers,json:{workshops:[],active_orders:0,produced_qty:0}});
    try{
+    if(table==='gas_ensure_presentation'){
+     const args=req.postDataJSON(),result=await asUser(user,async()=>(await q('select public.gas_ensure_presentation($1,$2,$3::numeric) result',[args.p_warehouse_id,args.p_gas_kind,args.p_kg_per_cylinder])).rows[0].result);
+     return route.fulfill({headers,json:result});
+    }
     if(table==='gas_command'){
      const args=req.postDataJSON(),result=await asUser(user,async()=>(await q('select public.gas_command($1,$2::jsonb,$3::uuid) result',[args.p_action,JSON.stringify(args.p_data),args.p_request_id])).rows[0].result);
      if(args.p_action==='exit'&&loseNextExit){loseNextExit=false;return route.fulfill({headers,status:503,json:{message:'Respuesta perdida de prueba. Volvé a intentar.'}});}
@@ -88,7 +92,7 @@ try{
  }
  await m.locator('#gas-new_kg').fill('25');await m.locator('#gasAddCountSize').click();assert.match(await m.locator('#gasSizeError').textContent(),/ya está/);assert.equal(await m.locator('[data-gas-count^="draft-"]').count(),3);await m.locator('#gas-new_kg').fill('');
  await m.locator('#gas-notes').fill('Conteo de cilindros por presentación en kg');await m.locator('#gasForm input[type="checkbox"]').check();
- loseNextCount=true;await m.locator('#gasForm button[type="submit"]').click();await m.waitForSelector('#gasFormError .error');await m.locator('#gasForm button[type="submit"]').click();await m.waitForSelector('#modal.hide',{state:'attached'});
+ loseNextCount=true;await m.locator('#gasForm button[type="submit"]').click();await m.waitForSelector('#gasFormError .error');assert.match(await m.locator('#gasFormError').textContent(),/conteo perdida/);await m.locator('#gasForm button[type="submit"]').click();await m.waitForSelector('#modal.hide',{state:'attached'});
  const weighted=await asUser(ids.dep,async()=>(await q('select * from v_gas_stock_status where warehouse_id=$1 and kg_per_cylinder in (25,50,22.5)',[ids.w])).rows),p25=weighted.find(r=>Number(r.kg_per_cylinder)===25),p50=weighted.find(r=>Number(r.kg_per_cylinder)===50);
  assert.equal(Number(p25.full_kg),50);assert.equal(Number(p50.full_kg),150);assert.equal(await m.locator('#gasCards .gas-card').count(),6);assert.ok(await m.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1));
  const countEvents=await asUser(ids.dep,async()=>(await q("select count(*)::int n from gas_events where action='count' and product_id=$1",[p25.product_id])).rows[0].n);assert.equal(countEvents,1,'respuesta perdida no duplica conteo ni cambia versiones del reintento');
