@@ -29,7 +29,7 @@ test('Gases: FIFO existente, envases, conteos, autorización y ciclos completos 
   await q("insert into profiles(id,username,full_name,role,warehouse_id,active) values($1,'admin','Compras','admin',null,true),($2,'nuevo','Depositario nuevo','depositor',$5,true),($3,'otro','Otro','depositor',$6,true),($4,'inactivo','Inactivo','depositor',$5,false)",[ids.admin,ids.dep,ids.other,ids.inactive,ids.w,ids.w2]);
   await q("insert into products(id,sku,name,base_unit) values($1,'CO2','CO₂','cilindro'),($2,'OXIGENO','Oxígeno','cilindro'),($3,'GLP-10KG','GLP 10 kg','cilindro'),($4,'OTRO','Otro producto','unidad')",[ids.co2,ids.oxygen,ids.glp,ids.otherProduct]);
   await login(ids.admin);await record('entry',ids.co2,10);await record('entry',ids.oxygen,5);await record('entry',ids.glp,4);await record('entry',ids.otherProduct,25);
-  await owner();try{await db.exec(read('../migrations/20261014121312_control_gases.sql'));}catch(e){throw Error(e.message+' (SQL position '+e.position+')');}
+  await owner();try{await db.exec(read('../migrations/20261014121312_control_gases.sql'));await db.exec(read('../migrations/20261020133036_gas_presentations_kg.sql'));await db.exec(read('../migrations/20261020133040_gas_presentation_commands.sql'));}catch(e){throw Error(e.message+' (SQL position '+e.position+')');}
   await t.test('instalar conserva productos, depósitos, perfiles y todos los saldos; los ceros no se presentan como conteo',async()=>{
    await login(ids.dep);const r=await row(ids.co2);assert.equal(Number(r.full_qty),10);assert.equal(r.counted_at,null);assert.equal((await context()).length,3);
    await assert.rejects(cmd('exit',{product_id:ids.co2,quantity:1,person:'Juan',destination:'Soldadura'}),/primero.*conteo/);
@@ -101,6 +101,45 @@ test('Gases: FIFO existente, envases, conteos, autorización y ciclos completos 
    await owner();await assert.rejects(q("update movements set status='cancelled' where id=$1",[e.movement_id]),/control de gases/);
    assert.equal(Number((await q('select sum(quantity_remaining) n from inventory_batches where product_id=$1',[ids.otherProduct])).rows[0].n),25);
    await login(ids.dep);await cmd('return_empty',{product_id:ids.co2,quantity:2,person:'Pendientes del conteo'});r=await row(ids.co2);assert.equal(r.empty_qty,9);assert.equal(Number(r.full_qty),4);assert.equal(Number(r.outside_qty),3);
+  });
+  await t.test('presentaciones libres en kg: altas idempotentes, conteo, FIFO y envases separados por tamaño',async()=>{
+   await login(ids.dep);
+   const ensure=async(kind,kg,warehouse=ids.w)=>(await q('select public.gas_ensure_presentation($1,$2,$3::numeric) result',[warehouse,kind,kg])).rows[0].result;
+   const eventsBefore=(await q('select count(*)::int n from gas_events')).rows[0].n;
+   const p25=await ensure('co2',25),p50=await ensure('co2',50),pCustom=await ensure('co2',22.5);
+   assert.equal(p25.created,true);assert.equal(p25.counted_at,null);assert.equal(Number(p25.full_qty),0);
+   assert.equal((await ensure('co2','25.000')).product_id,p25.product_id);assert.equal((await ensure('co2',25)).created,false);
+   await ensure('co2',20);await ensure('co2',30);const glp50=await ensure('glp',50),o30=await ensure('oxygen',30);
+   assert.equal((await q('select count(*)::int n from gas_events')).rows[0].n,eventsBefore,'el catálogo no inventa conteos ni movimientos');
+   assert.equal(Number((await row(ids.co2)).full_qty),4);assert.equal((await row(ids.co2)).full_kg,null,'el peso anterior desconocido sigue sin inventarse');
+   assert.equal(Number((await row(ids.glp)).kg_per_cylinder),10);
+   for(const kg of [null,0,-1,'NaN','Infinity','-Infinity','0.0001',1000.001])await assert.rejects(ensure('co2',kg),/kg por cilindro/);
+   await assert.rejects(ensure(null,25),/Gas inválido/);await assert.rejects(ensure('aire',25),/Gas inválido/);await assert.rejects(ensure('co2',25,ids.w2),/No autorizado/);
+   await assert.rejects(cmd('new_full',{product_id:p25.product_id,quantity:1,person:'Gases'}),/primero.*conteo/);
+   const current=await context(),balances=new Map([[p25.product_id,[2,1]],[p50.product_id,[3,2]],[pCustom.product_id,[2,0]],[glp50.product_id,[1,1]],[o30.product_id,[1,1]]]);
+   const items=[];
+   for(const r of current){const h=(await q('select person,location,quantity from gas_custody where warehouse_id=$1 and product_id=$2 and quantity>0',[ids.w,r.product_id])).rows;const v=balances.get(r.product_id)||[Number(r.full_qty),r.empty_qty];items.push({product_id:r.product_id,expected_version:r.version,full_qty:v[0],empty_qty:v[1],holders:h});}
+   await assert.rejects(cmd('count',{notes:'Conteo de todas las presentaciones',items:items.slice(1)}),/una sola fila/);
+   const count={notes:'Conteo por peso real del cilindro',items},key=randomUUID(),result=await cmd('count',count,key);assert.deepEqual(await cmd('count',count,key),result);
+   assert.equal(Number((await row(p25.product_id)).full_kg),50);assert.equal(Number((await row(p50.product_id)).full_kg),150);assert.equal(Number((await row(pCustom.product_id)).full_kg),45);
+   const p50Before=await row(p50.product_id);
+   await cmd('exit',{product_id:p25.product_id,quantity:1,person:'Juan 25',destination:'Soldadura'});
+   assert.equal(Number((await row(p25.product_id)).full_kg),25);assert.deepEqual(await row(p50.product_id),p50Before);
+   await assert.rejects(cmd('return_empty',{product_id:p50.product_id,quantity:1,person:'Juan 25'}),/supera/);
+   await cmd('return_empty',{product_id:p25.product_id,quantity:1,person:'Juan 25'});
+   assert.equal(Number((await row(p25.product_id)).full_kg),25);assert.equal((await row(p25.product_id)).empty_qty,2);
+   const emptyEvent=(await q("select detail from gas_events where product_id=$1 and action='return_empty' order by event_no desc limit 1",[p25.product_id])).rows[0];assert.equal(emptyEvent.detail.gas_kg_delta,0);assert.equal(emptyEvent.detail.kg_per_cylinder,25);
+   await cmd('send_refill',{product_id:p25.product_id,quantity:1,person:'Proveedor 25'});await cmd('refill',{product_id:p25.product_id,quantity:1,person:'Proveedor 25'});
+   assert.equal(Number((await row(p25.product_id)).full_kg),50);assert.deepEqual(await row(p50.product_id),p50Before);
+   await record('entry',p25.product_id,1);assert.equal(Number((await row(p25.product_id)).full_kg),75);
+   const event=(await q("select detail from gas_events where product_id=$1 and action='entry' order by event_no desc limit 1",[p25.product_id])).rows[0];assert.equal(event.detail.gas_kg_delta,25);
+   await login(ids.admin);
+   const transfer=(await q('select public.record_transfer($1,$2,$3::jsonb,null) id',[ids.w,ids.w2,JSON.stringify([{product_id:p50.product_id,quantity:1,unit:'cilindro',factor_to_base:1,request_id:randomUUID()}])])).rows[0].id;
+   await login(ids.other);await q('select public.receive_transfer($1)',[transfer]);
+   const transferred=(await context()).find(r=>r.product_id===p50.product_id);assert.equal(Number(transferred.full_kg),50);assert.equal((await context()).every(r=>r.warehouse_id===ids.w2),true);
+   await login(ids.inactive);await assert.rejects(ensure('co2',23),/no autorizado/);
+   await login(null,'anon');await assert.rejects(ensure('co2',23),/permission denied/);
+   await login(ids.dep);await assert.rejects(q('update gas_products set kg_per_cylinder=50 where product_id=$1',[p25.product_id]),/permission denied/);
   });
   await t.test('RLS, usuarios inactivos, depósito ajeno y acceso directo no permiten modificar saldos',async()=>{
    for(const who of [ids.other,ids.inactive]){await login(who);await assert.rejects(cmd('return_empty',{product_id:ids.co2,quantity:1,person:'Pendientes del conteo'}),/no autorizado|No autorizado/);assert.equal((await q('select * from gas_events where warehouse_id=$1',[ids.w])).rows.length,0);}

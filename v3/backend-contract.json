@@ -29,6 +29,7 @@
     "fabrication_context",
     "fabrication_day",
     "gas_command",
+    "gas_ensure_presentation",
     "inventory_load_edit_context",
     "mark_notifications_read",
     "receive_purchase",
