@@ -195,7 +195,8 @@
     if(!available.length)return openModal('Sacar material','',`<div class="empty">Tu depósito no tiene stock disponible para registrar una salida.</div>`);
     const first=available[0]?.product_id||'';
     openModal('Sacar material','Salida manual · descuenta stock al confirmar',`
-      <div class="notice">Elegí únicamente lo que está saliendo físicamente. AVH descontará el stock apenas confirmes.</div>
+      <div class="notice">Elegí únicamente lo que está saliendo físicamente. AVH descontará el stock apenas confirmes. Si va a una barcaza, indicá la parte y el módulo en cada material.</div>
+      <div class="field"><label>Barcaza / proyecto</label><select id="depExitBarge"><option value="">Sin barcaza</option>${(D.barges||[]).filter(x=>x.active).map(b=>`<option value="${b.id}">Barcaza ${b.number}</option>`).join('')}</select></div>
       <div class="card dep-manual-exit-picker" style="margin-top:10px">
         <div class="field"><label>Buscar producto</label><input id="depExitSearch" placeholder="Escribí nombre o SKU" autocomplete="off"></div>
         <div class="field"><label>Producto con stock *</label><select id="depExitProduct">${manualStockOptions('',first)}</select></div>
@@ -209,7 +210,6 @@
       <div class="section-head"><div><h2>Materiales a retirar</h2><p>Podés cargar más de un producto</p></div></div>
       <div id="depManualExitCart" class="list"></div>
       <div class="section-head"><h2>Destino</h2></div>
-      <div class="field"><label>Barcaza / proyecto</label><select id="depExitBarge"><option value="">Sin barcaza</option>${(D.barges||[]).filter(x=>x.active).map(b=>`<option value="${b.id}">Barcaza ${b.number}</option>`).join('')}</select></div>
       <div class="field"><label>Persona que retira *</label><input id="depExitPerson" placeholder="Nombre de quien lleva el material"></div>
       <div class="field"><label>Destino / sector *</label><input id="depExitDestination" placeholder="Ej.: Barcaza 7 / armado / soldadura"></div>
       <div class="field"><label>Observación</label><textarea id="depExitNotes" placeholder="Opcional"></textarea></div>
@@ -232,8 +232,10 @@
       $('#depExitAvailability').innerHTML=s?`Disponible: <b>${fmt(s.stock_qty)} ${safe(base)}</b>${pres&&pres.factor!==1?` · cada ${safe(pres.label)} equivale a ${fmt(pres.factor)} ${safe(base)}`:''}`:'Elegí un producto con stock.';
     }
     function drawCart(){
-      $('#depManualExitCart').innerHTML=cart.length?cart.map((x,i)=>`<div class="row"><div class="line"><div class="grow"><div class="title">${safe(product(x.product_id)?.name||'Producto')}</div><div class="subtext">${fmt(x.quantity)} ${safe(x.label)} · descuenta ${fmt(x.quantity*x.factor)} ${safe(product(x.product_id)?.base_unit||'')}</div></div><button type="button" class="btn sm danger" data-dep-manual-remove="${i}">Quitar</button></div></div>`).join(''):'<div class="empty">Todavía no agregaste materiales.</div>';
+      const barge=$('#depExitBarge').value;
+      $('#depManualExitCart').innerHTML=cart.length?cart.map((x,i)=>`<div class="row" data-dep-hull-row="${i}"><div class="line"><div class="grow"><div class="title">${safe(product(x.product_id)?.name||'Producto')}</div><div class="subtext">${fmt(x.quantity)} ${safe(x.label)} · descuenta ${fmt(x.quantity*x.factor)} ${safe(product(x.product_id)?.base_unit||'')}</div></div><button type="button" class="btn sm danger" data-dep-manual-remove="${i}">Quitar</button></div>${barge?window.AVHHullCosts.fieldsHTML(x,'dep-hull-'+i):''}</div>`).join(''):'<div class="empty">Todavía no agregaste materiales.</div>';
       $$('[data-dep-manual-remove]').forEach(b=>b.onclick=()=>{cart.splice(Number(b.dataset.depManualRemove),1);drawCart()});
+      $$('[data-dep-hull-row]').forEach(el=>window.AVHHullCosts.bindFields(el,cart[Number(el.dataset.depHullRow)],!!barge));
     }
     $('#depExitSearch').oninput=()=>{
       const sel=$('#depExitProduct'),current=sel.value,opts=manualStockOptions($('#depExitSearch').value,current);
@@ -241,6 +243,7 @@
       if(current&&[...sel.options].some(o=>o.value===current))sel.value=current;
       refreshPresentation();
     };
+    $('#depExitBarge').onchange=drawCart;
     $('#depExitProduct').onchange=refreshPresentation;
     $('#depExitPresentation').onchange=refreshAvailability;
     $('#depAddManualExit').onclick=()=>{
@@ -256,14 +259,16 @@
       if(!cart.length)return msg(out,'Agregá al menos un material.');
       if(!person)return msg(out,'Confirmá quién retira.');
       if(!destination)return msg(out,'Indicá el destino o sector.');
+      const barge=$('#depExitBarge').value||null;
+      for(const x of cart){const error=window.AVHHullCosts.problem(x,barge);if(error)return msg(out,error);}
       for(const x of cart){
         const stock=manualExitStock(x.product_id),total=cart.filter(y=>y.product_id===x.product_id).reduce((s,y)=>s+y.quantity*y.factor,0);
         if(!stock||total>num(stock.stock_qty))return msg(out,`Revisá ${product(x.product_id)?.name||'el producto'}: la cantidad supera el stock disponible.`);
       }
       const b=$('#depConfirmManualExit');b.disabled=true;b.textContent='Descontando stock…';
       try{
-        const items=cart.map(x=>({product_id:x.product_id,quantity:x.quantity,unit:x.unit,factor_to_base:x.factor,presentation_label:x.label===product(x.product_id)?.base_unit?null:x.label}));
-        const r=await rpc('record_exit',{p_warehouse_id:profile.warehouse_id,p_barge_id:$('#depExitBarge').value||null,p_contractor_id:null,p_person_receiving:person,p_destination:destination,p_items:items,p_notes:$('#depExitNotes').value.trim()||null});
+        const items=cart.map(x=>({product_id:x.product_id,quantity:x.quantity,unit:x.unit,factor_to_base:x.factor,presentation_label:x.label===product(x.product_id)?.base_unit?null:x.label,...window.AVHHullCosts.metadata(x,barge)}));
+        const r=await rpc('record_exit',{p_warehouse_id:profile.warehouse_id,p_barge_id:barge,p_contractor_id:null,p_person_receiving:person,p_destination:destination,p_items:items,p_notes:$('#depExitNotes').value.trim()||null});
         if(r.error)throw Error(r.error);
         closeModal();await loadAll(true);goPage('home');renderDepositorHome();
       }catch(e){msg(out,e.message||String(e))}
