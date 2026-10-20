@@ -117,7 +117,7 @@ begin
   update public.movements set status='cancelled' where id=p_movement_id;
   return v_correction;
 end;
-$function$
+$function$;
 
 revoke all on function public.admin_void_movement(uuid,text) from public,anon;
 grant execute on function public.admin_void_movement(uuid,text) to authenticated;
