@@ -8,7 +8,8 @@
     "test:browser:refresh": "node tests/browser/refresh-preserves-forms.mjs",
     "test:browser:gases": "node tests/browser/gases.mjs",
     "test:browser:quotes": "node tests/browser/quotes.mjs",
-    "test:browser:barge-modules": "node tests/browser/barge-modules.mjs"
+    "test:browser:barge-modules": "node tests/browser/barge-modules.mjs",
+    "test:browser:repairs": "node tests/browser/repairs.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",

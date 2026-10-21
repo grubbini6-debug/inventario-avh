@@ -150,6 +150,13 @@
       ],'El reporte usa lo registrado. Completá los datos faltantes en su pantalla de origen. El correo automático depende de la configuración de Compras.','fabrication-reports')
     ];
     const administration=[
+      topic('repairs','Compras','Gestionar reparaciones de máquinas','Presupuestos, órdenes de servicio, remitos y costos por equipo.',[
+        step('Identificá las máquinas','En Reparaciones → Equipos registrá código, nombre, marca, modelo, número de serie y depósito responsable. Cada máquina se registra una sola vez.'),
+        step('Revisá el presupuesto','Creá una reparación y cargá Excel/CSV, PDF o fotos del taller. Confirmá empresa, proveedor, referencia, fecha, falla, IVA y garantía. Asigná cada partida a su máquina y revisá los importes.'),
+        step('Registrá la autorización','Enviá el presupuesto para autorización. Registrá quién autorizó y el respaldo recibido para emitir la OC de servicio. Los adicionales conservan su propia autorización.'),
+        step('Seguí cada máquina','Registrá la entrega con estado, accesorios y transportista. Descargá el remito y adjuntá el firmado. Al regresar, registrá quién recibe, el estado y la garantía confirmada.'),
+        step('Probá y conciliá','Registrá la prueba y el responsable técnico. Cuando todas las máquinas estén conformes, conciliá la factura y sus costos por equipo. Equipos → Historial y costos conserva sus reparaciones.')
+      ],'La autorización registrada identifica el respaldo informado a Compras. La recepción y la prueba no registran un pago; Tesorería conserva su circuito.','repairs'),
       topic('purchase','Compras','Crear una compra y seguir sus entregas','Proveedor, destino, cantidades, precios y documentación.',[
         step('Abrí Compras','Usá + Nueva compra y completá empresa que compra, proveedor, tipo, urgencia y destino. Para entrega a depósito, elegí quién debe recibir.'),
         step('Revisá los ítems','Cargá productos, cantidades, unidades, precios y moneda. Revisá el resumen antes de confirmar; las sugerencias de documentos o IA se verifican con el respaldo original.'),
@@ -227,6 +234,7 @@
     const a=access();
     if(a.production)return goPage(['production-inventory','commercial'].includes(action)?action:'work-orders');
     if(['home','stock','gases'].includes(action))return goPage(action);
+    if(action==='repairs'&&a.admin){goPage('repairs');return}
     if(action==='purchases'&&a.admin){goPage('purchases');return window.renderPurchases?.()}
     if(action==='alerts'&&a.admin){goPage('more');return renderModule('alerts')}
     const adminTabs={'admin-users':'users','admin-products':'products','admin-opening':'opening',suppliers:'suppliers'};

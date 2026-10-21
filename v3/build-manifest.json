@@ -67,6 +67,9 @@
     "src/features/work-orders/quote-files.js",
     "src/features/work-orders/commercial-model.js",
     "src/features/work-orders/commercial.js",
+    "src/features/repairs/model.js",
+    "src/features/repairs/pdf.js",
+    "src/features/repairs/workspace.js",
     "src/features/help/user-guide.js"
   ],
   "bootstrap": "src/core/bootstrap.js",
@@ -76,7 +79,8 @@
     "src/styles/fabrication.css",
     "src/styles/user-guide.css",
     "src/styles/gases.css",
-    "src/styles/work-orders.css"
+    "src/styles/work-orders.css",
+    "src/styles/repairs.css"
   ],
   "assets": [
     "src/assets/logo-avh.jpg",
@@ -85,7 +89,12 @@
     "src/assets/xlsx-0.20.3.min.js",
     "node_modules/pdfjs-dist/legacy/build/pdf.min.mjs",
     "node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs",
-    "node_modules/pdfjs-dist/LICENSE"
+    "node_modules/pdfjs-dist/LICENSE",
+    "node_modules/pdf-lib/dist/pdf-lib.min.js",
+    "node_modules/@pdf-lib/fontkit/dist/fontkit.umd.min.js",
+    "node_modules/@fontsource/inter/files/inter-latin-400-normal.woff",
+    "node_modules/@fontsource/inter/files/inter-latin-700-normal.woff",
+    "edge-functions/_shared/avh-brand.mjs"
   ],
   "assetDirectories": [
     "node_modules/pdfjs-dist/standard_fonts",
