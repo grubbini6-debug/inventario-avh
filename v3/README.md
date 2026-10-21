@@ -19,3 +19,5 @@ El resultado queda en `dist/`. [Fabricación Naval: auditoría, seguridad, prueb
 Presupuestos admite Excel/CSV (un archivo, 10 MB) y PDF o fotos JPG/PNG/WebP (hasta 6 archivos, 12 MB y 20 páginas por carga). `quote-document-ai` autentica al usuario y usa el acceso existente a Presupuestos; devuelve una lectura para revisar y no crea documentos. Los importes dudosos quedan pendientes. La empresa emisora, el cliente y el logo se revisan antes de emitir. PDF.js se construye desde la versión fijada en npm y se sirve desde el propio sitio, junto con su worker, recursos y licencia.
 
 La sincronización conserva formularios abiertos, cambios sin guardar y filtros. [Comportamiento y prueba de regresión](REFRESH_FORMS.md).
+
+[Reparaciones de máquinas](REPARACIONES_EQUIPOS.md): registro por código/serie, presupuestos de taller con varias máquinas, revisión de Excel/CSV/PDF/fotos, autorización respaldada, OC de servicio, remito de entrega, recepción y prueba por equipo, adicionales y conciliación de factura. Disponible para Compras / Administración; las existencias de materiales conservan su circuito actual.

@@ -4,6 +4,7 @@
   const pageTitles={
     home:'Inicio',
     purchases:'Compras',
+    repairs:'Reparaciones de máquinas',
     stock:'Inventario',
     gases:'Control de gases',
     moves:'Movimientos',
