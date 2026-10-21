@@ -65,6 +65,8 @@ try{
  assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
  await p.locator('#depConfirmManualExit').click();await p.waitForSelector('#depExitMsg .error');assert.match(await p.locator('#depExitMsg').textContent(),/Respuesta perdida/);
  await p.locator('#depConfirmManualExit').click();await p.waitForSelector('#modal.hide',{state:'attached'});
+ // The modal closes before stock refresh and the final return to Home finish.
+ await p.waitForFunction(()=>document.querySelector('#depConfirmManualExit')?.disabled===false);
  assert.equal(await asUser(id.admin,async()=>Number((await q('select sum(quantity_remaining) n from public.inventory_batches where warehouse_id=$1 and product_id=$2',[id.w,id.wire])).rows[0].n)),6);
  assert.equal(await asUser(id.admin,async()=>Number((await q("select count(*) n from public.movements m join public.movement_lines l on l.movement_id=m.id where m.type='exit' and l.product_id=$1",[id.wire])).rows[0].n)),2);
  await p.locator('.nav [data-page="gases"]').click();await p.waitForSelector('[data-gas-exit="'+gas+'"]');await p.locator('[data-gas-exit="'+gas+'"]').click();
