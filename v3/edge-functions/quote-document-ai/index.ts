@@ -2,7 +2,9 @@ import {requestAI,readAIInput,aiFailure,aiStatus} from '../_shared/ai-runtime.mj
 import {PDFDocument} from 'npm:pdf-lib@1.17.1';
 import '../_shared/quote-excel-model.js';
 import '../_shared/quote-document-model.js';
+import '../_shared/repair-budget-reading.js';
 const Q=(globalThis as any).AVHQuoteDocumentModel;
+const R=(globalThis as any).AVHRepairBudgetReading;
 const maxBytes=12*1024*1024,maxBody=17*1024*1024,origin=Deno.env.get('AVH_ALLOWED_ORIGIN')||'https://grubbini6-debug.github.io';
 const cors={'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'authorization,apikey,content-type','Access-Control-Allow-Methods':'POST,OPTIONS','Vary':'Origin'};
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,'Content-Type':'application/json'}});
@@ -33,8 +35,10 @@ Deno.serve(async(req:Request)=>{
  try{
   const headers={apikey:key,Authorization:auth,'Content-Type':'application/json'},user=await fetch(url+'/auth/v1/user',{headers});if(!user.ok)return json({error:'Sesión inválida'},401);
   const access=await fetch(url+'/rest/v1/rpc/commercial_context',{method:'POST',headers,body:'{}'}),context=await access.json();if(!access.ok||!['admin','editor'].includes(context?.access_level))return json({error:'No autorizado para preparar presupuestos'},403);
-  const {files,content}=await attachments(await boundedBody(req)),apiKey=Deno.env.get('OPENAI_API_KEY');if(!apiKey)return json({error:'La lectura de PDF y fotos todavía no está configurada.'},503);
-  const {value}=await requestAI(apiKey,{model:Deno.env.get('OPENAI_WORK_ORDER_MODEL')||'gpt-5.4-mini',max_output_tokens:22000,input:[{role:'developer',content:Q.rules},{role:'user',content:[{type:'input_text',text:'Prepará un presupuesto editable con los trabajos, precios y empresa emisora de estos archivos.'},...content]}],text:{format:{type:'json_schema',name:'avh_quote_document',strict:true,schema:Q.schema}}},{fetcher:fetch});
-  const analysis=Q.normalize(value,files);return json({ok:true,analysis,files});
+  const body=await boundedBody(req),repair=body.purpose==='equipment_repair';if(repair&&context.access_level!=='admin')return json({error:'Solo Compras / Administración puede preparar reparaciones.'},403);
+  const {files,content}=await attachments(body),apiKey=Deno.env.get('OPENAI_API_KEY');if(!apiKey)return json({error:'La lectura de PDF y fotos todavía no está configurada.'},503);
+  const schema=repair?{...Q.schema,properties:{...Q.schema.properties,repair:R.schema},required:[...Q.schema.required,'repair']}:Q.schema;
+  const {value}=await requestAI(apiKey,{model:Deno.env.get('OPENAI_WORK_ORDER_MODEL')||'gpt-5.4-mini',max_output_tokens:22000,input:[{role:'developer',content:Q.rules+(repair?'\n'+R.rules:'')},{role:'user',content:[{type:'input_text',text:repair?'Leé el presupuesto recibido del taller y prepará todas las partidas y los datos de la reparación para revisión.':'Prepará un presupuesto editable con los trabajos, precios y empresa emisora de estos archivos.'},...content]}],text:{format:{type:'json_schema',name:repair?'avh_repair_document':'avh_quote_document',strict:true,schema}}},{fetcher:fetch});
+  const analysis=Q.normalize(value,files);if(repair)analysis.repair=R.normalize(value.repair,analysis.items.length);return json({ok:true,analysis,files});
  }catch(e){return json(aiFailure(e),aiStatus(e));}
 });
