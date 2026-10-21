@@ -151,8 +151,8 @@
     ];
     const administration=[
       topic('repairs','Compras','Gestionar reparaciones de máquinas','Presupuestos, órdenes de servicio, remitos y costos por equipo.',[
-        step('Identificá las máquinas','En Reparaciones → Equipos registrá código, nombre, marca, modelo, número de serie y depósito responsable. Cada máquina se registra una sola vez.'),
-        step('Revisá el presupuesto','Creá una reparación y cargá Excel/CSV, PDF o fotos del taller. Confirmá empresa, proveedor, referencia, fecha, falla, IVA y garantía. Asigná cada partida a su máquina y revisá los importes.'),
+        step('Subí el presupuesto','En Reparaciones → Cargar presupuesto con IA elegí el PDF, las fotos o el Excel del taller. No necesitás completar campos antes de subirlo.'),
+        step('Revisá y corregí','La IA prepara taller, empresa, máquinas, trabajos, importes, garantía y condiciones visibles. Completá los datos marcados; podés registrar una máquina o un taller dentro del borrador. Confirmar revisión y enviar guarda el original y solicita autorización.'),
         step('Registrá la autorización','Enviá el presupuesto para autorización. Registrá quién autorizó y el respaldo recibido para emitir la OC de servicio. Los adicionales conservan su propia autorización.'),
         step('Seguí cada máquina','Registrá la entrega con estado, accesorios y transportista. Descargá el remito y adjuntá el firmado. Al regresar, registrá quién recibe, el estado y la garantía confirmada.'),
         step('Probá y conciliá','Registrá la prueba y el responsable técnico. Cuando todas las máquinas estén conformes, conciliá la factura y sus costos por equipo. Equipos → Historial y costos conserva sus reparaciones.')

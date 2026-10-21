@@ -2,11 +2,13 @@
 
 Disponible desde **Reparaciones**, para Compras / Administración. Producción y Depósito conservan sus permisos actuales y no pueden leer ni autorizar estos presupuestos.
 
-Registrar primero los equipos con código único, depósito y número de serie cuando se conozca. La ficha identifica una máquina física; registrarla no aumenta ni descuenta el stock de materiales.
+Empezar desde **Cargar presupuesto con IA** y subir PDF, fotos o Excel sin completar campos previamente. Se prepara un borrador con las partidas, importes, taller, cliente, referencia, falla o alcance, garantía y condiciones visibles. Los datos faltantes quedan marcados para corregir. La lectura es una propuesta: **Confirmar revisión y enviar** guarda el original y solicita autorización; no emite la OC ni autoriza el trabajo.
+
+Las máquinas existentes se vinculan por código o serie inequívocos. Se completa el depósito y la empresa cuando la identificación es única. Si hace falta registrar una máquina o un taller, se hace dentro del borrador con los datos detectados y confirmación del usuario. Para una sola máquina, se elige una vez y se aplica a todas las partidas. La ficha identifica una máquina física; registrarla no aumenta ni descuenta el stock de materiales.
 
 Cada reparación admite un presupuesto de un taller, una empresa, un depósito de origen y varias máquinas. Cada partida de mano de obra, repuesto instalado u otro servicio debe estar asignada a una máquina. Las máquinas pueden entregarse, regresar y probarse en fechas distintas.
 
-1. Crear el borrador y cargar presupuesto manualmente o desde Excel/CSV, PDF y fotos. La lectura utiliza las funciones de presupuestos existentes, conserva datos desconocidos para revisión y no autoriza trabajos. Los originales se archivan en el bucket privado `repair-documents` al guardar.
+1. Subir el presupuesto desde la entrada principal con IA o elegir **Cargar manualmente**. La lectura utiliza las funciones existentes con contexto de reparación, conserva los importes de origen y deja lo desconocido pendiente. Los originales se archivan en el bucket privado `repair-documents` al guardar.
 2. Completar referencia y fecha, falla, empresa, taller, moneda e impuestos. Revisar cantidades, precios, asignación y total del original. Enviar para autorización.
 3. Registrar quién autorizó y la referencia de su respaldo. Se emite una OC real de tipo servicio, vinculada a la reparación, sin ingreso automático a stock. Esto registra la autorización informada a Compras; no pretende suplantar una aprobación de Dirección dentro de una cuenta que no existe en el sistema.
 4. Registrar entrega por equipo, en taller o en el depósito, con fecha, estado y accesorios. Para taller externo, identificar quién transporta. El remito PDF utiliza el equipo y la entrega guardados. Adjuntar su ejemplar firmado.

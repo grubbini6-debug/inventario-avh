@@ -1,7 +1,9 @@
 import {requestAI,readAIInput,aiFailure,aiStatus} from '../_shared/ai-runtime.mjs';
 import '../_shared/quote-excel-model.js';
+import '../_shared/repair-budget-reading.js';
 import {commercialCopySchema,commercialCopyRules,validateCommercialCopy} from '../_shared/commercial-copy.mjs';
 const Q=(globalThis as any).AVHQuoteExcelModel;
+const R=(globalThis as any).AVHRepairBudgetReading;
 const origin=Deno.env.get('AVH_ALLOWED_ORIGIN')||'https://grubbini6-debug.github.io';
 const cors={'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'authorization,apikey,content-type','Access-Control-Allow-Methods':'POST,OPTIONS','Vary':'Origin'};
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,'Content-Type':'application/json'}});
@@ -19,13 +21,17 @@ Deno.serve(async(req:Request)=>{
   const user=await fetch(url+'/auth/v1/user',{headers});if(!user.ok)return json({error:'Sesión inválida'},401);
   const access=await fetch(url+'/rest/v1/rpc/commercial_context',{method:'POST',headers,body:'{}'}),context=await access.json();
   if(!access.ok||!['admin','editor'].includes(context?.access_level))return json({error:'No autorizado para preparar presupuestos'},403);
-  const body=await readAIInput(req),apiKey=Deno.env.get('OPENAI_API_KEY');let analysis=Q.parse(body.rows,String(body.sheet||'').slice(0,180));
+  const body=await readAIInput(req),repair=body.purpose==='equipment_repair';if(repair&&context.access_level!=='admin')return json({error:'Solo Compras / Administración puede preparar reparaciones.'},403);
+  const apiKey=Deno.env.get('OPENAI_API_KEY');let analysis=Q.parse(body.rows,String(body.sheet||'').slice(0,180));
   if(analysis.needs_mapping){
    if(!apiKey)return json({error:'No pude reconocer las columnas. Usá encabezados Descripción, Cantidad, Unidad, Precio unitario e Importe.'},400);
    const map=await structured(apiKey,Q.mappingSchema,'avh_quote_excel_columns',Q.mappingRules,{file_name:String(body.file_name||'Excel').slice(0,180),sheet:body.sheet,rows:body.rows},aiDeadline);analysis=Q.parse(body.rows,body.sheet,map);
   }
   if(!analysis.items.length)return json({error:'No encontré trabajos con precios. Elegí la hoja que contiene el presupuesto.'},400);
-  if(apiKey){
+  if(repair){
+   if(apiKey){try{analysis.repair=R.normalize(await structured(apiKey,R.schema,'avh_repair_excel',R.rules,{file_name:String(body.file_name||'Excel').slice(0,180),sheet:body.sheet,rows:body.rows,items:analysis.items.map((i:any,n:number)=>({item_index:n,source_row:i.source_row,description:i.description}))},aiDeadline),analysis.items.length);}catch{analysis.warnings.push('Se conservaron las partidas y precios del Excel, pero no se pudieron completar los datos de la máquina y las condiciones. Revisalos contra el original.');}}
+   else analysis.warnings.push('Se leyeron las partidas del Excel. Falta configurar la IA para completar los datos de la reparación.');
+  }else if(apiKey){
    try{
     const payload={title:analysis.fields.title,items:analysis.items.map((i:any,n:number)=>({id:String(n),description:i.description}))};
     const suggestion=validateCommercialCopy(payload,await structured(apiKey,commercialCopySchema,'avh_quote_excel_wording',commercialCopyRules,{kind:'quote',...payload},aiDeadline));

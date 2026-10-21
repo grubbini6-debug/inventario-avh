@@ -8,7 +8,7 @@ import * as copy from '../edge-functions/_shared/commercial-copy.mjs';
 const read=p=>fs.readFileSync(new URL(p,import.meta.url),'utf8');
 function endpoint(fetch,configured=true){
  const ctx={...aiRuntime,...copy,fetch,Request,Response,AbortSignal,console,Deno:{env:{get:name=>({SUPABASE_URL:'https://test.supabase.co',SUPABASE_ANON_KEY:'public',OPENAI_API_KEY:configured?'secret':undefined}[name])},serve:handler=>ctx.handler=handler}};
- vm.runInNewContext(read('../edge-functions/_shared/quote-excel-model.js'),ctx);vm.runInNewContext(stripTypeScriptTypes(read('../edge-functions/quote-excel-ai/index.ts').replace(/^import .*;\n/gm,''),{mode:'strip'}),ctx);return ctx.handler;
+ for(const name of ['quote-excel-model.js','repair-budget-reading.js'])vm.runInNewContext(read('../edge-functions/_shared/'+name),ctx);vm.runInNewContext(stripTypeScriptTypes(read('../edge-functions/quote-excel-ai/index.ts').replace(/^import .*;\n/gm,''),{mode:'strip'}),ctx);return ctx.handler;
 }
 const request=body=>new Request('https://test/functions/v1/quote-excel-ai',{method:'POST',headers:{Authorization:'Bearer caller','Content-Type':'application/json'},body:JSON.stringify(body)});
 const rows=[['Moneda','USD'],['Descripción','Cantidad','Precio unitario'],['Reparación de chapa 7.9 mm',3,20]];
