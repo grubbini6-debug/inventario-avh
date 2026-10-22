@@ -38,7 +38,7 @@ try{
    try{
     if(table==='record_exit'){
      const a=req.postDataJSON(),result=await asUser(user,async()=>(await q('select public.record_exit($1,$2,$3,$4,$5,$6::jsonb,$7) result',[a.p_warehouse_id,a.p_barge_id,a.p_contractor_id,a.p_person_receiving,a.p_destination,JSON.stringify(a.p_items),a.p_notes])).rows[0].result);
-     if(loseExit){loseExit=false;return route.fulfill({headers,status:503,json:{message:'Respuesta perdida de prueba: volvé a intentar.'}});}
+     if(loseExit){loseExit=false;await new Promise(resolve=>setTimeout(resolve,100));return route.fulfill({headers,status:503,json:{message:'Respuesta perdida de prueba: volvé a intentar.'}});}
      return route.fulfill({headers,json:result});
     }
     if(table==='gas_command'){const a=req.postDataJSON(),result=await asUser(user,async()=>(await q('select public.gas_command($1,$2::jsonb,$3::uuid) result',[a.p_action,JSON.stringify(a.p_data),a.p_request_id])).rows[0].result);return route.fulfill({headers,json:result});}
@@ -63,7 +63,8 @@ try{
  await p.locator('#depConfirmManualExit').click();assert.match(await p.locator('#depExitMsg').textContent(),/parte/);
  await p.locator('[data-dep-hull-row="1"] [data-hull-section]').selectOption('costado');await p.locator('[data-dep-hull-row="1"] [data-hull-module]').fill('co3');
  assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
- await p.locator('#depConfirmManualExit').click();await p.waitForSelector('#depExitMsg .error');assert.match(await p.locator('#depExitMsg').textContent(),/Respuesta perdida/);
+ // The previous validation message remains visible while the new request is in flight.
+ await p.locator('#depConfirmManualExit').click();await p.waitForFunction(()=>document.querySelector('#depExitMsg')?.textContent.includes('Respuesta perdida'));assert.match(await p.locator('#depExitMsg').textContent(),/Respuesta perdida/);
  await p.locator('#depConfirmManualExit').click();await p.waitForSelector('#modal.hide',{state:'attached'});
  // The modal closes before stock refresh and the final return to Home finish.
  await p.waitForFunction(()=>document.querySelector('#depConfirmManualExit')?.disabled===false);
