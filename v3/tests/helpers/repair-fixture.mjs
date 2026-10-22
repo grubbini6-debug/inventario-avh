@@ -5,6 +5,7 @@ export const migration='20261021135654_equipment_repairs.sql';
 export async function repairFixture(){
  const db=await database(),q=(sql,args=[])=>db.query(sql,args),ids=Object.fromEntries(['admin','dep','production','inactive','warehouse','other','supplier','company'].map(k=>[k,randomUUID()]));
  await db.exec(fs.readFileSync(new URL('../../migrations/'+migration,import.meta.url),'utf8'));
+ await db.exec(fs.readFileSync(new URL('../../migrations/20261022115826_direct_repair_purchase_order.sql',import.meta.url),'utf8'));
  for(const table of ['suppliers','purchase_companies'])await db.exec(`alter table public.${table} enable row level security;grant select on public.${table} to authenticated;create policy repair_fixture_catalog_read on public.${table} for select to authenticated using(public.current_profile_role()='admin');`);
  for(const role of ['admin','dep','production','inactive'])await q('insert into auth.users(id) values($1)',[ids[role]]);
  await q("insert into warehouses(id,code,name) values($1,'TEST','Depósito de prueba'),($2,'OTHER','Otro depósito')",[ids.warehouse,ids.other]);

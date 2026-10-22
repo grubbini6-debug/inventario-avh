@@ -4,6 +4,8 @@
     "admin_confirm_purchase",
     "admin_create_purchase",
     "admin_create_purchase_from_quote",
+    "admin_create_service_purchase_from_quote",
+    "admin_delete_repair_draft",
     "admin_delete_purchase",
     "admin_open_initial_inventory",
     "admin_opening_inventory_lines",
