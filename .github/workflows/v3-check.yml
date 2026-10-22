@@ -88,14 +88,14 @@ jobs:
           test -n "$AVH_CHROME_BIN"
           npm run test:browser:refresh
 
-      - name: Probar reparaciones, autorización, remitos y costos por máquina
+      - name: Probar compras de servicios y OC desde escritorio y celular
         working-directory: v3
         shell: bash
         run: |
           set -euo pipefail
           export AVH_CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
           test -n "$AVH_CHROME_BIN"
-          AVH_QA_OUTPUT=/tmp/avh-repairs-qa npm run test:browser:repairs
+          AVH_QA_OUTPUT=/tmp/avh-purchases-qa npm run test:browser:purchases
 
       - name: Probar gases desde escritorio y celular contra PostgreSQL aislado
         working-directory: v3

@@ -67,10 +67,6 @@
     "src/features/work-orders/quote-files.js",
     "src/features/work-orders/commercial-model.js",
     "src/features/work-orders/commercial.js",
-    "src/features/repairs/model.js",
-    "src/features/repairs/purchase.js",
-    "src/features/repairs/pdf.js",
-    "src/features/repairs/workspace.js",
     "src/features/help/user-guide.js"
   ],
   "bootstrap": "src/core/bootstrap.js",
@@ -80,8 +76,7 @@
     "src/styles/fabrication.css",
     "src/styles/user-guide.css",
     "src/styles/gases.css",
-    "src/styles/work-orders.css",
-    "src/styles/repairs.css"
+    "src/styles/work-orders.css"
   ],
   "assets": [
     "src/assets/logo-avh.jpg",
