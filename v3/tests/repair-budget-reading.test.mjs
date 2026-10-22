@@ -17,6 +17,11 @@ function excelEndpoint(fetch){
 }
 const metadata=()=>({quote_number:'TALLER-210',quote_date:'2026-10-21',valid_until:null,problem:'No alimenta alambre',payment_terms:'Crédito 30 días',notes:'Entrega en 5 días',warehouse_name:null,warranty_days:30,supplier:{legal_name:'Taller de prueba',tax_id:'80000000-0'},recipient:{legal_name:'Astillero Villa Hayes S.A.',tax_id:'80000000-1'},equipment:[{code:'MIG-07',name:'Soldadora MIG',brand:'Marca de prueba',model:'400 A',serial_number:'S-777',item_indices:[0,1]}],item_kinds:[{item_index:0,kind:'labor'},{item_index:1,kind:'part'}]});
 const request=body=>new Request('https://test/functions',{method:'POST',headers:{Authorization:'Bearer caller','Content-Type':'application/json'},body:JSON.stringify(body)});
+test('machine search supports the empty catalog, typed names and serials without hiding another warehouse or picking ambiguous names',()=>{
+ assert.deepEqual(M.searchEquipment([],'Soldadora nueva'),[]);assert.equal(M.equipmentTextMatch([],'Soldadora nueva'),null);
+ const rows=[{id:'a',code:'MIG-01',name:'Soldadora de producción',model:'400 A',serial_number:'SERIE-A',warehouse_id:'one'},{id:'b',code:'MIG-02',name:'Soldadora de producción',model:'500 A',serial_number:'SERIE-B',warehouse_id:'two'},{id:'old',code:'MIG-03',name:'Soldadora de producción',status:'inactive'}];
+ assert.deepEqual(M.searchEquipment(rows,'produccion 500').map(a=>a.id),['b']);assert.deepEqual(M.searchEquipment(rows,'serie-b').map(a=>a.id),['b']);assert.equal(M.equipmentTextMatch(rows,'Soldadora de producción'),null);assert.equal(M.equipmentTextMatch(rows,'mig-02').id,'b');assert.equal(M.equipmentTextMatch(rows,M.equipmentLabel(rows[0])).id,'a');assert.equal(M.equipmentTextMatch(rows,'MIG-03'),null);
+});
 test('received budget fills supplier, recipient, machine, warehouse and terms while keeping unknown money pending',()=>{
  const assets=[{id:'e',code:'MIG-07',serial_number:'S-777',warehouse_id:'w',company_id:'c'}],suppliers=[{id:'s',name:'Taller de prueba',tax_id:'80000000-0'}];
  const a={repair:metadata(),currency:'PYG',tax_mode:'add',tax_rate:10,source_total:1650,items:[{description:'Reparación del alimentador',quantity:1,unit_price:1000},{description:'Rodillo instalado',quantity:1,unit_price:500}]};

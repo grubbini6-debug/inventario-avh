@@ -18,6 +18,9 @@
   return{items,subtotal,tax_amount:tax,total,allocations,pending,financial_pending,source_difference:p.source_total==null?null:round(total-Number(p.source_total),p.currency)};
  }
  const clean=v=>String(v||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim(),identity=v=>clean(v).replace(/[^a-z0-9]/g,'');
+ const equipmentLabel=a=>`${a.code||''} · ${a.name||''}${a.serial_number?' · Serie '+a.serial_number:''}`;
+ function equipmentTextMatch(list,value){const key=clean(value);if(!key)return null;const found=list.filter(a=>a.status!=='inactive'&&[a.code,a.name,a.serial_number,equipmentLabel(a)].some(v=>v&&clean(v)===key));return found.length===1?found[0]:null;}
+ function searchEquipment(list,value){const terms=clean(value).split(/\s+/).filter(Boolean);return list.filter(a=>a.status!=='inactive'&&terms.every(t=>clean([equipmentLabel(a),a.brand,a.model].join(' ')).includes(t)));}
  function partyMatch(list,party={}){const matches=list.filter(s=>party.tax_id?identity(s.tax_id)===identity(party.tax_id):party.legal_name&&[s.name,s.legal_name].some(n=>identity(n)===identity(party.legal_name)));return matches.length===1?matches[0]:null;}
  function equipmentMatch(list,source={}){
   const matches=list.filter(a=>a.status!=='inactive'&&[['code',source.code],['serial_number',source.serial_number]].some(([k,v])=>v&&identity(a[k])===identity(v)));
@@ -48,5 +51,5 @@
   (p.items||[]).forEach((i,n)=>{for(const [key,label,bad] of [['equipment_id','Máquina',!i.equipment_id],['description','Trabajo',!i.description?.trim()],['quantity','Cantidad',i.quantity==null||i.quantity<=0],['unit_price','Precio',i.unit_price==null||i.unit_price<0]])if(bad)result.push({key:'line-'+n+'-'+(key==='equipment_id'?'equipment':key==='unit_price'?'price':key),label:label+' · partida '+(n+1)});});
   return result;
  }
- root.AVHRepairModel={states,custody,assetStates,types,day,blank,totals,imported,round,partyMatch,equipmentMatch,missing};
+ root.AVHRepairModel={states,custody,assetStates,types,day,blank,totals,imported,round,partyMatch,equipmentMatch,missing,equipmentLabel,equipmentTextMatch,searchEquipment};
 })(globalThis);

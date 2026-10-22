@@ -1,12 +1,12 @@
 // Administration owns budgets and approvals; immutable service custody is recorded per machine.
 (function(){
- const M=window.AVHRepairModel,S={user:null,tab:'orders',orders:[],assets:[],companies:[],current:null,draft:null,dirty:false,busy:false,files:[],warnings:[],error:'',search:'',filter:'',epoch:0,entry:'upload',reading:false,analysis:null,pendingFiles:[]},uploads=new WeakMap();
+ const M=window.AVHRepairModel,S={user:null,tab:'orders',orders:[],assets:[],companies:[],current:null,draft:null,dirty:false,busy:false,files:[],warnings:[],error:'',search:'',filter:'',epoch:0,entry:'upload',reading:false,analysis:null,pendingFiles:[],machineQuery:null},uploads=new WeakMap();
  const e=v=>esc(String(v??'')),clone=v=>JSON.parse(JSON.stringify(v)),allowed=()=>profile?.active&&profile.role==='admin';
  const field=(key,label,value='',type='text',attrs='')=>`<div class="field"><label for="repair-${key}">${e(label)}</label><input id="repair-${key}" name="${key}" type="${type}" value="${e(value)}" ${attrs}></div>`;
  const area=(key,label,value='',attrs='')=>`<div class="field"><label for="repair-${key}">${e(label)}</label><textarea id="repair-${key}" name="${key}" ${attrs}>${e(value)}</textarea></div>`;
  const select=(key,label,options,value='',attrs='')=>`<div class="field"><label for="repair-${key}">${e(label)}</label><select id="repair-${key}" name="${key}" ${attrs}><option value="">Seleccionar…</option>${options.map(o=>`<option value="${e(o.id)}" ${String(o.id)===String(value)?'selected':''}>${e(o.name)}</option>`).join('')}</select></div>`;
  const options=o=>Object.entries(o).map(([id,name])=>({id,name}));
- const asset=id=>S.assets.find(a=>a.id===id),assetName=id=>{const a=asset(id);return a?`${a.code} · ${a.name}${a.serial_number?' · Serie '+a.serial_number:''}`:'Elegir máquina';};
+ const asset=id=>S.assets.find(a=>a.id===id),assetName=id=>{const a=asset(id);return a?M.equipmentLabel(a):'Elegir máquina';};
  const amount=(n,c)=>n==null?'Pendiente':money(n,c);
  const labelAction={save:'Borrador guardado',submit:'Enviada para autorización',withdraw:'Devuelta a borrador',approve:'Reparación autorizada',propose_extra:'Adicional solicitado',approve_extra:'Adicional autorizado',reject_extra:'Adicional rechazado',dispatch:'Entrega a reparación',receive:'Recepción registrada',test:'Prueba técnica registrada',close:'Factura conciliada y reparación cerrada',cancel:'Reparación anulada',attachment:'Respaldo archivado'};
  function error(value){S.error=value?.message||String(value||'');const el=$('#repairError');if(el)msg(el,S.error);}
@@ -18,7 +18,7 @@
   if(!r.network&&r.status!==408&&r.status!==429&&!(r.status>=500)){try{localStorage.removeItem(key)}catch{}}
   if(profile?.id!==user)throw Error('La sesión cambió. Volvé a abrir Reparaciones.');if(r.error)throw Error(r.error);return r.data;
  }
- function reset(){S.epoch++;Object.assign(S,{user:profile?.id||null,tab:'orders',orders:[],assets:[],companies:[],current:null,draft:null,dirty:false,busy:false,files:[],warnings:[],error:'',search:'',filter:'',entry:'upload',reading:false,analysis:null,pendingFiles:[]});}
+ function reset(){S.epoch++;Object.assign(S,{user:profile?.id||null,tab:'orders',orders:[],assets:[],companies:[],current:null,draft:null,dirty:false,busy:false,files:[],warnings:[],error:'',search:'',filter:'',entry:'upload',reading:false,analysis:null,pendingFiles:[],machineQuery:null});}
  async function load(){
   if(S.user!==profile?.id){const busy=S.busy;reset();S.busy=busy;}if(!allowed())return;
   const user=profile.id,epoch=++S.epoch;
@@ -30,9 +30,9 @@
  async function open(id){
   if(S.dirty)throw Error('Guardá el borrador antes de abrir otra reparación.');
   const user=profile?.id,epoch=++S.epoch,r=await rpc('repair_document',{p_id:id});if(user!==profile?.id||epoch!==S.epoch)return;if(r.error)throw Error(r.error);
-  if(S.current?.id!==id)S.analysis=null;S.current=r.data;S.draft=clone(r.data.payload);S.files=[];S.warnings=[];S.tab='orders';S.entry='review';render();
+  if(S.current?.id!==id)S.analysis=null;S.current=r.data;S.draft=clone(r.data.payload);S.files=[];S.warnings=[];S.tab='orders';S.entry='review';S.machineQuery=null;render();
  }
- function newOrder(manual=false){if(S.reading)return error('Esperá a que termine la lectura del presupuesto.');if(S.dirty)return error('Guardá el borrador antes de crear otra reparación.');S.current={id:crypto.randomUUID(),status:'draft',version:null,number:'Nueva reparación',assets:[],attachments:[],events:[]};S.draft=M.blank();S.files=[];S.warnings=[];S.dirty=false;S.tab='orders';S.entry=manual?'review':'upload';S.analysis=null;S.pendingFiles=[];render();}
+ function newOrder(manual=false){if(S.reading)return error('Esperá a que termine la lectura del presupuesto.');if(S.dirty)return error('Guardá el borrador antes de crear otra reparación.');S.current={id:crypto.randomUUID(),status:'draft',version:null,number:'Nueva reparación',assets:[],attachments:[],events:[]};S.draft=M.blank();S.files=[];S.warnings=[];S.dirty=false;S.tab='orders';S.entry=manual?'review':'upload';S.analysis=null;S.pendingFiles=[];S.machineQuery=null;render();}
  function change(key,value){S.draft[key]=value;S.dirty=true;if(key!=='reviewed')S.draft.reviewed=false;totals();markMissing();}
  function list(){
   const el=$('#repairList');if(!el)return;const q=S.search.toLowerCase();
@@ -63,12 +63,24 @@
   $$('[data-repair-missing]').forEach(el=>{el.removeAttribute('aria-invalid');delete el.dataset.repairMissing;});
   const pending=M.missing(S.draft);pending.forEach(m=>{const el=$('#repair-'+m.key);if(el){el.setAttribute('aria-invalid','true');el.dataset.repairMissing='true';}});
   const status=$('#repairReviewStatus');if(status)status.textContent=pending.length?'Completá los datos marcados. El resto ya está listo para que lo revises.':'Los datos necesarios están completos. Revisá el original y confirmá la revisión.';
-  const host=$('#repairPending');if(host){host.innerHTML=pending.map(m=>`<button class="btn sm" data-repair-focus="${e(m.key)}">${e(m.label)}</button>`).join('');$$('[data-repair-focus]').forEach(b=>b.onclick=()=>{const el=$('#repair-'+b.dataset.repairFocus);el?.closest('details')?.setAttribute('open','');el?.focus();el?.scrollIntoView({block:'center',behavior:'smooth'});});}
+  const host=$('#repairPending');if(host){host.innerHTML=pending.map(m=>`<button class="btn sm" data-repair-focus="${e(m.key)}">${e(m.label)}</button>`).join('');$$('[data-repair-focus]').forEach(b=>b.onclick=()=>{const el=b.dataset.repairFocus.endsWith('-equipment')&&!S.assets.some(a=>a.status!=='inactive')?$('#repair-equipment'):$('#repair-'+b.dataset.repairFocus);el?.closest('details')?.setAttribute('open','');el?.focus();el?.scrollIntoView({block:'center',behavior:'smooth'});});}
  }
  function machineView(p){
-  const ids=[...new Set(p.items.map(i=>i.equipment_id).filter(Boolean))],machines=S.assets.filter(a=>a.status!=='inactive'&&(!p.warehouse_id||a.warehouse_id===p.warehouse_id)&&(!p.company_id||!a.company_id||a.company_id===p.company_id));
-  const detected=S.analysis?.repair?.equipment||[];
-  return `<div class="repair-machine-choice"><h4>Máquina que se repara</h4>${select('equipment','Elegí una vez para todas las partidas',machines.map(a=>({id:a.id,name:assetName(a.id)})),ids.length===1&&p.items.every(i=>i.equipment_id)?ids[0]:'')}<p class="hint">Si hay varias máquinas, podés asignarlas por partida.</p>${detected.filter(a=>!M.equipmentMatch(S.assets,a)).map(a=>`<div class="repair-detected"><p><strong>${e(a.name||'Equipo identificado en el original')}</strong> ${e([a.code,a.brand,a.model,a.serial_number?'Serie '+a.serial_number:''].filter(Boolean).join(' · '))}</p><button class="btn sm" data-repair-register="${detected.indexOf(a)}">Registrar y vincular esta máquina</button></div>`).join('')}<button class="btn sm" id="repairRegisterInline">+ Registrar máquina aquí</button></div>`;
+  const ids=[...new Set(p.items.map(i=>i.equipment_id).filter(Boolean))],detected=S.analysis?.repair?.equipment||[];
+  const value=S.machineQuery??(ids.length===1&&p.items.every(i=>i.equipment_id)?assetName(ids[0]):detected.length===1?detected[0].name||detected[0].code||'':'');
+  return `<div class="repair-machine-choice"><h4>Máquina que se repara</h4><div class="field"><label for="repair-equipment">Escribí el nombre o buscá por código o serie</label><input id="repair-equipment" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="repairEquipmentResults" aria-describedby="repairEquipmentStatus" autocomplete="off" placeholder="Ej.: Soldadora MIG o número de serie" value="${e(value)}"></div><div id="repairEquipmentResults" role="listbox" aria-label="Máquinas registradas" hidden></div><p class="hint" id="repairEquipmentStatus" role="status">${S.assets.some(a=>a.status!=='inactive')?'Buscá y elegí una máquina registrada, o escribí una nueva.':'Todavía no hay máquinas registradas. Escribí el nombre y tocá Registrar y usar.'}</p><button class="btn sm" id="repairRegisterInline">Registrar y usar</button><p class="hint">La elección se aplica a todas las partidas. Si hay varias máquinas, podés asignarlas por partida.</p>${detected.filter(a=>!M.equipmentMatch(S.assets,a)).map(a=>`<div class="repair-detected"><p><strong>${e(a.name||'Equipo identificado en el original')}</strong> ${e([a.code,a.brand,a.model,a.serial_number?'Serie '+a.serial_number:''].filter(Boolean).join(' · '))}</p><button class="btn sm" data-repair-register="${detected.indexOf(a)}">Registrar y vincular esta máquina</button></div>`).join('')}</div>`;
+ }
+ function useMachine(a){const p=S.draft;p.warehouse_id=a.warehouse_id;if(a.company_id)p.company_id=a.company_id;p.items.forEach(i=>i.equipment_id=a.id);S.machineQuery=p.items.length?null:assetName(a.id);change('reviewed',false);render();}
+ function bindMachine(){
+  const input=$('#repair-equipment'),list=$('#repairEquipmentResults'),status=$('#repairEquipmentStatus'),button=$('#repairRegisterInline');if(!input)return;
+  const close=()=>{list.hidden=true;input.setAttribute('aria-expanded','false');};
+  const draw=()=>{const matches=M.searchEquipment(S.assets,input.value).slice(0,25),exact=M.equipmentTextMatch(S.assets,input.value);list.innerHTML=matches.map(a=>`<button type="button" role="option" class="repair-equipment-option" data-equipment-option="${a.id}"><strong>${e(assetName(a.id))}</strong><small>${e([a.brand,a.model,whName(a.warehouse_id)].filter(Boolean).join(' · '))}</small></button>`).join('');list.hidden=!matches.length;input.setAttribute('aria-expanded',String(matches.length>0));button.textContent=exact?'Usar máquina registrada':'Registrar y usar';status.textContent=matches.length?'Elegí la máquina de la lista. Su depósito se completa al seleccionarla.':S.assets.some(a=>a.status!=='inactive')?'No hay coincidencias. Podés registrar la máquina con el nombre escrito.':'Todavía no hay máquinas registradas. Escribí el nombre y tocá Registrar y usar.';
+   list.querySelectorAll('[data-equipment-option]').forEach(b=>{b.onclick=()=>useMachine(asset(b.dataset.equipmentOption));b.onkeydown=ev=>{if(['ArrowDown','ArrowUp'].includes(ev.key)){ev.preventDefault();(ev.key==='ArrowDown'?b.nextElementSibling:b.previousElementSibling)?.focus();}if(ev.key==='Escape'){input.focus();close();}};});
+  };
+  input.onfocus=draw;input.oninput=()=>{S.machineQuery=input.value;if(!input.value.trim())S.draft.items.forEach(i=>i.equipment_id='');change('reviewed',false);draw();};
+  input.onkeydown=ev=>{if(ev.key==='ArrowDown'){ev.preventDefault();draw();list.querySelector('button')?.focus();}if(ev.key==='Enter'){ev.preventDefault();button.click();}if(ev.key==='Escape')close();};
+  list.onmousedown=ev=>ev.preventDefault();input.closest('.repair-machine-choice').addEventListener('focusout',ev=>{if(!input.closest('.repair-machine-choice')?.contains(ev.relatedTarget))close();});
+  button.onclick=()=>{S.machineQuery=input.value;const found=M.equipmentTextMatch(S.assets,input.value);if(found)useMachine(found);else inlineAsset();};
  }
  function orderView(){
   const o=S.current,p=S.draft;if(!o||o.status==='draft'&&S.entry==='upload')return uploadView();
@@ -87,7 +99,7 @@
     ${o.version?attachmentsView(o):'<p class="hint">Guardá el borrador para archivar sus documentos.</p>'}${eventsView(o)}${editable&&p.items.length?'<div class="repair-review-footer"><button class="btn primary" id="repairReviewConfirm">Confirmar revisión y enviar</button></div>':''}</article>`;
  }
  function lineView(i,n,p,prefix='repair-line'){
-  const machines=S.assets.filter(a=>a.status!=='inactive'&&a.warehouse_id===p.warehouse_id&&(!a.company_id||a.company_id===p.company_id));
+  const machines=S.assets.filter(a=>a.status!=='inactive'&&(!p.warehouse_id||a.warehouse_id===p.warehouse_id)&&(!p.company_id||!a.company_id||a.company_id===p.company_id));
   return `<fieldset class="repair-line" data-repair-line="${n}"><legend>Partida ${n+1}</legend><details class="repair-line-assignment" ${!i.equipment_id||prefix!=='repair-line'?'open':''}><summary>${e(asset(i.equipment_id)?.code||'Asignar máquina')} · ${e(M.types[i.kind]||'Concepto')} <small>Corregir</small></summary><div class="two"><div class="field"><label for="${prefix}-${n}-equipment">Máquina *</label><select id="${prefix}-${n}-equipment" data-line-key="equipment_id"><option value="">Asignar máquina…</option>${machines.map(a=>`<option value="${a.id}" ${a.id===i.equipment_id?'selected':''}>${e(assetName(a.id))}</option>`).join('')}</select></div><div class="field"><label for="${prefix}-${n}-kind">Concepto</label><select id="${prefix}-${n}-kind" data-line-key="kind">${Object.entries(M.types).map(([id,name])=>`<option value="${id}" ${id===i.kind?'selected':''}>${name}</option>`).join('')}</select></div></div></details><div class="field"><label for="${prefix}-${n}-description">Trabajo / repuesto instalado *</label><textarea id="${prefix}-${n}-description" data-line-key="description" maxlength="4000">${e(i.description)}</textarea></div><div class="two"><div class="field"><label for="${prefix}-${n}-quantity">Cantidad *</label><input id="${prefix}-${n}-quantity" data-line-key="quantity" type="number" min="0.000001" step="any" value="${e(i.quantity??'')}"></div><div class="field"><label for="${prefix}-${n}-price">Precio unitario *</label><input id="${prefix}-${n}-price" data-line-key="unit_price" type="number" min="0" step="any" value="${e(i.unit_price??'')}"></div></div><button class="btn sm" type="button" data-remove-line="${n}">Quitar partida</button></fieldset>`;
  }
  function totals(){
@@ -96,7 +108,7 @@
   }catch(err){el.textContent=err.message;const prepared=$('#repairPreparedTotal');if(prepared)prepared.textContent='Revisá los importes marcados.';}
  }
  function bindLines(host,items,changed){
-  host.querySelectorAll('[data-repair-line]').forEach(row=>{const i=items[Number(row.dataset.repairLine)];row.querySelectorAll('[data-line-key]').forEach(input=>input.oninput=()=>{const k=input.dataset.lineKey;i[k]=['quantity','unit_price'].includes(k)?input.value===''?null:Number(input.value):input.value;changed();});row.querySelector('[data-remove-line]').onclick=()=>{items.splice(Number(row.dataset.repairLine),1);changed(true);};});
+  host.querySelectorAll('[data-repair-line]').forEach(row=>{const i=items[Number(row.dataset.repairLine)];row.querySelectorAll('[data-line-key]').forEach(input=>input.oninput=()=>{const k=input.dataset.lineKey;i[k]=['quantity','unit_price'].includes(k)?input.value===''?null:Number(input.value):input.value;if(k==='equipment_id'&&host.id==='repairDocument'){S.machineQuery=null;const a=asset(input.value);if(a&&!S.draft.warehouse_id)S.draft.warehouse_id=a.warehouse_id;if(a?.company_id&&!S.draft.company_id)S.draft.company_id=a.company_id;}changed(k==='equipment_id');});row.querySelector('[data-remove-line]').onclick=()=>{items.splice(Number(row.dataset.repairLine),1);changed(true);};});
  }
  function bindOrder(){
   $('#repairFiles')?.addEventListener('change',x=>{const files=[...x.target.files];x.target.value='';if(!files.length)return;if(!S.current)newOrder();void run(()=>importFiles(files));});
@@ -106,12 +118,11 @@
   for(const k of ['company_id','warehouse_id','supplier_id','quote_number','quote_date','valid_until','problem','currency','tax_mode','tax_rate','source_total','warranty_days','payment_terms','notes']){
    const input=$('#repair-'+k);if(input)input.oninput=()=>{change(k,input.type==='number'?(input.value===''?null:Number(input.value)):input.value);if(['company_id','warehouse_id'].includes(k))render();};
   }
-  $('#repair-equipment')?.addEventListener('change',x=>{const a=asset(x.target.value);if(!a)return;if(!p.warehouse_id)p.warehouse_id=a.warehouse_id;if(!p.company_id&&a.company_id)p.company_id=a.company_id;p.items.forEach(i=>i.equipment_id=a.id);change('reviewed',false);render();});
-  $('#repairRegisterInline')?.addEventListener('click',()=>inlineAsset());
+  bindMachine();
   $$('[data-repair-register]').forEach(b=>b.onclick=()=>inlineAsset(Number(b.dataset.repairRegister)));
   $('#repairRegisterSupplier')?.addEventListener('click',supplierForm);
   bindLines($('#repairDocument'),p.items,rebuild=>{change('reviewed',false);if(rebuild)render();});
-  $('#repairAddLine')?.addEventListener('click',()=>{p.items.push({equipment_id:'',kind:'labor',description:'',quantity:1,unit_price:null});change('reviewed',false);render();});
+  $('#repairAddLine')?.addEventListener('click',()=>{p.items.push({equipment_id:M.equipmentTextMatch(S.assets,$('#repair-equipment')?.value)?.id||'',kind:'labor',description:'',quantity:1,unit_price:null});change('reviewed',false);render();});
   $('#repairReviewConfirm')?.addEventListener('click',()=>$('#repairSubmit')?.click());
   $('#repairSave')?.addEventListener('click',x=>run(save,x.target));
   $('#repairSubmit')?.addEventListener('click',x=>run(async()=>{if(!S.draft.items.length)throw Error('Agregá las partidas del presupuesto antes de enviar.');const pending=M.missing(S.draft);if(pending.length)throw Error('Completá los datos marcados: '+[...new Set(pending.map(m=>m.label))].join(', ')+'.');S.draft.reviewed=true;await save();await act('submit');},x.target));
@@ -130,6 +141,7 @@
  }
  async function act(action,extra={}){const id=S.current.id,user=profile?.id;await command(action,{order_id:id,expected_version:S.current.version,...extra});S.dirty=false;await load();if(profile?.id===user)await open(id);}
  async function save(){
+  if(S.machineQuery?.trim()){const selected=M.equipmentTextMatch(S.assets,S.machineQuery);if(!selected||!S.draft.items.every(i=>i.equipment_id===selected.id))throw Error('Elegí la máquina de la lista o tocá Registrar y usar para guardar el nombre escrito.');}
   if(!S.current||S.current.status!=='draft')throw Error('Abrí un borrador de reparación.');
   const id=S.current.id,user=profile?.id,result=await command('save',{order_id:id,expected_version:S.current.version,payload:S.draft});S.current.version=result.version;S.current.number=result.number;S.dirty=false;
   // Keep original File objects and their stable paths until every archive operation succeeds.
@@ -193,7 +205,7 @@
   try{const r=await edge('quote-document-ai',{purpose:'equipment_repair',files:source.files.map(f=>({file_name:f.name,file_data:f.data_url}))});if(owner!==profile?.id||S.current?.id!==order)return;if(r.error)throw Error(r.error);installImport(r.data?.analysis,files);}finally{AVHQuoteFiles.release(source);}
  }
  async function analyzeExcel(file,book,sheet){const X=await excel(),ws=book.Sheets[sheet],range=X.utils.decode_range(ws['!fullref']||ws['!ref']||'A1');if(range.e.r>=1200||range.e.c>=60)throw Error('La hoja supera 1.200 filas o 60 columnas.');const owner=profile.id,order=S.current.id,rows=X.utils.sheet_to_json(ws,{header:1,defval:null,blankrows:true,raw:true}),r=await edge('quote-excel-ai',{purpose:'equipment_repair',file_name:file.name,sheet,rows});if(owner!==profile?.id||order!==S.current?.id)return;if(r.error)throw Error(r.error);installImport(r.data?.analysis,[file]);}
- function installImport(a,files){if(!a?.items?.length)throw Error('No se encontraron partidas. Podés completar el presupuesto manualmente.');if(a.items.length>100)throw Error('La reparación admite hasta 100 partidas. Dividí el presupuesto antes de cargarlo.');S.draft=M.imported(a,S.assets,D.suppliers||[],S.draft,{companies:S.companies,warehouses:D.warehouses||[]});S.analysis=a;S.files=files;S.pendingFiles=[];S.warnings=(a.warnings||[]).filter(w=>!/logo|recorte/i.test(w));S.entry='review';S.dirty=true;render();}
+ function installImport(a,files){if(!a?.items?.length)throw Error('No se encontraron partidas. Podés completar el presupuesto manualmente.');if(a.items.length>100)throw Error('La reparación admite hasta 100 partidas. Dividí el presupuesto antes de cargarlo.');S.draft=M.imported(a,S.assets,D.suppliers||[],S.draft,{companies:S.companies,warehouses:D.warehouses||[]});S.analysis=a;S.files=files;S.pendingFiles=[];S.warnings=(a.warnings||[]).filter(w=>!/logo|recorte/i.test(w));S.entry='review';S.machineQuery=null;S.dirty=true;render();}
  function assetsView(){return `<div class="section-head"><div><h3>Equipos identificados</h3><p>Código único y número de serie cuando esté disponible.</p></div><button class="btn primary" id="repairNewAsset">+ Registrar equipo</button></div><label for="repairAssetSearch">Buscar por código, nombre o serie</label><input id="repairAssetSearch" placeholder="Ej.: MIG-07 o número de serie"><div class="repair-asset-grid" id="repairAssetGrid"></div>`;}
  function bindAssets(){const draw=()=>{const q=$('#repairAssetSearch').value.toLowerCase();$('#repairAssetGrid').innerHTML=S.assets.filter(a=>[a.code,a.name,a.brand,a.model,a.serial_number].join(' ').toLowerCase().includes(q)).map(a=>`<article class="card"><div class="line"><h4>${e(a.code)}</h4><span class="badge">${e(M.assetStates[a.status])}</span></div><strong>${e(a.name)}</strong><p>${e([a.brand,a.model].filter(Boolean).join(' · '))}</p><p>Serie: ${e(a.serial_number||'Sin registrar')}</p><p>${e(whName(a.warehouse_id))}${a.current_location?' · '+e(a.current_location):''}</p><div class="repair-actions"><button class="btn sm" data-repair-asset="${a.id}">Historial y costos</button><button class="btn sm" data-repair-edit-asset="${a.id}">Editar ficha</button></div></article>`).join('')||'<div class="empty">No hay equipos identificados. Registrá cada máquina una sola vez.</div>';$$('[data-repair-asset]').forEach(b=>b.onclick=()=>run(()=>assetHistory(b.dataset.repairAsset),b));$$('[data-repair-edit-asset]').forEach(b=>b.onclick=()=>assetForm(asset(b.dataset.repairEditAsset)));};$('#repairNewAsset').onclick=()=>assetForm();$('#repairAssetSearch').oninput=draw;draw();}
  function assetForm(a={},onSaved=null){
@@ -201,11 +213,13 @@
   form(a.id?'Editar ficha del equipo':'Registrar equipo',`<div class="two">${field('code','Código interno',a.code,'text','required maxlength="60" placeholder="Ej.: MIG-07"')}${field('name','Nombre del equipo',a.name,'text','required maxlength="200"')}${field('brand','Marca',a.brand,'text','maxlength="180"')}${field('model','Modelo',a.model,'text','maxlength="180"')}${field('serial_number','Número de serie',a.serial_number,'text','maxlength="180"')}${select('warehouse_id','Depósito responsable',(D.warehouses||[]).filter(w=>w.active),a.warehouse_id,'required')}${select('company_id','Empresa propietaria (si está identificada)',S.companies,a.company_id)}${select('status','Estado',[{id:'available',name:'Disponible'},{id:'needs_repair',name:'Necesita reparación'},{id:'inactive',name:'Fuera de servicio'}],a.status||'available','required')}</div>${field('current_location','Ubicación actual',a.current_location,'text','maxlength="300"')}${area('notes','Observaciones',a.notes,'maxlength="4000"')}`,async d=>{await command('asset_save',{equipment_id:equipmentId,expected_version:a.version??null,asset:d});await load();if(onSaved)onSaved(asset(equipmentId));render();});
  }
  function inlineAsset(index=null){
-  const p=S.draft,detected=S.analysis?.repair?.equipment||[],source=detected[index]||{};
-  assetForm({...source,warehouse_id:p.warehouse_id,company_id:p.company_id,status:'needs_repair'},a=>{
+  const p=S.draft,detected=S.analysis?.repair?.equipment||[],query=S.machineQuery??$('#repair-equipment')?.value??'',source=detected[index]||M.equipmentTextMatch(detected,query)||(detected.length===1?detected[0]:{});
+  const name=index!==null?source.name:source.name&&M.equipmentTextMatch([source],query)?source.name:query.trim()||source.name;
+  assetForm({...source,code:source.code||'EQ-'+crypto.randomUUID().slice(0,8).toUpperCase(),name,warehouse_id:p.warehouse_id,company_id:p.company_id,status:'needs_repair'},a=>{
+   if(a&&index===null){p.warehouse_id=a.warehouse_id;if(a.company_id)p.company_id=a.company_id;p.items.forEach(i=>i.equipment_id=a.id);S.machineQuery=p.items.length?null:assetName(a.id);change('reviewed',false);return;}
    if(!a)return;if(!p.warehouse_id)p.warehouse_id=a.warehouse_id;if(!p.company_id&&a.company_id)p.company_id=a.company_id;
    const eligible=i=>(!source.item_indices?.length||source.item_indices.includes(i))&&(detected.length<=1||index===null||source.item_indices?.includes(i));
-   p.items.forEach((item,n)=>{if(!item.equipment_id&&eligible(n)&&a.warehouse_id===p.warehouse_id&&(!a.company_id||a.company_id===p.company_id))item.equipment_id=a.id;});change('reviewed',false);
+   p.items.forEach((item,n)=>{if(!item.equipment_id&&eligible(n)&&a.warehouse_id===p.warehouse_id&&(!a.company_id||a.company_id===p.company_id))item.equipment_id=a.id;});S.machineQuery=null;change('reviewed',false);
   });
  }
  function supplierForm(){
