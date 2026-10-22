@@ -150,13 +150,14 @@
       ],'El reporte usa lo registrado. Completá los datos faltantes en su pantalla de origen. El correo automático depende de la configuración de Compras.','fabrication-reports')
     ];
     const administration=[
-      topic('repairs','Compras','Gestionar reparaciones de máquinas','Presupuestos, órdenes de servicio, remitos y costos por equipo.',[
+      topic('repairs','Compras','Crear una OC de reparación','Subí el presupuesto y generá una orden de compra de servicio.',[
         step('Subí el presupuesto','En Reparaciones → Cargar presupuesto con IA elegí el PDF, las fotos o el Excel del taller. No necesitás completar campos antes de subirlo.'),
-        step('Revisá y corregí','La IA prepara taller, empresa, máquinas, trabajos, importes, garantía y condiciones visibles. Completá los datos marcados; podés registrar una máquina o un taller dentro del borrador. Confirmar revisión y enviar guarda el original y solicita autorización.'),
-        step('Registrá la autorización','Enviá el presupuesto para autorización. Registrá quién autorizó y el respaldo recibido para emitir la OC de servicio. Los adicionales conservan su propia autorización.'),
-        step('Seguí cada máquina','Registrá la entrega con estado, accesorios y transportista. Descargá el remito y adjuntá el firmado. Al regresar, registrá quién recibe, el estado y la garantía confirmada.'),
-        step('Probá y conciliá','Registrá la prueba y el responsable técnico. Cuando todas las máquinas estén conformes, conciliá la factura y sus costos por equipo. Equipos → Historial y costos conserva sus reparaciones.')
-      ],'La autorización registrada identifica el respaldo informado a Compras. La recepción y la prueba no registran un pago; Tesorería conserva su circuito.','repairs'),
+        step('Revisá y corregí','La IA prepara taller, empresa, trabajos, importes y condiciones. Completá los datos comerciales marcados; podés registrar un taller aquí mismo. Máquina, número de serie, depósito y referencia del presupuesto son opcionales.'),
+        step('Generá la OC','Tocá Generar OC. Se crea la misma orden numerada de Compras y se adjunta el presupuesto original. Si se corta la conexión, reintentá para recuperar esa misma orden.'),
+        step('Revisá y descargá','Desde Compras podés revisar la OC, corregir el documento, descargar el PDF y confirmar que se compró como siempre.'),
+        step('Quitá una carga equivocada','Antes de generar la OC, Quitar presupuesto descarta el archivo y permite subir otro. Los borradores guardados sin OC tienen Eliminar borrador; el sistema te muestra qué carga vas a quitar antes de confirmarlo.'),
+        step('Consultá lo anterior','Las reparaciones con seguimiento por máquina que ya estaban registradas conservan su historial, remitos, recepción y costos.')
+      ],'Las partidas de la reparación se compran como servicio. El presupuesto original queda en los documentos de la compra.','repairs'),
       topic('purchase','Compras','Crear una compra y seguir sus entregas','Proveedor, destino, cantidades, precios y documentación.',[
         step('Abrí Compras','Usá + Nueva compra y completá empresa que compra, proveedor, tipo, urgencia y destino. Para entrega a depósito, elegí quién debe recibir.'),
         step('Revisá los ítems','Cargá productos, cantidades, unidades, precios y moneda. Revisá el resumen antes de confirmar; las sugerencias de documentos o IA se verifican con el respaldo original.'),

@@ -68,6 +68,7 @@
     "src/features/work-orders/commercial-model.js",
     "src/features/work-orders/commercial.js",
     "src/features/repairs/model.js",
+    "src/features/repairs/purchase.js",
     "src/features/repairs/pdf.js",
     "src/features/repairs/workspace.js",
     "src/features/help/user-guide.js"

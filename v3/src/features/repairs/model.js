@@ -35,13 +35,15 @@
    const description=[i.description,i.details].filter(Boolean).join(' · '),text=clean(description),explicit=assets.filter(e=>e.status!=='inactive'&&[e.code,e.serial_number].filter(v=>String(v||'').length>=3).some(v=>{const token=clean(v);return new RegExp('(^|[^a-z0-9])'+token.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'($|[^a-z0-9])').test(text);}));
    const links=detected.map((d,k)=>d.item_indices?.includes(n)?k:-1).filter(k=>k>=0),linked=links.length===1?matches[links[0]]:null,kinds=(r.item_kinds||[]).filter(k=>k.item_index===n);
    const match=explicit.length===1?explicit[0]:explicit.length===0&&links.length<=1?(linked||(detected.length===1?matches[0]:null)):null;
-   return{equipment_id:match?.id||'',kind:kinds.length===1?kinds[0].kind:'labor',description,quantity:i.quantity??null,unit_price:i.unit_price??null};
+   return{equipment_id:match?.id||'',kind:kinds.length===1?kinds[0].kind:'labor',description,quantity:i.quantity??null,unit:i.unit||'servicio',unit_price:i.unit_price??null};
   });
   const assigned=assets.filter(a=>p.items.some(i=>i.equipment_id===a.id)),wh=[...new Set(assigned.map(a=>a.warehouse_id).filter(Boolean))],co=[...new Set(assigned.map(a=>a.company_id).filter(Boolean))];
   const warehouses=(context.warehouses||[]).filter(w=>w.active!==false),named=warehouses.filter(w=>r.warehouse_name&&[w.name,w.code].some(n=>identity(n)===identity(r.warehouse_name)));
   if(!p.warehouse_id)p.warehouse_id=named.length===1?named[0].id:r.warehouse_name?'':wh.length===1?wh[0]:warehouses.length===1?warehouses[0].id:'';
   if(!p.company_id&&!recipient.tax_id&&!recipient.legal_name)p.company_id=co.length===1?co[0]:(context.companies||[]).length===1?context.companies[0].id:'';
   p.items.forEach(i=>{const e=assets.find(a=>a.id===i.equipment_id);if(e&&(p.warehouse_id&&e.warehouse_id&&p.warehouse_id!==e.warehouse_id||p.company_id&&e.company_id&&p.company_id!==e.company_id))i.equipment_id='';});
+  p.machine_name=detected.map(a=>[a.name,a.brand,a.model].filter(Boolean).join(' · ')).filter(Boolean).join('; ');
+  p.serial_number=detected.length===1?detected[0].serial_number||'':'';
   p.problem=r.problem||base.problem||(p.items.length?'Reparación según presupuesto: '+p.items.map(i=>i.description).join(' · ').slice(0,3900):'');
   return p;
  }
