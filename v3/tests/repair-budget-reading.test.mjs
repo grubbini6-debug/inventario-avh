@@ -8,8 +8,7 @@ import * as copy from '../edge-functions/_shared/commercial-copy.mjs';
 import {endpoint as documentEndpoint} from './fixtures/quote-document-endpoint.mjs';
 import {reading} from './fixtures/quote-reading.mjs';
 import {logoDataUrl} from './fixtures/quote-workbook.mjs';
-import '../src/features/repairs/model.js';
-const M=globalThis.AVHRepairModel,read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 function excelEndpoint(fetch){
  const ctx={...runtime,...copy,fetch,Request,Response,AbortSignal,console,Deno:{env:{get:k=>({SUPABASE_URL:'https://test.supabase.co',SUPABASE_ANON_KEY:'public',OPENAI_API_KEY:'isolated'}[k])},serve:h=>ctx.handler=h}};
  for(const n of ['quote-excel-model.js','repair-budget-reading.js'])vm.runInNewContext(read('edge-functions/_shared/'+n),ctx);
@@ -17,24 +16,6 @@ function excelEndpoint(fetch){
 }
 const metadata=()=>({quote_number:'TALLER-210',quote_date:'2026-10-21',valid_until:null,problem:'No alimenta alambre',payment_terms:'Crédito 30 días',notes:'Entrega en 5 días',warehouse_name:null,warranty_days:30,supplier:{legal_name:'Taller de prueba',tax_id:'80000000-0'},recipient:{legal_name:'Astillero Villa Hayes S.A.',tax_id:'80000000-1'},equipment:[{code:'MIG-07',name:'Soldadora MIG',brand:'Marca de prueba',model:'400 A',serial_number:'S-777',item_indices:[0,1]}],item_kinds:[{item_index:0,kind:'labor'},{item_index:1,kind:'part'}]});
 const request=body=>new Request('https://test/functions',{method:'POST',headers:{Authorization:'Bearer caller','Content-Type':'application/json'},body:JSON.stringify(body)});
-test('machine search supports the empty catalog, typed names and serials without hiding another warehouse or picking ambiguous names',()=>{
- assert.deepEqual(M.searchEquipment([],'Soldadora nueva'),[]);assert.equal(M.equipmentTextMatch([],'Soldadora nueva'),null);
- const rows=[{id:'a',code:'MIG-01',name:'Soldadora de producción',model:'400 A',serial_number:'SERIE-A',warehouse_id:'one'},{id:'b',code:'MIG-02',name:'Soldadora de producción',model:'500 A',serial_number:'SERIE-B',warehouse_id:'two'},{id:'old',code:'MIG-03',name:'Soldadora de producción',status:'inactive'}];
- assert.deepEqual(M.searchEquipment(rows,'produccion 500').map(a=>a.id),['b']);assert.deepEqual(M.searchEquipment(rows,'serie-b').map(a=>a.id),['b']);assert.equal(M.equipmentTextMatch(rows,'Soldadora de producción'),null);assert.equal(M.equipmentTextMatch(rows,'mig-02').id,'b');assert.equal(M.equipmentTextMatch(rows,M.equipmentLabel(rows[0])).id,'a');assert.equal(M.equipmentTextMatch(rows,'MIG-03'),null);
-});
-test('received budget fills supplier, recipient, machine, warehouse and terms while keeping unknown money pending',()=>{
- const assets=[{id:'e',code:'MIG-07',serial_number:'S-777',warehouse_id:'w',company_id:'c'}],suppliers=[{id:'s',name:'Taller de prueba',tax_id:'80000000-0'}];
- const a={repair:metadata(),currency:'PYG',tax_mode:'add',tax_rate:10,source_total:1650,items:[{description:'Reparación del alimentador',quantity:1,unit_price:1000},{description:'Rodillo instalado',quantity:1,unit_price:500}]};
- const p=M.imported(a,assets,suppliers,M.blank(),{companies:[{id:'c',name:'AVH',tax_id:'80000000-1'},{id:'other',name:'Otra empresa'}],warehouses:[{id:'w',name:'Depósito VH',active:true},{id:'else',name:'Otro',active:true}]});
- assert.equal(p.supplier_id,'s');assert.equal(p.company_id,'c');assert.equal(p.warehouse_id,'w');assert.equal(p.problem,'No alimenta alambre');assert.equal(p.warranty_days,30);assert.equal(p.payment_terms,'Crédito 30 días');assert.equal(p.quote_number,'TALLER-210');assert.equal(p.quote_date,'2026-10-21');assert.deepEqual(p.items.map(i=>i.equipment_id),['e','e']);assert.equal(p.items[1].kind,'part');assert.deepEqual(M.missing(p),[]);assert.equal(p.reviewed,false);assert.equal(M.totals(p).total,1650);
- a.items[0].quantity=null;a.items[1].unit_price=null;a.currency=null;const partial=M.imported(a,assets,suppliers);assert.equal(partial.items[0].quantity,null);assert.equal(partial.items[1].unit_price,null);assert.equal(partial.currency,'');assert.ok(M.missing(partial).some(m=>m.label==='Moneda'));assert.equal(M.totals(partial).pending,true);
-});
-test('models, conflicting identities and ambiguous clients cannot select a physical machine or company',()=>{
- const a={repair:metadata(),items:[{description:'Reparación de soldadora MIG 400 A',quantity:1,unit_price:50}]};a.repair.equipment[0].code=null;a.repair.equipment[0].serial_number=null;
- const assets=[{id:'one',code:'MIG-01',serial_number:'S-1',model:'400 A',warehouse_id:'w1'},{id:'two',code:'MIG-02',serial_number:'S-2',model:'400 A',warehouse_id:'w2'}];
- const p=M.imported(a,assets,[],M.blank(),{companies:[{id:'c',tax_id:'80000000-1'},{id:'copy',tax_id:'80000000-1'}],warehouses:[{id:'w1',name:'Uno'},{id:'w2',name:'Dos'}]});assert.equal(p.items[0].equipment_id,'');assert.equal(p.company_id,'');assert.equal(p.warehouse_id,'');
- assert.equal(M.equipmentMatch(assets,{code:'MIG-01',serial_number:'S-2'}),null);assert.equal(M.equipmentMatch([{...assets[0],status:'inactive'}],{code:'MIG-01'}),null);
-});
 test('repair Excel context reads source metadata without letting AI change prices or authorizing Production',async()=>{
  let role='admin',calls=0,invalid=false;
  const run=excelEndpoint(async(url,opt)=>{

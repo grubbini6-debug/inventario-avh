@@ -9,7 +9,7 @@
     "test:browser:gases": "node tests/browser/gases.mjs",
     "test:browser:quotes": "node tests/browser/quotes.mjs",
     "test:browser:barge-modules": "node tests/browser/barge-modules.mjs",
-    "test:browser:repairs": "node tests/browser/repairs.mjs"
+    "test:browser:purchases": "node tests/browser/purchases.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",

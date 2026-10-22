@@ -20,4 +20,4 @@ Presupuestos admite Excel/CSV (un archivo, 10 MB) y PDF o fotos JPG/PNG/WebP (ha
 
 La sincronización conserva formularios abiertos, cambios sin guardar y filtros. [Comportamiento y prueba de regresión](REFRESH_FORMS.md).
 
-[Reparaciones de máquinas](REPARACIONES_EQUIPOS.md): registro por código/serie, presupuestos de taller con varias máquinas, revisión de Excel/CSV/PDF/fotos, autorización respaldada, OC de servicio, remito de entrega, recepción y prueba por equipo, adicionales y conciliación de factura. Disponible para Compras / Administración; las existencias de materiales conservan su circuito actual.
+Los presupuestos de taller o reparación se cargan directamente desde **Compras → Nueva compra con IA**, eligiendo **Servicio**. Usan la misma OC y revisión de documentos que las demás compras, sin registrar máquinas ni números de serie.

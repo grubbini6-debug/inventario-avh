@@ -150,16 +150,8 @@
       ],'El reporte usa lo registrado. Completá los datos faltantes en su pantalla de origen. El correo automático depende de la configuración de Compras.','fabrication-reports')
     ];
     const administration=[
-      topic('repairs','Compras','Crear una OC de reparación','Subí el presupuesto y generá una orden de compra de servicio.',[
-        step('Subí el presupuesto','En Reparaciones → Cargar presupuesto con IA elegí el PDF, las fotos o el Excel del taller. No necesitás completar campos antes de subirlo.'),
-        step('Revisá y corregí','La IA prepara taller, empresa, trabajos, importes y condiciones. Completá los datos comerciales marcados; podés registrar un taller aquí mismo. Máquina, número de serie, depósito y referencia del presupuesto son opcionales.'),
-        step('Generá la OC','Tocá Generar OC. Se crea la misma orden numerada de Compras y se adjunta el presupuesto original. Si se corta la conexión, reintentá para recuperar esa misma orden.'),
-        step('Revisá y descargá','Desde Compras podés revisar la OC, corregir el documento, descargar el PDF y confirmar que se compró como siempre.'),
-        step('Quitá una carga equivocada','Antes de generar la OC, Quitar presupuesto descarta el archivo y permite subir otro. Los borradores guardados sin OC tienen Eliminar borrador; el sistema te muestra qué carga vas a quitar antes de confirmarlo.'),
-        step('Consultá lo anterior','Las reparaciones con seguimiento por máquina que ya estaban registradas conservan su historial, remitos, recepción y costos.')
-      ],'Las partidas de la reparación se compran como servicio. El presupuesto original queda en los documentos de la compra.','repairs'),
       topic('purchase','Compras','Crear una compra y seguir sus entregas','Proveedor, destino, cantidades, precios y documentación.',[
-        step('Abrí Compras','Usá + Nueva compra y completá empresa que compra, proveedor, tipo, urgencia y destino. Para entrega a depósito, elegí quién debe recibir.'),
+        step('Subí el presupuesto en Compras','Usá + Nueva compra con IA para cargar el archivo y revisar los datos detectados. Elegí Servicio para presupuestos de taller o reparación; la OC se genera desde esta misma compra. Para materiales elegí el destino habitual.'),
         step('Revisá los ítems','Cargá productos, cantidades, unidades, precios y moneda. Revisá el resumen antes de confirmar; las sugerencias de documentos o IA se verifican con el respaldo original.'),
         step('Seguí el estado','Abrí la compra para revisar cantidades recibidas, saldo pendiente y documentos. Cada entrega parcial se registra contra esa misma compra.'),
         step('Completá documentos','Relacioná facturas y remitos con la compra o recepción correspondiente. Revisá avisos de documentación pendiente.')
@@ -235,7 +227,6 @@
     const a=access();
     if(a.production)return goPage(['production-inventory','commercial'].includes(action)?action:'work-orders');
     if(['home','stock','gases'].includes(action))return goPage(action);
-    if(action==='repairs'&&a.admin){goPage('repairs');return}
     if(action==='purchases'&&a.admin){goPage('purchases');return window.renderPurchases?.()}
     if(action==='alerts'&&a.admin){goPage('more');return renderModule('alerts')}
     const adminTabs={'admin-users':'users','admin-products':'products','admin-opening':'opening',suppliers:'suppliers'};

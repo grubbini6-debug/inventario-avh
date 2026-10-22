@@ -2,8 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {repairFixture} from './helpers/repair-fixture.mjs';
-import '../src/features/repairs/model.js';
-import '../src/features/repairs/purchase.js';
 
 test('repair quote issues a normal editable service OC without machines, series, warehouse or repair authorization',async t=>{
  const f=await repairFixture();t.after(()=>f.db.close());
@@ -27,8 +25,6 @@ test('repair quote issues a normal editable service OC without machines, series,
  const usd=await call({...data,currency:'USD',tax_mode:'included',tax_rate:null,source_total:0.68,machine_name:'Soldadora sin identificar',serial_number:''},[{description:'Diagnóstico',quantity:2,unit:'hora',unit_price:0.335},{description:'Insumo instalado',quantity:1,unit:'unidad',unit_price:0.01,affects_inventory:true}]);
  const usdDoc=(await f.q('select public.admin_purchase_order_document($1) result',[usd.purchase_id])).rows[0].result;assert.equal(usdDoc.payload.total,0.68);assert.equal(usdDoc.payload.tax_mode,'included');assert.match(usdDoc.payload.notes,/Máquina: Soldadora sin identificar/);assert.doesNotMatch(usdDoc.payload.notes,/Serie:/);
  assert.equal((await f.owner('select count(*)::int n from purchase_items where affects_inventory')).rows[0].n,0);
- const model=globalThis.AVHRepairModel,review=model.imported({currency:'PYG',tax_mode:'none',items:[{description:'Servicio de reparación',quantity:1,unit_price:1000}]},[],[],model.blank());Object.assign(review,{company_id:f.ids.company,supplier_id:f.ids.supplier});assert.deepEqual(globalThis.AVHRepairPurchase.missing(review),[],'unknown equipment, series, quote date and reference never block the OC');
- const source=globalThis.AVHRepairPurchase.sourceDocument({currency:'PYG',tax_mode:'add',tax_rate:10,source_total:1100,repair:{supplier:{legal_name:'Taller original',tax_id:'80000000-0'}},items:[{description:'Trabajo original',quantity:1,unit_price:1000}]});assert.equal(source.total,1100);assert.equal(source.supplier_name,'Taller original');assert.equal(source.items.length,2);assert.equal(source.items[1].description,'IVA 10%');assert.equal(source.items[1].unit_price,100);
 });
 
 test('accidental repair drafts can be deleted with their files, stale edits and approved OCs remain protected',async t=>{
