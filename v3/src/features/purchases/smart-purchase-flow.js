@@ -6,7 +6,7 @@
   const norm=s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
   const digits=s=>String(s??'').replace(/\D/g,'');
   const num=v=>{const n=Number(v);return Number.isFinite(n)?n:0};
-  const unit=v=>UNIT_ALIASES[norm(v).replace(/\s/g,'')]||String(v||'unidad').trim().toLowerCase()||'unidad';
+  const unit=v=>/^(?:x|×)\s*1$/i.test(String(v??'').trim())?'unidad':UNIT_ALIASES[norm(v).replace(/\s/g,'')]||String(v||'unidad').trim().toLowerCase()||'unidad';
   const safe=s=>typeof esc==='function'?esc(String(s??'')):String(s??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
   const dateOnly=v=>{if(!v)return'—';try{return new Date(String(v).slice(0,10)+'T12:00:00').toLocaleDateString('es-PY')}catch{return String(v)}};
   const st=document.createElement('style');
