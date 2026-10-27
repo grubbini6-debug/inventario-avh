@@ -11,6 +11,21 @@ function ui(){
   w.eval(read('../edge-functions/_shared/product-identity.js'));w.eval(read('../edge-functions/_shared/purchase-receiving-model.js'));return{dom,w};
 }
 
+test('a supplier x1 unit is shown and submitted as unidad with the original quantity and price',async()=>{
+  const {w}=ui();let savedItem;
+  try{
+    w.D.products=[];w.D.warehouses=[{id:'ac',name:'ACOMAR',active:true}];w.D.purchaseCompanies=[{id:'maq',name:'MAQMOVEIS',active:true}];w.D.suppliers=[{id:'supplier',name:'Proveedor'}];
+    w.FileReader=class{readAsDataURL(){this.result='data:application/pdf;base64,AAAA';queueMicrotask(()=>this.onload());}};
+    w.edge=async()=>({data:{document:{currency:'PYG',supplier_name:'Proveedor',items:[{description:'GUANTE DE CUERO VAQUETA CAÑO LARGO - G -',product_code:'1086',quantity:12,unit:'x1',factor_to_base:1,unit_price:18000}]}}});
+    w.rpc=async(name,args)=>{savedItem=args.p_items[0];return{error:'Stopped after validation'};};
+    w.eval(read('../src/features/purchases/smart-purchase-flow.js'));w.AVHSmartPurchase.open();
+    const input=w.document.querySelector('#smartFile');Object.defineProperty(input,'files',{value:[new w.File(['PDF'],'quote.pdf',{type:'application/pdf'})]});await input.onchange();
+    assert.equal(w.document.querySelector('[data-unit]').value,'unidad');
+    w.document.querySelector('#smartCompany').value='maq';await w.document.querySelector('#smartGenerate').onclick();
+    assert.equal(savedItem.unit,'unidad');assert.equal(savedItem.quantity,12);assert.equal(savedItem.unit_price,18000);assert.equal(savedItem.factor_to_base,1);assert.equal(savedItem.product_id,null);
+  }finally{w.close();}
+});
+
 test('quote preview uses the catalog stock unit and refuses a manually restored 15x count factor',async()=>{
   const {w}=ui();let saves=0;
   try{

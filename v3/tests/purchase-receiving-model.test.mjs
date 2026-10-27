@@ -7,6 +7,17 @@ const wire={id:'wst',sku:'CHT711120P',name:'TUBULAR WST E71T1C 1,2MM 15KG PREMIU
 const presentations=[{product_id:'wst',unit:'rollo',label:'Rollo 15 kg',factor_to_base:1}];
 const invoice={currency:'USD',subtotal:1836,tax:166.91,total:1836,tax_mode:'included',items:[{quantity:72,unit:'UN',base_unit:'kg',factor_to_base:15,unit_price:25.5,line_total:1836,confidence:.96}]};
 
+test('single-item supplier notation stays a unit without treating packs as individual units',()=>{
+  for(const unit of ['x1','X1',' x 1 ','×1','× 1']){
+    assert.equal(M.unit(unit),'unidad');
+    assert.deepEqual(M.quantity({quantity:12,unit,factor_to_base:1},{base_unit:'unidad'}),{quantity:12,unit:'unidad',factor:1,kg:null,package_kg:null});
+  }
+  assert.equal(M.unit('x10'),'x10');
+  assert.equal(M.unit('x12'),'x12');
+  assert.equal(M.unit('kg'),'kg');
+  assert.equal(M.unit('rollo'),'rollo');
+});
+
 test('72 rolls stay 72 stock units while the physical package weighs 1080 kg',()=>{
   assert.deepEqual(M.quantity(invoice.items[0],wire,presentations),{quantity:72,unit:'unidad',factor:1,kg:1080,package_kg:15});
   assert.equal(M.stockProblem({...invoice.items[0],factor_to_base:15},wire)?.includes('conversión debe ser 1'),true);
