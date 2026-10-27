@@ -9,7 +9,7 @@ Deno.serve(async(req:Request)=>{
   if(id===profile.id)return json({error:'La cuenta administradora se gestiona por separado.'},400);
   if(!validPassword(password))return json({error:'La clave temporal debe tener mínimo 10 caracteres, mayúscula, minúscula y número.'},400);
   const r=await call('/rest/v1/profiles?select=id,username,role,active&id=eq.'+id),target=r.data?.[0];
-  if(r.error||!target||!['depositor','production'].includes(target.role))return json({error:'Elegí un usuario de Depósito o Producción.'},400);
+  if(r.error||!target||!['depositor','production','admin_viewer'].includes(target.role))return json({error:'Elegí un usuario de Depósito, Producción o Solo lectura.'},400);
   const changed=await call('/auth/v1/admin/users/'+id,{password},'PUT');
   if(changed.error)return json({error:'No se pudo restablecer la clave. Elegí una contraseña distinta y reintentá.'},400);
   const marked=await call('/rest/v1/profiles?id=eq.'+id+'&role=eq.'+target.role,{must_change_password:true,password_changed_at:null},'PATCH');

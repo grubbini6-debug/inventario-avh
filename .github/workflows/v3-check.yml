@@ -79,6 +79,24 @@ jobs:
           test -n "$AVH_CHROME_BIN"
           npm run test:browser:manufacturing
 
+      - name: Probar administrador de solo lectura en escritorio y celular
+        working-directory: v3
+        shell: bash
+        run: |
+          set -euo pipefail
+          export AVH_CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$AVH_CHROME_BIN"
+          AVH_QA_OUTPUT=/tmp/avh-readonly-qa node tests/browser/readonly-admin.mjs
+
+      - name: Guardar revisión de solo lectura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avh-readonly-qa
+          path: /tmp/avh-readonly-qa
+          retention-days: 7
+          if-no-files-found: ignore
+
       - name: Probar formularios durante sincronización automática y tiempo real
         working-directory: v3
         shell: bash
