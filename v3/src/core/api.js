@@ -2,6 +2,14 @@
 function saveSession(s){session=s;if(s)localStorage.setItem(SESSION_KEY,JSON.stringify(s));else localStorage.removeItem(SESSION_KEY)}
 function readSession(){try{return JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch{return null}}
 let sessionRefreshPromise=null;
+function readonlyRequestAllowed(path,opt={}){
+  const method=(opt.method||'GET').toUpperCase();
+  if(method==='GET'||method==='HEAD')return true;
+  if(path==='/auth/v1/user'&&method==='PUT')return !!opt.body?.password&&Object.keys(opt.body).every(k=>k==='password');
+  if(method!=='POST')return false;
+  if(path==='/rest/v1/rpc/complete_password_change')return true;
+  return /^\/storage\/v1\/object\/sign\/(purchase-documents|inventory-documents|fabrication-documents|work-order-documents)\//.test(path);
+}
 async function refreshSession(){
   if(sessionRefreshPromise)return sessionRefreshPromise;
   if(!session?.refresh_token)return false;
@@ -19,7 +27,7 @@ async function refreshSession(){
   })();
   try{return await sessionRefreshPromise}finally{sessionRefreshPromise=null}
 }
-async function request(path,opt={},retry=true){if(session?.expires_at&&Date.now()>session.expires_at-45000)await refreshSession();const headers={apikey:KEY,...(opt.headers||{})};if(session?.access_token)headers.Authorization=`Bearer ${session.access_token}`;if(opt.body!==undefined&&!headers['Content-Type'])headers['Content-Type']='application/json';try{const r=await fetch(API+path,{method:opt.method||'GET',headers,body:opt.body===undefined?undefined:(headers['Content-Type']==='application/json'?JSON.stringify(opt.body):opt.body)});if(r.status===401&&retry&&session?.refresh_token&&await refreshSession())return request(path,opt,false);const text=await r.text();let data=null;try{data=text?JSON.parse(text):null}catch{data=text}if(!r.ok)return{error:(data&&typeof data==='object'&&(data.message||data.msg||data.error))||`Error ${r.status}`,status:r.status};return{data,status:r.status,headers:r.headers}}catch{return{error:'No se pudo conectar con el servidor. Revisá tu conexión.',network:true}}}
+async function request(path,opt={},retry=true){if(typeof profile!=='undefined'&&profile?.role==='admin_viewer'&&!readonlyRequestAllowed(path,opt))return{error:'Tu perfil es de solo lectura. No podés modificar datos.',status:403};if(session?.expires_at&&Date.now()>session.expires_at-45000)await refreshSession();const headers={apikey:KEY,...(opt.headers||{})};if(session?.access_token)headers.Authorization=`Bearer ${session.access_token}`;if(opt.body!==undefined&&!headers['Content-Type'])headers['Content-Type']='application/json';try{const r=await fetch(API+path,{method:opt.method||'GET',headers,body:opt.body===undefined?undefined:(headers['Content-Type']==='application/json'?JSON.stringify(opt.body):opt.body)});if(r.status===401&&retry&&session?.refresh_token&&await refreshSession())return request(path,opt,false);const text=await r.text();let data=null;try{data=text?JSON.parse(text):null}catch{data=text}if(!r.ok)return{error:(data&&typeof data==='object'&&(data.message||data.msg||data.error))||`Error ${r.status}`,status:r.status};return{data,status:r.status,headers:r.headers}}catch{return{error:'No se pudo conectar con el servidor. Revisá tu conexión.',network:true}}}
 async function query(table,select='*',extra=''){return request(`/rest/v1/${table}?select=${encodeURIComponent(select)}${extra?'&'+extra:''}`)}
 async function queryAll(table,select='*',extra='',pageSize=1000,maxRows=100000){
   const rows=[];let offset=0,last=null;

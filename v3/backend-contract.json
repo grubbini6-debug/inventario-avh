@@ -14,6 +14,7 @@
     "admin_update_depositor",
     "admin_update_purchase",
     "admin_update_purchase_item",
+    "admin_update_readonly_user",
     "admin_update_work_order_user",
     "admin_void_movement",
     "admin_void_purchase_receipt",

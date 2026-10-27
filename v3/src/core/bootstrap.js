@@ -23,6 +23,7 @@ async function boot(){
 
     $('#who').textContent=profile.role==='admin'
       ?'Administrador general'
+      :profile.role==='admin_viewer'?`${profile.username} · Administrador de solo lectura`
       :profile.role==='production'?`${profile.username} · Producción / Órdenes de Trabajo`:`${profile.username} · ${whName(profile.warehouse_id)||'Depósito asignado'}`;
     showApp(true);
     if(profile.role==='production')goPage('work-orders');

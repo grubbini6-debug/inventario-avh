@@ -59,7 +59,7 @@
   }
   function syncUser(){
     const name=(profile?.full_name||profile?.username||'Usuario AVH').trim();
-    const role=profile?.role==='admin'?'Administrador':profile?.role==='production'?'Producción / Órdenes de Trabajo':'Depósito';
+    const role=profile?.role==='admin'?'Administrador':profile?.role==='admin_viewer'?'Administrador · Solo lectura':profile?.role==='production'?'Producción / Órdenes de Trabajo':'Depósito';
     const sw=$('#sidebarWho'),sr=$('#sidebarRole'),av=document.querySelector('.nav-user-avatar');
     if(sw)sw.textContent=name;
     if(sr)sr.textContent=role;
