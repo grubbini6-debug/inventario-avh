@@ -27,6 +27,9 @@ try{
   await page.addInitScript(id=>localStorage.setItem('avh_v2_session',JSON.stringify({user:{id},access_token:'isolated-viewer',expires_at:Date.now()+3600000})),user.id);
   await page.goto('http://127.0.0.1:'+server.address().port);await page.waitForSelector('html[data-avh-boot="ok"]');await page.waitForSelector('#readonlyRows [data-readonly-open]');
   assert.equal(await page.locator('#newPurchase:visible,#fabExit:visible,input[type=file]:visible').count(),0);
+  assert.equal(await page.locator('#readonlyError').isVisible(),false);
+  if(device==='mobile'){assert.equal(await page.locator('.nav').isVisible(),false);assert.equal(await page.locator('#readonlySection').isVisible(),true);}
+  else{const brand=await page.locator('.nav-brand').boundingBox(),nav=await page.locator('#readonlyNav').boundingBox();assert.ok(brand.y<nav.y);}
   assert.ok((await page.locator('#readonlyRows').textContent()).includes(purchase.po_number));
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
   await page.screenshot({path:path.join(out,'consulta-compras-'+device+'.png'),fullPage:true});

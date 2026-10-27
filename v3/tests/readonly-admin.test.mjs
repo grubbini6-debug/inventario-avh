@@ -7,7 +7,7 @@ import {randomUUID} from 'node:crypto';
 import {PGlite} from '@electric-sql/pglite';
 import {JSDOM} from 'jsdom';
 const read=p=>fs.readFileSync(new URL(p,import.meta.url),'utf8');
-const migration=read('../migrations/20261027145026_admin_readonly_profile.sql');
+const migration=read('../migrations/20261027150734_admin_readonly_profile.sql');
 
 test('Viewer reads every warehouse and registered files but cannot write through RLS, privileged functions or Storage; revocation is immediate',async()=>{
  const db=new PGlite(),id=Object.fromEntries(['admin','viewer','deposit','vh','ac','product','company','purchase','doc','file','unknown'].map(k=>[k,randomUUID()]));
