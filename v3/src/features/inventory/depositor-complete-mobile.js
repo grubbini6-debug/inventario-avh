@@ -11,7 +11,7 @@
   const lowStock=()=> (D.stockStatus||[]).filter(x=>x.warehouse_id===ownWh()&&!x.is_critical&&x.minimum_qty!==null&&n(x.minimum_qty)>0&&n(x.stock_qty)<=n(x.minimum_qty)*1.25);
   const myRequests=()=> (D.supplyRequests||[]).filter(x=>x.requested_by===profile?.id);
   const myOpenRequests=()=>myRequests().filter(x=>['pending','in_progress'].includes(x.status));
-  const ownPurchases=()=> (D.purchases||[]).filter(p=>p.destination_type==='warehouse'&&p.warehouse_id===ownWh());
+  const ownPurchases=()=> (D.purchases||[]).filter(p=>p.destination_type==='warehouse'&&(p.warehouse_id===ownWh()||(p.delivery_warehouse_ids||[]).includes(ownWh())));
   const receiptsFor=id=>(D.purchaseReceipts||[]).filter(r=>r.purchase_id===id&&!r.voided_at&&!r.depot_parent_receipt_id);
   const docsFor=id=>(D.purchaseDocuments||[]).filter(d=>d.purchase_id===id);
   const docPending=()=>ownPurchases().flatMap(p=>receiptsFor(p.id).filter(r=>!docsFor(p.id).some(d=>d.kind==='invoice'&&d.receipt_id===r.id)).map(receipt=>({purchase:p,receipt})));

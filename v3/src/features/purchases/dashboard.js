@@ -67,7 +67,7 @@
       .sort((a,b)=>({critical:0,low:1}[a.alert_level]??2)-({critical:0,low:1}[b.alert_level]??2)
         ||n(a.coverage_days)-n(b.coverage_days));
   }
-  function pendingItems(p){return itemsOf(p.id).filter(i=>n(i.received_qty)<n(i.quantity)).length}
+  function pendingItems(p){return itemsOf(p.id).filter(i=>n(i.received_qty)+n(i.cancelled_qty)<n(i.quantity)).length}
 
   function html(rows){
     const p30=purchasesWindow(rows,30),p90=purchasesWindow(rows,90),t30=cashTotals(p30),t90=cashTotals(p90);

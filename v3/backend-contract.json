@@ -1,5 +1,6 @@
 {
   "rpc": [
+    "admin_cancel_purchase_balance",
     "admin_close_initial_inventory",
     "admin_confirm_purchase",
     "admin_create_purchase",
@@ -11,6 +12,7 @@
     "admin_purchase_order_document",
     "admin_reopen_initial_inventory",
     "admin_save_purchase_order_document",
+    "admin_set_purchase_delivery_warehouses",
     "admin_update_depositor",
     "admin_update_purchase",
     "admin_update_purchase_item",

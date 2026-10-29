@@ -22,10 +22,11 @@
     if(profile?.role!=='admin')return;
     const item=(D.purchaseItems||[]).find(x=>x.id===itemId);
     if(!item)return alert('Ítem de compra no encontrado.');
+    if(Number(item.cancelled_qty)>0)return alert('Este ítem tiene saldo cancelado; se conservan la cantidad y los datos originales de la OC.');
     const p=(D.purchases||[]).find(x=>x.id===item.purchase_id);
     if(!p)return alert('Compra no encontrada.');
     if(['closed','cancelled','invoiced'].includes(p.status))return alert('Esta compra ya está cerrada, cancelada o facturada y sus ítems no se pueden modificar.');
-    const received=Number(item.received_qty||0),pending=Math.max(0,Number(item.quantity||0)-received);
+    const received=Number(item.received_qty||0),pending=Math.max(0,Number(item.quantity||0)-received-Number(item.cancelled_qty||0));
     openModal('Editar ítem de compra',`${p.supplier_name||'Proveedor'} · ${received?`${fmt(received)} recibido · ${fmt(pending)} pendiente`:'Todavía sin recepción'}`,`
       ${received?`<div class="notice"><b>Hay mercadería ya recibida.</b> Podés corregir la cantidad total. Si cambiás producto, unidad, conversión, precio o condición de stock, el sistema preservará lo recibido y creará una línea nueva solamente para el saldo pendiente.</div>`:`<div class="notice">Como todavía no hubo recepción, podés corregir libremente este ítem. Todos los cambios quedan en Auditoría.</div>`}
       <div class="field"><label>Descripción *</label><input id="peiDescription" value="${esc(item.description||'')}"></div>
@@ -81,8 +82,8 @@
     const items=(D.purchaseItems||[]).filter(x=>x.purchase_id===id);
     [...list.querySelectorAll(':scope > .row')].forEach((row,index)=>{
       const item=items[index];if(!item||row.querySelector('[data-edit-purchase-item]'))return;
-      const received=Number(item.received_qty||0),pending=Math.max(0,Number(item.quantity||0)-received);
-      const foot=document.createElement('div');foot.className='line';foot.style.marginTop='8px';foot.innerHTML=`<div class="subtext">Precio: <b>${money(Number(item.unit_price||0),p.currency)}</b>${received?` · ${fmt(pending)} pendiente`:''}</div><button class="btn sm soft" data-edit-purchase-item="${item.id}">Editar ítem</button>`;
+      const received=Number(item.received_qty||0),pending=Math.max(0,Number(item.quantity||0)-received-Number(item.cancelled_qty||0));
+      const foot=document.createElement('div');foot.className='line';foot.style.marginTop='8px';foot.innerHTML=`<div class="subtext">Precio: <b>${money(Number(item.unit_price||0),p.currency)}</b>${received?` · ${fmt(pending)} pendiente`:''}</div><button class="btn sm soft" data-edit-purchase-item="${item.id}" ${Number(item.cancelled_qty)>0?'disabled':''}>Editar ítem</button>`;
       row.appendChild(foot);
     });
     list.querySelectorAll('[data-edit-purchase-item]').forEach(b=>b.onclick=e=>{e.stopPropagation();openPurchaseItemEditor(b.dataset.editPurchaseItem)});

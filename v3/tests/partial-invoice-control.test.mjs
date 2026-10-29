@@ -19,6 +19,18 @@ function ui({rows,documents,receipts=[]}){
 const solder='GUANTE DE CUERO REFORZADO P/SOLDADOR 36CM',vaqueta='GUANTE VAQUETA/CUERO 15CM NACIONAL';
 const oneLine=(quantity=100)=>po('wire','Material de prueba',quantity,10);
 
+test('cancelled undelivered quantities close reconciliation without falsifying receipts or requiring an invoice for them',()=>{
+ const row={...oneLine(50),received_qty:20,cancelled_qty:30},missing={...po('glove','Guantes',20,5),received_qty:0,cancelled_qty:20};
+ const h=ui({rows:[row,missing],documents:[invoice('a',[{name:row.description,quantity:20,price:10}])]});try{
+  const state=h.state();assert.equal(state.state,'ok');assert.equal(state.rec.received,20);assert.equal(state.rec.cancelled,50);assert.equal(state.rec.complete,true);assert.equal(state.billing.complete,true);
+ }finally{h.close();}
+});
+
+test('invoiced quantities on a cancelled balance still require financial review',()=>{
+ const row={...oneLine(50),received_qty:20,cancelled_qty:30};
+ const h=ui({rows:[row],documents:[invoice('a',[{name:row.description,quantity:50,price:10}])]});try{assert.equal(h.state().state,'review');assert.ok(h.state().issues.some(x=>/saldo cancelado/.test(x.text)));}finally{h.close();}
+});
+
 test('Partial PO: first delivery and its invoice are conforming partials, not a missing-product error',()=>{
  const a=po('solder',solder),b={...po('vaqueta',vaqueta,20,212),received_qty:0};
  const d=invoice('a',[{name:solder,quantity:20,price:350,unit:'UNI'}]);
