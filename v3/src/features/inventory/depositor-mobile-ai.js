@@ -16,7 +16,7 @@
   const isDep=()=>profile?.role==='depositor';
   const ownWarehouse=()=>D.warehouses?.find(x=>x.id===profile?.warehouse_id);
   const ownStock=()=> (D.stocks||[]).filter(x=>x.warehouse_id===profile?.warehouse_id&&num(x.stock_qty)>0);
-  const pendingPurchases=()=> (D.purchases||[]).filter(p=>p.destination_type==='warehouse'&&p.warehouse_id===profile?.warehouse_id&&['ordered','in_transit','partially_received'].includes(p.status));
+  const pendingPurchases=()=> (D.purchases||[]).filter(p=>p.destination_type==='warehouse'&&(p.warehouse_id===profile?.warehouse_id||(p.delivery_warehouse_ids||[]).includes(profile?.warehouse_id))&&['ordered','in_transit','partially_received'].includes(p.status));
   const incomingTransfers=()=> (D.moves||[]).filter(m=>m.type==='transfer'&&m.status==='in_transit'&&m.warehouse_to_id===profile?.warehouse_id);
   const stockAlerts=()=> (D.stockStatus||[]).filter(x=>x.warehouse_id===profile?.warehouse_id&&(x.is_critical||(x.minimum_qty!==null&&num(x.minimum_qty)>0&&num(x.stock_qty)<=num(x.minimum_qty)*1.25)));
   const openingInventory=()=> (D.openingInventorySessions||[]).find(x=>x.warehouse_id===profile?.warehouse_id&&x.status==='open')||null;
@@ -34,7 +34,7 @@
   const initialName=s=>String(s??'').trim().replace(/\s+/g,' ');
   // Counting physical stock is available to every assigned depositor, independently of manufacturing.
   const canNameInitialMaterial=()=>isDep()&&!!profile.warehouse_id&&!!openingInventory();
-  const pItems=id=>(D.purchaseItems||[]).filter(x=>x.purchase_id===id&&num(x.received_qty)<num(x.quantity));
+  const pItems=id=>(D.purchaseItems||[]).filter(x=>x.purchase_id===id&&num(x.received_qty)+num(x.cancelled_qty)<num(x.quantity));
   const product=id=>(D.products||[]).find(x=>x.id===id);
   const purchase=id=>(D.purchases||[]).find(x=>x.id===id);
   const dateOnly=v=>{if(!v)return'—';try{return new Date(String(v).slice(0,10)+'T12:00:00').toLocaleDateString('es-PY')}catch{return String(v)}};
@@ -299,7 +299,7 @@
       if(!selected){$('#depReceiptItems').innerHTML='<div class="empty">Seleccioná la OC para confirmar sus materiales.</div>';return;}
       const matched=new Map((a.detected_items||[]).map(x=>[x.purchase_item_id,x]));
       $('#depReceiptItems').innerHTML=`<div class="section-head"><div><h2>¿Qué llegó?</h2><p>Confirmá las cantidades recibidas ahora.</p></div></div>`+pItems(selected).map(x=>{
-        const det=matched.get(x.id),pendingQty=num(x.quantity)-num(x.received_qty),pr=product(x.product_id),converted=det?.quantity!=null?window.AVHReceiving.quantity(det,pr,D.presentations||[]):null,poFactor=window.AVHReceiving.factor(x,pr,D.presentations||[]),candidate=converted&&poFactor?converted.quantity/poFactor:null;
+        const det=matched.get(x.id),pendingQty=num(x.quantity)-num(x.received_qty)-num(x.cancelled_qty),pr=product(x.product_id),converted=det?.quantity!=null?window.AVHReceiving.quantity(det,pr,D.presentations||[]):null,poFactor=window.AVHReceiving.factor(x,pr,D.presentations||[]),candidate=converted&&poFactor?converted.quantity/poFactor:null;
         const q=candidate!==null&&num(det.confidence)>=.85&&candidate>0&&candidate<=pendingQty?candidate:'';
         const warning=det?.quantity!=null&&(candidate===null||candidate>pendingQty)?`La foto indica ${det.quantity} ${det.unit||''}; revisá la cantidad y la unidad antes de confirmar.`:'';
         return `<div class="dep-line"><div class="dep-line-grid"><div><b>${safe(x.description)}</b><div class="subtext">Pendiente: ${fmt(pendingQty)} ${safe(x.unit)}${det?` · Lectura ${Math.round(num(det.confidence)*100)}%`:''}</div>${warning?`<div class="dep-warning">${safe(warning)}</div>`:''}<div class="subtext" data-dep-receipt-preview="${x.id}">${safe(receiptQuantityText(x,q||0))}</div></div><div class="field" style="margin:0"><label>Recibido ahora (${safe(x.unit)})</label><input data-dep-receipt-qty="${x.id}" type="number" step="any" min="0" max="${pendingQty}" value="${q}"></div></div></div>`;
@@ -311,7 +311,7 @@
   async function uploadReceiptPhoto(photo,purchaseId,kind){const path=`${purchaseId}/receipts/${Date.now()}_${kind}_${photo.name.replace(/[^a-zA-Z0-9._-]+/g,'_')}`,r=await request(`/storage/v1/object/purchase-documents/${path}`,{method:'POST',headers:{'Content-Type':photo.blob.type||'image/jpeg','x-upsert':'false'},body:photo.blob});if(r.error)throw Error(r.error);return path}
   async function saveAIReceipt(photo){
     const out=$('#depReceiptMsg'),purchaseId=$('#depReceiptPurchase').value,p=purchase(purchaseId);if(!p)return msg(out,'Elegí una compra válida.');
-    const pendingById=new Map(pItems(purchaseId).map(x=>[x.id,Math.max(0,num(x.quantity)-num(x.received_qty))])),lines=[];let invalid='';
+    const pendingById=new Map(pItems(purchaseId).map(x=>[x.id,Math.max(0,num(x.quantity)-num(x.received_qty)-num(x.cancelled_qty))])),lines=[];let invalid='';
     $$('[data-dep-receipt-qty]').forEach(input=>{const q=num(input.value),id=input.dataset.depReceiptQty,max=pendingById.get(id);if(q<0||max==null||q>max){invalid='Una cantidad supera lo pendiente de la OC.';return;}if(q>0){const item=pItems(purchaseId).find(x=>x.id===id),error=window.AVHReceiving.stockProblem(item,product(item.product_id));if(item.affects_inventory&&error){invalid=error;return;}lines.push({purchase_item_id:id,quantity:q});}});
     if(invalid)return msg(out,invalid);if(!lines.length)return msg(out,'Confirmá al menos una cantidad recibida.');
     const kind=$('#depReceiptDocKind').value,docNo=$('#depReceiptDocNo').value.trim()||null,docDate=$('#depReceiptDocDate').value||null,b=$('#depConfirmReceipt');b.disabled=true;b.textContent='Registrando recepción…';

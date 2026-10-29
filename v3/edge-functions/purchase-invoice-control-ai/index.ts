@@ -95,12 +95,12 @@ Deno.serve(async(req:Request)=>{
     const body=await readAIInput(req),purchaseId=String(body?.purchase_id||''),docId=String(body?.document_id||'');documentId=docId;
     if(!UUID.test(purchaseId)||!UUID.test(docId))throw Error('Compra o factura inválida.');
     const [{data:purchase},{data:doc}]=await Promise.all([
-      admin.from('purchases').select('id,warehouse_id,destination_type,po_number,supplier_id,company_id,currency,order_reference').eq('id',purchaseId).maybeSingle(),
+      admin.from('purchases').select('id,warehouse_id,delivery_warehouse_ids,destination_type,po_number,supplier_id,company_id,currency,order_reference').eq('id',purchaseId).maybeSingle(),
       admin.from('purchase_documents').select('id,purchase_id,kind,file_path,file_name').eq('id',docId).eq('purchase_id',purchaseId).maybeSingle()
     ]);
     if(!purchase)throw Error('Compra inexistente.');
     if(!doc||doc.kind!=='invoice')throw Error('El documento no es una factura de esta compra.');
-    if(profile.role==='depositor'&&(purchase.destination_type!=='warehouse'||purchase.warehouse_id!==profile.warehouse_id))return json({error:'Esta factura no pertenece a tu depósito.'},403);
+    if(profile.role==='depositor'&&(purchase.destination_type!=='warehouse'||(purchase.warehouse_id!==profile.warehouse_id&&!(purchase.delivery_warehouse_ids||[]).includes(profile.warehouse_id))))return json({error:'Esta factura no pertenece a tu depósito.'},403);
     validatedDocumentId=docId;
     let supplier:any=null,company:any=null;
     if(purchase.supplier_id){const r=await admin.from('suppliers').select('name,tax_id').eq('id',purchase.supplier_id).maybeSingle();supplier=r.data||null}

@@ -68,6 +68,17 @@ function receiptUi(){
   const source=read('../src/features/inventory/depositor-mobile-ai.js').replace('window.AVHDepositorAI={openReceipt:openReceiptPhotoFlow}','window.AVHDepositorAI={openReceipt:openReceiptPhotoFlow,confirm:renderReceiptConfirm}');
   w.eval(source);w.profile.role='depositor';return w;
 }
+test('the same partial OC is selectable at each assigned depot and shows the shared balance after cancellations',()=>{
+ for(const warehouse of ['ac','vh','vil']){
+  const w=receiptUi();try{
+   w.profile.warehouse_id=warehouse;w.D.purchases[0].delivery_warehouse_ids=['ac','vh','vil'];w.D.purchases[0].delivery_mode='partial';w.D.purchaseItems[0].received_qty=20;w.D.purchaseItems[0].cancelled_qty=12;
+   w.D.purchaseItems.push({...w.D.purchaseItems[0],id:'cancelled',quantity:10,received_qty:0,cancelled_qty:10});
+   w.AVHDepositorAI.confirm({matched_purchase_id:'p',confidence:1,detected_items:[]},null);
+   assert.equal(w.document.querySelector('#depReceiptPurchase').value,'p');assert.equal(w.document.querySelectorAll('[data-dep-receipt-qty]').length,1);assert.equal(w.document.querySelector('[data-dep-receipt-qty]').max,'40');assert.equal(w.document.querySelector('[data-dep-receipt-qty]').value,'');
+  }finally{w.close();}
+ }
+ const w=receiptUi();try{w.profile.warehouse_id='mar';w.D.purchases[0].delivery_warehouse_ids=['ac','vh','vil'];w.AVHDepositorAI.confirm({matched_purchase_id:'p',confidence:1,detected_items:[]},null);assert.equal(w.document.querySelector('#depReceiptPurchase'),null);}finally{w.close();}
+});
 test('an unidentified delivery does not preselect the first pending OC',()=>{
   const w=receiptUi();try{
     w.AVHDepositorAI.confirm({matched_purchase_id:null,confidence:.3,detected_items:[]},null);

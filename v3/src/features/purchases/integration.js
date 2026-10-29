@@ -8,8 +8,8 @@
   const STATUS_LABEL={draft:'Borrador',requested:'Solicitado',quoted:'Cotizando',approved:'Aprobado',ordered:'Comprado / pedido',in_transit:'En camino',partially_received:'Recibido parcial',received:'Recibido total',invoiced:'Facturado',closed:'Cerrado',cancelled:'Cancelado'};
   const AUDIT_LABEL={purchase_created:'Compra creada',purchase_updated:'Compra modificada',purchase_status_changed:'Estado de compra modificado',purchase_received:'Compra recibida',purchase_stock_entry_created:'Entrada de stock generada desde compra',purchase_document_uploaded:'Documento de compra cargado'};
   const pItems=id=>(D.purchaseItems||[]).filter(x=>x.purchase_id===id);
-  const pPendingQty=p=>pItems(p.id).reduce((a,x)=>a+Math.max(0,Number(x.quantity||0)-Number(x.received_qty||0)),0);
-  const pAllReceived=p=>pItems(p.id).length>0&&pItems(p.id).every(x=>Number(x.received_qty||0)>=Number(x.quantity||0));
+  const pPendingQty=p=>pItems(p.id).reduce((a,x)=>a+Math.max(0,Number(x.quantity||0)-Number(x.received_qty||0)-Number(x.cancelled_qty||0)),0);
+  const pAllReceived=p=>pItems(p.id).length>0&&pItems(p.id).every(x=>Number(x.received_qty||0)+Number(x.cancelled_qty||0)>=Number(x.quantity||0));
   const pAnyReceived=p=>pItems(p.id).some(x=>Number(x.received_qty||0)>0);
   const pTotal=p=>Number(p.total_amount||pItems(p.id).reduce((a,x)=>a+Number(x.quantity||0)*Number(x.unit_price||0),0));
   const pCompany=id=>(D.purchaseCompanies||[]).find(x=>x.id===id)?.name||'';
