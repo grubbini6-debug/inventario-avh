@@ -98,13 +98,28 @@
     return{mode,total,tax,net:mode==='included'&&total!==null&&tax!==null?Math.round((total-tax)*100)/100:mode==='excluded'?subtotal:null,issues};
   }
   function documentIssues(doc){
-    const issues=financial(doc).issues.map(x=>x.text);
+    const remittance=doc?.document_kind==='remittance';
+    const issues=remittance?[]:financial(doc).issues.map(x=>x.text);
     if(doc?.complete===false)issues.unshift('La lectura no cubre todo el documento. Dividí el archivo o cargá páginas más claras.');
-    if(!['PYG','USD'].includes(doc?.currency))issues.push('La moneda no está identificada; debe elegirse antes de guardar.');
+    if(!remittance&&!['PYG','USD'].includes(doc?.currency))issues.push('La moneda no está identificada; debe elegirse antes de guardar.');
     if(!doc?.supplier_name)issues.push('Falta identificar el proveedor.');
     for(const field of ['date','document_date','valid_until','delivery_date'])if(doc?.[field]){const v=doc[field];if(!/^\d{4}-\d\d-\d\d$/.test(v)||Number.isNaN(Date.parse(v+'T00:00:00Z'))||new Date(v+'T00:00:00Z').toISOString().slice(0,10)!==v)issues.push('Revisar la fecha '+field+': no es una fecha válida.');}
     (doc?.items||[]).forEach((x,i)=>{if(!String(x.unit||'').trim())issues.push(`Ítem ${i+1}: falta la unidad de compra.`);if(number(x.quantity)===null||number(x.quantity)<=0)issues.push(`Ítem ${i+1}: falta una cantidad positiva.`);if(number(x.confidence)!==null&&number(x.confidence)<.9)issues.push(`Ítem ${i+1}: lectura dudosa; revisar contra el original.`);});
     return [...new Set([...issues,...(Array.isArray(doc?.warnings)?doc.warnings:[])])].slice(0,40);
   }
-  root.AVHReceiving=Object.freeze({unit,number,packageKg,factor,quantity,stockProblem,comparable,matches,financial,documentIssues});
+  function receiptDocumentTasks(purchases,receipts,documents,warehouseId){
+    const tasks=[],voided=new Set(receipts.filter(r=>r.voided_at).map(r=>r.id));
+    for(const purchase of purchases){
+      const active=receipts.filter(r=>r.purchase_id===purchase.id&&!r.voided_at&&!r.depot_parent_receipt_id&&(!warehouseId||!r.warehouse_id||r.warehouse_id===warehouseId));
+      const docs=documents.filter(d=>d.purchase_id===purchase.id&&!voided.has(d.receipt_id));
+      const hasDocument=r=>docs.some(d=>d.receipt_id===r.id&&['invoice','remittance'].includes(d.kind));
+      for(const receipt of active.filter(r=>!hasDocument(r)))tasks.push({purchase,receipt,invoicePending:false});
+      // A supplier may invoice many remittances together, across dates and depots.
+      // Remittances are complete delivery evidence; invoice follow-up is once per PO.
+      const backed=active.filter(r=>docs.some(d=>d.receipt_id===r.id&&d.kind==='remittance'));
+      if(backed.length&&!docs.some(d=>d.kind==='invoice'))tasks.push({purchase,receipt:backed[0],invoicePending:true,deliveryCount:backed.length});
+    }
+    return tasks;
+  }
+  root.AVHReceiving=Object.freeze({unit,number,packageKg,factor,quantity,stockProblem,comparable,matches,financial,documentIssues,receiptDocumentTasks});
 })(globalThis);

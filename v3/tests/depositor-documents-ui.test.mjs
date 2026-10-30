@@ -20,12 +20,12 @@ const variants=[
  {name:'receipts module',file:lifecycle,button:'[data-life-docs]',receiptData:'lifeReceiptId',invoiceNo:'#lateInvoiceNo',invoiceDate:'#lateInvoiceDate',invoiceFile:'#lateInvoiceFile',remitNo:'#lateRemitNo',remitDate:'#lateRemitDate',remitFile:'#lateRemitFile',save:'#lateSaveDocs'}
 ];
 function home(anchor){return '<div class="dep-home"><div class="dep-actions"></div><div class="'+anchor+'"></div><div class="section-head"><h2>Actividad de hoy</h2></div><div class="list"></div></div>';}
-function harness(variant,{anchor='dep-today',extraDocs=[]}={}){
+function harness(variant,{anchor='dep-today',extraDocs=[],withoutInvoice=false}={}){
  const dom=new JSDOM('<section id="page-home">'+home(anchor)+'</section><div id="moduleContent"></div><div id="modalBody"></div>',{url:'https://avh.test/',runScripts:'outside-only'}),w=dom.window,calls=[],alerts=[];
  Object.assign(w,{
   $:s=>w.document.querySelector(s),$$:s=>[...w.document.querySelectorAll(s)],
   profile:{id:'user',role:'depositor',warehouse_id:'ac'},
-  D:{warehouses:[{id:'ac',name:'ACOMAR',active:true}],purchases:[structuredClone(mainPurchase),{...mainPurchase,id:'other',warehouse_id:'foreign'}],purchaseReceipts:structuredClone(receipts),purchaseDocuments:structuredClone([...docs,...extraDocs]),purchaseItems:[],moves:[],stockStatus:[],supplyRequests:[],openingInventorySessions:[],products:[]},
+  D:{warehouses:[{id:'ac',name:'ACOMAR',active:true}],purchases:[structuredClone(mainPurchase),{...mainPurchase,id:'other',warehouse_id:'foreign'}],purchaseReceipts:structuredClone(receipts),purchaseDocuments:structuredClone([...(withoutInvoice?[]:docs),...extraDocs]),purchaseItems:[],moves:[],stockStatus:[],supplyRequests:[],openingInventorySessions:[],products:[]},
   esc:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
   fmt:v=>String(v),dt:v=>String(v),goPage:()=>{},renderStock:()=>{},
   alert:m=>alerts.push(m),msg:(el,m)=>{el.textContent=m;},
@@ -36,7 +36,7 @@ function harness(variant,{anchor='dep-today',extraDocs=[]}={}){
   AVHPurchaseControl:{analyzeInvoice:async(p,id)=>{calls.push({type:'analysis',p,id});}},
   openPurchaseDetail:async()=>{}
  });
- w.eval(read(variant.file));
+ w.eval(read('../edge-functions/_shared/purchase-receiving-model.js'));w.eval(read(variant.file));
  if(variant.name!=='home')w.renderPurchaseReceipts();
  return{w,dom,calls,alerts,close:()=>dom.window.close()};
 }
@@ -49,7 +49,7 @@ for(const variant of variants){
    await settle();
    const buttons=[...h.w.document.querySelectorAll(variant.button)];
    assert.deepEqual(buttons.map(x=>x.dataset[variant.receiptData]),['old'],'a newer invoiced receipt must not hide the older pending receipt; voided, release and foreign receipts are excluded');
-   assert.match(buttons[0].closest('.dep-attention-row,.row').textContent,/OC-1.*falta factura/);
+   assert.match(buttons[0].closest('.dep-attention-row,.row').textContent,/OC-1.*falta remito o factura/);
    if(variant.name==='home'){
     h.w.document.body.appendChild(h.w.document.createElement('div'));await settle();
     assert.equal(h.w.document.querySelectorAll('#depAttention').length,1,'DOM notifications must not duplicate the panel');
@@ -77,7 +77,7 @@ for(const variant of variants){
   }finally{h.close();}
  });
  test(variant.name+': existing remittance metadata comes only from the selected receipt',()=>{
-  const h=harness(variant,{extraDocs:[
+  const h=harness(variant,{withoutInvoice:true,extraDocs:[
    {id:'old-remit',purchase_id:'p',receipt_id:'old',kind:'remittance',document_number:'REM-ANTIGUO',document_date:'2026-10-09',created_at:'2026-10-10T13:00:00Z'},
    {id:'old-remit-newer',purchase_id:'p',receipt_id:'old',kind:'remittance',document_number:'REM-CORREGIDO',document_date:'2026-10-10',created_at:'2026-10-11T13:00:00Z'},
    {id:'other-remit',purchase_id:'p',receipt_id:'latest',kind:'remittance',document_number:'REM-OTRA-ENTREGA',document_date:'2026-10-12',created_at:'2026-10-12T13:00:00Z'}
@@ -86,6 +86,15 @@ for(const variant of variants){
    assert.equal(h.w.document.querySelector(variant.remitNo).value,'REM-CORREGIDO');
    assert.equal(h.w.document.querySelector(variant.remitDate).value,'2026-10-10');
    assert.equal(h.w.document.querySelector(variant.invoiceDate).value,'');
+  }finally{h.close();}
+ });
+ test(variant.name+': many remittances have one invoice follow-up per PO, including a later consolidated invoice',async()=>{
+  const extraDocs=['old','latest'].map((receipt_id,i)=>({id:'remit-'+i,purchase_id:'p',receipt_id,kind:'remittance',document_number:'REM-'+i,created_at:'2026-10-12'}));
+  const h=harness(variant,{withoutInvoice:true,extraDocs});try{
+   await settle();const buttons=[...h.w.document.querySelectorAll(variant.button)];assert.equal(buttons.length,1);assert.match(buttons[0].closest('.dep-attention-row,.row').textContent,/2 entrega\(s\) con remito/);
+   h.w.D.purchaseDocuments.push({id:'consolidated',purchase_id:'p',kind:'invoice',receipt_id:'latest'});
+   if(variant.name==='home'){h.w.document.querySelector('#page-home').innerHTML=home('dep-today');await settle();}else h.w.renderPurchaseReceipts();
+   assert.equal(h.w.document.querySelectorAll(variant.button).length,0,'one consolidated invoice must not require one invoice for every remittance');
   }finally{h.close();}
  });
 }

@@ -6,4 +6,8 @@ Compras puede habilitar varios depósitos desde **Depósitos habilitados para re
 
 Una recepción anulada vuelve a abrir solamente la cantidad que se había recibido; conserva los saldos ya cancelados. Un depósito ajeno a los destinos habilitados no puede consultar ni recibir la OC, y los perfiles de producción o de solo lectura no pueden configurar destinos ni cancelar saldos.
 
+Cada entrega puede llegar solamente con un **remito**, sin moneda, precios, IVA ni total. Se registra su número comercial, fecha y cantidades reales; los remitos se archivan en la misma OC y no suman cantidades facturadas. El control muestra por separado **Recibido**, **Pendiente de recibir** y **Facturado acumulado**. La factura puede adjuntarse después, sin repetir la recepción ni aumentar el stock. Un remito ya guardado se informa como respaldo de la entrega, con facturación pendiente.
+
+La lectura de facturas comprueba también el tipo y el encabezado visible. Si dos lecturas confirman con alta confianza que el archivo subido como factura es una nota de remisión, se reclasifica como remito con auditoría. No se reclasifica una factura por tener precios ilegibles. El CDC de 44 dígitos no reemplaza al número comercial. La limpieza de una referencia errónea del encabezado usa el valor y la versión de compra originales para conservar cualquier factura adjuntada concurrentemente.
+
 Validación: pruebas PostgreSQL aisladas de recepción entre depósitos, límite global, repetición de una recepción, cierre parcial y total sin alterar stock, anulación posterior, permisos y archivos; pruebas de interfaz de selección de OC, cantidades pendientes y cierre con motivo obligatorio.

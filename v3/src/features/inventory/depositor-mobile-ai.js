@@ -291,6 +291,7 @@
       <div class="field"><label>Compra / OC *</label><select id="depReceiptPurchase"><option value="">Elegí la orden de compra</option>${pending.map(p=>`<option value="${p.id}" ${p.id===selected?'selected':''}>${safe(p.po_number||'Sin OC')} · ${safe(p.supplier_name||'Proveedor')}</option>`).join('')}</select></div>
       <div id="depReceiptItems"></div><div class="section-head"><h2>Documento de la foto</h2></div>
       <div class="two"><div class="field"><label>Tipo</label><select id="depReceiptDocKind"><option value="none">No guardar como documento</option><option value="invoice" ${a.document_kind==='invoice'?'selected':''}>Factura</option><option value="remittance" ${a.document_kind==='remittance'?'selected':''}>Remito</option><option value="other" ${a.document_kind==='other'?'selected':''}>Otro</option></select></div><div class="field"><label>Número</label><input id="depReceiptDocNo" value="${safe(a.document_number||'')}" placeholder="Si aparece en la foto"></div></div>
+      <div class="notice" id="depReceiptKindHint"></div>
       <div class="field"><label>Fecha documento</label><input id="depReceiptDocDate" type="date" value="${safe(a.document_date||'')}"></div>
       <div class="field"><label>Observación</label><textarea id="depReceiptNotes" placeholder="Faltantes, golpes, entrega parcial, etc."></textarea></div>
       <button id="depConfirmReceipt" class="btn primary" style="width:100%" ${selected?'':'disabled'}>✅ Confirmar recepción</button><div id="depReceiptMsg"></div>`);
@@ -306,7 +307,8 @@
       }).join('');
       $$('[data-dep-receipt-qty]').forEach(input=>input.oninput=()=>{const item=pItems(selected).find(x=>x.id===input.dataset.depReceiptQty),preview=document.querySelector(`[data-dep-receipt-preview="${item.id}"]`);preview.textContent=receiptQuantityText(item,num(input.value));});
     }
-    draw();$('#depReceiptPurchase').onchange=draw;$('#depConfirmReceipt').onclick=()=>saveAIReceipt(photo);
+    const documentHint=()=>{$('#depReceiptKindHint').textContent=$('#depReceiptDocKind').value==='remittance'?'El remito respalda esta entrega. No necesita precios ni moneda; la factura queda pendiente y se adjunta después.':'Elegí Remito si recibiste una nota de remisión. Usá el número impreso del documento, no el CDC ni el código del QR.';};
+    draw();documentHint();$('#depReceiptDocKind').onchange=documentHint;$('#depReceiptPurchase').onchange=draw;$('#depConfirmReceipt').onclick=()=>saveAIReceipt(photo);
   }
   async function uploadReceiptPhoto(photo,purchaseId,kind){const path=`${purchaseId}/receipts/${Date.now()}_${kind}_${photo.name.replace(/[^a-zA-Z0-9._-]+/g,'_')}`,r=await request(`/storage/v1/object/purchase-documents/${path}`,{method:'POST',headers:{'Content-Type':photo.blob.type||'image/jpeg','x-upsert':'false'},body:photo.blob});if(r.error)throw Error(r.error);return path}
   async function saveAIReceipt(photo){

@@ -41,9 +41,9 @@
     const d=data(doc);if(!d)return null;
     return JSON.stringify({currency:d.currency,total:d.total,subtotal:d.subtotal,tax:d.tax,tax_mode:d.tax_mode,supplier:digits(d.supplier_tax_id),buyer:digits(d.customer_tax_id),items:(d.items||[]).map(x=>({description:norm(x.description),quantity:x.quantity,unit:window.AVHReceiving.unit(x.unit),price:x.unit_price,total:x.line_total,factor:x.factor_to_base,base:x.base_unit,brand:norm(x.brand),model:norm(x.manufacturer_code)})).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)))});
   }
-  function invoiceGroups(p){
+  function documentGroups(p,kind){
     const receipts=new Map((D.purchaseReceipts||[]).map(r=>[r.id,r])),groups=[];
-    const invoices=docs(p.id).filter(d=>d.kind==='invoice'&&!(d.receipt_id&&receipts.get(d.receipt_id)?.voided_at)).sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+    const invoices=docs(p.id).filter(d=>d.kind===kind&&!(d.receipt_id&&receipts.get(d.receipt_id)?.voided_at)).sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
     for(const doc of invoices){
       const number=invoiceKey(doc),path=String(doc.file_path||'').trim();
       const related=groups.filter(g=>g.docs.some(d=>(number&&invoiceKey(d)===number)||(path&&d.file_path===path)));
@@ -67,14 +67,14 @@
     return{matched,extra};
   }
   function billingInfo(p){
-    const poRows=items(p.id),groups=invoiceGroups(p),issues=[],entries=[],totals={};
+    const poRows=items(p.id),groups=documentGroups(p,'invoice'),issues=[],entries=[],totals={};
     const rows=poRows.map(po=>({po,baseQty:0,count:0,unitsPending:false,pricePending:false,priceVariance:false,prices:[],sources:[]}));
     const rowById=new Map(rows.map(r=>[r.po.id,r]));
     let unread=0;
     const add=(level,text)=>issues.push({level,text});
     for(const group of groups){
       const doc=group.doc,d=effectiveInvoice(doc),label='Factura '+(invoiceNumber(doc)||doc.file_name||'sin número'),entry={...group,data:d,issues:[]};
-      const issue=(level,text)=>{const x={level,text:label+': '+text};entry.issues.push(x);issues.push(x);};
+      const issue=(level,text)=>{const x={level,text:label+': '+text};if(entry.issues.some(old=>old.text===x.text))return;entry.issues.push(x);issues.push(x);};
       entries.push(entry);
       if(group.docs.length>1){
         const signatures=new Set(group.docs.map(invoiceSignature).filter(Boolean));
@@ -84,6 +84,10 @@
         if(group.docs.some(x=>!data(x)))issue('pending','hay un archivo repetido pendiente de lectura.');
       }
       if(!d){unread++;issue('pending',doc.analysis_status==='error'?'la lectura falló; reintentar el análisis.':'falta analizar este documento.');continue;}
+      if(d.document_kind&&d.document_kind!=='invoice'){
+        issue('pending',d.document_kind==='remittance'?'La lectura identifica un remito. Repetí la lectura para confirmar su clasificación; todavía no se cuenta como factura.':'El tipo de documento no está confirmado como factura. Revisá el archivo original.');
+        continue;
+      }
       const currency=String(d.currency||'').toUpperCase(),poCurrency=String(p.currency||'').toUpperCase(),sup=supplier(p.supplier_id);
       if(!currency)issue('pending','falta confirmar la moneda.');
       else if(currency!==poCurrency)issue('review','moneda '+currency+' distinta de la OC '+poCurrency+'.');
@@ -135,7 +139,7 @@
     const inv={issues:billing.issues,matched:{rows:billing.rows.map(r=>({po:r.po,ext:r.count?{description:r.po.description,quantity:r.quantity,unit:r.po.unit,unit_price:r.price,factor_to_base:r.po.factor_to_base,base_unit:product(r.po.product_id).base_unit}:null})),extra:[]}};
     const issues=[...q.issues,...billing.issues,...rec.issues,...items(p.id).filter(x=>x.affects_inventory).map(x=>({x,error:window.AVHReceiving.stockProblem(x,product(x.product_id))})).filter(x=>x.error).map(x=>({level:'review',text:x.x.description+': '+x.error}))];
     const review=issues.some(x=>x.level==='review'),pending=!review&&(!billing.complete||!rec.complete||issues.some(x=>x.level==='pending'));
-    return{quote,invoice,quoteData,invoiceData,q,inv,rec,billing,issues,state:review?'review':pending?'pending':'ok'};
+    return{quote,invoice,quoteData,invoiceData,q,inv,rec,billing,remittances:documentGroups(p,'remittance'),issues,state:review?'review':pending?'pending':'ok'};
   }
   function financialHtml(doc){if(!doc)return '';const f=window.AVHReceiving.financial(doc),mode={included:'IVA incluido en el total',excluded:'IVA agregado al subtotal',none:'Sin IVA',unknown:'IVA por confirmar'}[f.mode];return `<div class="pc-issues"><div class="pc-issue info">${safe(mode)} · Total factura: <b>${cash(f.total,doc.currency)}</b>${f.tax!==null?' · IVA: '+cash(f.tax,doc.currency):''}${f.net!==null?' · Neto: '+cash(f.net,doc.currency):''}</div></div>`;}
   function stage(cls,title,text){return`<div class="pc-stage"><b>${safe(title)}</b><span class="${cls?'pc-line-'+cls:''}">${safe(text)}</span></div>`}
@@ -143,19 +147,20 @@
   function controlHtml(p){
     const c=controlState(p),quoteText=!c.quote?'Sin presupuesto analizado':!c.quoteData?'Presupuesto sin análisis guardado':c.q.issues.length?c.q.issues.length+' diferencia(s) vs OC':'Coincide con la OC';
     const recText=c.rec.complete&&c.rec.cancelled>0?'Recepción cerrada · saldo no entregado cancelado':!c.rec.any?'Sin recepción todavía':c.rec.complete?'Recepción completa':c.rec.ratio.toFixed(0)+'% recibido · saldo pendiente';
-    const invoiceText=!c.billing.count?'Factura todavía no adjunta':c.billing.unread?c.billing.count+' factura(s) · '+c.billing.unread+' por analizar':c.billing.issues.some(x=>x.level==='review')?'Hay diferencias por revisar':c.billing.complete?c.billing.count+' factura(s) · cantidades y precios conciliados':c.billing.count+' factura(s) · facturación parcial o por confirmar';
+    const invoiceText=!c.billing.count?(c.remittances.length?'Factura pendiente · recepción respaldada con remito':'Factura todavía no adjunta'):c.billing.unread?c.billing.count+' factura(s) · '+c.billing.unread+' por analizar':c.billing.issues.some(x=>x.level==='review')?'Hay diferencias por revisar':c.billing.complete?c.billing.count+' factura(s) · cantidades y precios conciliados':c.billing.count+' factura(s) · facturación parcial o por confirmar';
     const billed=Object.entries(c.billing.totals).map(([currency,total])=>cash(total,currency)).join(' + ');
     const invoices=c.billing.entries.map(entry=>{
       const doc=entry.doc,date=doc.document_date||entry.data?.date,number=invoiceNumber(doc)||'Sin número';
       return '<div class="pc-invoice-record" data-pc-invoice="'+safe(doc.id)+'"><div class="title">Factura '+safe(number)+'</div><div class="subtext">'+safe(date?'Fecha registrada: '+date:'Fecha pendiente')+(entry.docs.length>1?' · '+entry.docs.length+' archivos del mismo documento':'')+'</div>'+financialHtml(entry.data)+entry.docs.map(d=>'<button type="button" class="btn sm soft" style="margin-top:8px" data-pc-analyze-invoice="'+safe(d.id)+'">'+safe(!data(d)?'Analizar factura':entry.docs.length>1?'Revisar lectura · '+(d.file_name||'archivo'):'Revisar lectura')+'</button>'+(d.analysis_error?'<div class="hint">'+safe(d.analysis_error)+'</div>':'')).join('')+'</div>';
     }).join('');
     const body=c.billing.rows.map(r=>{
-      const x=r.po,review=r.over||r.priceVariance,ok=!review&&r.complete&&same(x.received_qty,x.quantity),partial=!review&&!r.unitsPending&&r.count>0&&same(r.quantity,x.received_qty);
-      const status=review?'REVISAR':n(x.cancelled_qty)>0&&c.rec.complete?'CERRADO CON SALDO CANCELADO':ok?'OK':partial?'PARCIAL CONFORME':'PENDIENTE';
-      const quantity=r.quantity===null?'Por confirmar':fmtN(r.quantity)+' '+safe(x.unit),price=r.price!==null?cash(r.price,p.currency):r.prices.length?'Varios precios':'—';
-      return '<tr><td>'+safe(x.description)+(n(x.cancelled_qty)>0?'<div class="subtext">Cancelado sin entrega: '+fmtN(x.cancelled_qty)+' '+safe(x.unit)+'</div>':'')+'</td><td>'+fmtN(x.quantity)+' '+safe(x.unit)+'</td><td>'+fmtN(x.received_qty)+' '+safe(x.unit)+'</td><td>'+quantity+'</td><td>'+cash(x.unit_price,p.currency)+'</td><td>'+price+'</td><td class="'+(review?'pc-line-review':ok?'pc-line-ok':'pc-line-pending')+'">'+status+'</td></tr>';
+      const x=r.po,review=r.over||r.priceVariance,ok=!review&&r.complete&&same(x.received_qty,x.quantity),partial=!review&&!r.unitsPending&&!r.pricePending&&r.count>0&&same(r.quantity,x.received_qty),remaining=Math.max(0,n(x.quantity)-n(x.received_qty)-n(x.cancelled_qty));
+      const status=review?'REVISAR':n(x.cancelled_qty)>0&&c.rec.complete?'CERRADO CON SALDO CANCELADO':!r.count&&n(x.received_qty)>0?(remaining>0?'RECIBIDO PARCIAL · FACTURA PENDIENTE':'RECIBIDO · FACTURA PENDIENTE'):ok?'OK':partial?'PARCIAL CONFORME':r.pricePending?'FACTURA POR CONFIRMAR':'PENDIENTE';
+      const quantity=!c.billing.count?'—':r.quantity===null?'Por confirmar':fmtN(r.quantity)+' '+safe(x.unit),price=r.price!==null?cash(r.price,p.currency):r.prices.length?'Varios precios':'—';
+      return '<tr><td>'+safe(x.description)+(n(x.cancelled_qty)>0?'<div class="subtext">Cancelado sin entrega: '+fmtN(x.cancelled_qty)+' '+safe(x.unit)+'</div>':'')+'</td><td>'+fmtN(x.quantity)+' '+safe(x.unit)+'</td><td>'+fmtN(x.received_qty)+' '+safe(x.unit)+'</td><td>'+fmtN(remaining)+' '+safe(x.unit)+'</td><td>'+quantity+'</td><td>'+cash(x.unit_price,p.currency)+'</td><td>'+price+'</td><td class="'+(review?'pc-line-review':ok?'pc-line-ok':'pc-line-pending')+'">'+status+'</td></tr>';
     }).join('');
-    return '<div class="pc-control" id="purchaseControlCard"><div class="pc-control-head"><div><h3>🔎 Control de compra</h3><div class="subtext">Presupuesto ↔ OC ↔ Facturas ↔ Recibido</div></div><span class="pc-control-badge '+c.state+'">'+statusLabel(c.state)+'</span></div><div class="pc-grid">'+stage(c.q.issues.length?'review':c.quoteData?'ok':'pending','Presupuesto → OC',quoteText)+stage(c.rec.complete?'ok':'pending','OC → Recibido',recText)+stage(c.billing.issues.some(x=>x.level==='review')?'review':c.billing.complete?'ok':'pending','OC → Facturas',invoiceText)+'</div><div class="pc-issue info pc-billing-summary" style="margin-top:10px">'+c.billing.count+' factura(s) distintas'+(billed?' · Total leído: <b>'+safe(billed)+'</b>':'')+(c.billing.unread?' · Importe pendiente de los documentos sin analizar':'')+'</div>'+(c.issues.length?'<div class="pc-issues">'+c.issues.slice(0,20).map(x=>'<div class="pc-issue '+x.level+'">'+(x.level==='review'?'⚠':'•')+' '+safe(x.text)+'</div>').join('')+'</div>':c.state==='ok'?'<div class="pc-issues"><div class="pc-issue info">✓ No se detectaron diferencias.</div></div>':'')+'<div class="pc-table-wrap"><table class="pc-table"><thead><tr><th>Ítem</th><th>OC</th><th>Recibido</th><th>Facturado acumulado</th><th>Precio OC</th><th>Precio factura</th><th>Control</th></tr></thead><tbody>'+body+'</tbody></table></div><div class="pc-invoices" style="display:grid;gap:12px;margin-top:12px">'+invoices+'</div></div>';
+    const remits=c.remittances.length?'<div class="pc-issue info pc-remittance-summary" style="margin-top:10px">'+c.remittances.length+' remito(s) de entrega · '+c.remittances.slice(0,5).map(g=>safe(invoiceNumber(g.doc)||g.doc.file_name||'Sin número')).join(' · ')+'. Las cantidades recibidas se controlan aparte de la facturación.</div>':'';
+    return '<div class="pc-control" id="purchaseControlCard"><div class="pc-control-head"><div><h3>🔎 Control de compra</h3><div class="subtext">Presupuesto ↔ OC ↔ Remitos / recibido ↔ Facturas</div></div><span class="pc-control-badge '+c.state+'">'+statusLabel(c.state)+'</span></div><div class="pc-grid">'+stage(c.q.issues.length?'review':c.quoteData?'ok':'pending','Presupuesto → OC',quoteText)+stage(c.rec.complete?'ok':'pending','OC → Recibido',recText)+stage(c.billing.issues.some(x=>x.level==='review')?'review':c.billing.complete?'ok':'pending','OC → Facturas',invoiceText)+'</div>'+remits+'<div class="pc-issue info pc-billing-summary" style="margin-top:10px">'+c.billing.count+' factura(s) distintas'+(billed?' · Total leído: <b>'+safe(billed)+'</b>':'')+(c.billing.unread?' · Importe pendiente de los documentos sin analizar':'')+'</div>'+(c.issues.length?'<div class="pc-issues">'+c.issues.slice(0,20).map(x=>'<div class="pc-issue '+x.level+'">'+(x.level==='review'?'⚠':'•')+' '+safe(x.text)+'</div>').join('')+'</div>':c.state==='ok'?'<div class="pc-issues"><div class="pc-issue info">✓ No se detectaron diferencias.</div></div>':'')+'<div class="pc-table-wrap"><table class="pc-table"><thead><tr><th>Ítem</th><th>OC</th><th>Recibido</th><th>Pendiente de recibir</th><th>Facturado acumulado</th><th>Precio OC</th><th>Precio factura</th><th>Control</th></tr></thead><tbody>'+body+'</tbody></table></div><div class="pc-invoices" style="display:grid;gap:12px;margin-top:12px">'+invoices+'</div></div>';
   }
   async function analyzeInvoice(purchaseId,documentId,opts={}){const r=await edge(CONTROL_EDGE,{purchase_id:purchaseId,document_id:documentId});if(r.error)throw Error(r.error);if(opts.reload!==false)await loadAll(true);return r.data}
   function bindControl(p){
