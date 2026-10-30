@@ -100,3 +100,15 @@ test('mobile reception recognizes UN as units, shows kg separately and controls 
     assert.equal(calls[0].args.p_items[0].quantity,72);assert.equal(calls[3].p,'p');assert.equal(calls[3].d,'invoice');
   }finally{w.close();}
 });
+
+test('mobile receiving accepts a remittance alone and never invokes invoice or money validation',async()=>{
+ const w=receiptUi(),calls=[];try{
+  w.rpc=async(name,args)=>{calls.push({name,args});return{data:name==='receive_purchase'?'receipt':'remittance'};};
+  w.request=async()=>({data:{}});w.AVHPurchaseControl={analyzeInvoice:()=>assert.fail('A remittance is not a bill')};
+  w.AVHDepositorAI.confirm({matched_purchase_id:'p',confidence:.99,document_kind:'remittance',document_number:'007-002-0003943',document_date:'2026-10-30',detected_items:[{purchase_item_id:'item',quantity:25,unit:'UN',confidence:.99}]},{name:'remito.jpg',blob:new w.Blob(['photo'],{type:'image/jpeg'})});
+  assert.equal(w.document.querySelector('#depReceiptDocKind').value,'remittance');assert.match(w.document.querySelector('#depReceiptKindHint').textContent,/No necesita precios ni moneda/);
+  await w.document.querySelector('#depConfirmReceipt').onclick();
+  assert.deepEqual(calls.map(x=>x.name),['receive_purchase','register_purchase_receipt_document']);
+  assert.equal(calls[0].args.p_document_number,'007-002-0003943');assert.equal(calls[1].args.p_kind,'remittance');assert.equal(calls[0].args.p_items[0].quantity,25);
+ }finally{w.close();}
+});

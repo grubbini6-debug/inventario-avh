@@ -19,6 +19,43 @@ function ui({rows,documents,receipts=[]}){
 const solder='GUANTE DE CUERO REFORZADO P/SOLDADOR 36CM',vaqueta='GUANTE VAQUETA/CUERO 15CM NACIONAL';
 const oneLine=(quantity=100)=>po('wire','Material de prueba',quantity,10);
 
+test('many delivery remittances across depots never become billed quantities or financial errors',async()=>{
+ const row={...oneLine(5200),unit:'kg',received_qty:1250},documents=[
+  {id:'r1-file',purchase_id:'p',kind:'remittance',receipt_id:'r1',document_number:'007-002-0003943',file_path:'p/r1.jpg'},
+  {id:'r1-copy',purchase_id:'p',kind:'remittance',receipt_id:'r1',document_number:'0070020003943',file_path:'p/r1-copy.jpg'},
+  {id:'r2-file',purchase_id:'p',kind:'remittance',receipt_id:'r2',document_number:'007-002-0003944',file_path:'p/r2.jpg'},
+  {id:'void-file',purchase_id:'p',kind:'remittance',receipt_id:'void',document_number:'007-002-0003945'}
+ ];
+ const h=ui({rows:[row],documents,receipts:[{id:'r1',warehouse_id:'vh'},{id:'r2',warehouse_id:'vil'},{id:'void',voided_at:'2026-10-30'}]});try{
+  h.w.D.products[0].base_unit='kg';
+  let state=h.state();assert.equal(state.billing.count,0);assert.equal(state.remittances.length,2);assert.equal(state.rec.received,1250);assert.equal(state.issues.length,0);assert.equal(state.state,'pending');
+  await h.w.openPurchaseDetail('p');
+  const text=h.w.document.querySelector('#purchaseControlCard').textContent;
+  assert.match(text,/Factura pendiente.*recepción respaldada con remito/);assert.match(text,/2 remito\(s\)/);assert.doesNotMatch(text,/total válido|precio legible|confirmar la moneda/);
+  const cells=[...h.w.document.querySelectorAll('.pc-table tbody td')].map(x=>x.textContent);assert.equal(cells[3],'3950 kg');assert.equal(cells[4],'—');assert.match(cells[7],/RECIBIDO PARCIAL.*FACTURA PENDIENTE/);
+  // A later consolidated invoice can cover both remittances without registering stock again.
+  const d=invoice('consolidated',[{name:row.description,quantity:1250,price:10,unit:'kg'}]);h.w.D.purchaseDocuments.push(d);
+  state=h.state();assert.equal(state.billing.count,1);assert.equal(state.billing.rows[0].quantity,1250);assert.equal(state.rec.received,1250);assert.equal(state.remittances.length,2);
+ }finally{h.close();}
+});
+
+test('a real unreadable invoice keeps its financial warnings and is not called a conforming partial',async()=>{
+ const row={...oneLine(),received_qty:25},d=invoice('a',[{name:row.description,quantity:25,price:10}]);
+ Object.assign(d.analysis_data,{document_kind:'invoice',total:null,subtotal:null,currency:null});Object.assign(d.analysis_data.items[0],{unit_price:null,line_total:null});
+ d.analysis_data.validation.issues=['Falta un total válido en la factura.','Ítem 1: faltan cantidad, precio o importe legibles.'];
+ const h=ui({rows:[row],documents:[d]});try{
+  assert.equal(h.state().state,'review');assert.equal(h.state().issues.filter(x=>/Falta un total válido/.test(x.text)).length,1);
+  await h.w.openPurchaseDetail('p');assert.doesNotMatch(h.w.document.querySelector('.pc-table tbody').textContent,/PARCIAL CONFORME/);
+ }finally{h.close();}
+});
+
+test('an unconfirmed remittance classification stays pending without inventing financial amounts',()=>{
+ const row={...oneLine(),received_qty:25},d=invoice('a',[{name:row.description,quantity:25,price:10}]);d.analysis_data.document_kind='remittance';
+ const h=ui({rows:[row],documents:[d]});try{
+  const s=h.state();assert.equal(s.state,'pending');assert.equal(s.billing.rows[0].quantity,0);assert.deepEqual(Object.keys(s.billing.totals),[]);assert.ok(s.issues.some(x=>/confirmar su clasificación/.test(x.text)));
+ }finally{h.close();}
+});
+
 test('cancelled undelivered quantities close reconciliation without falsifying receipts or requiring an invoice for them',()=>{
  const row={...oneLine(50),received_qty:20,cancelled_qty:30},missing={...po('glove','Guantes',20,5),received_qty:0,cancelled_qty:20};
  const h=ui({rows:[row,missing],documents:[invoice('a',[{name:row.description,quantity:20,price:10}])]});try{

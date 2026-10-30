@@ -54,6 +54,10 @@ test('missing money, invalid dates and unfinished readings stay visible as issue
  const issues=M.documentIssues({currency:null,date:'2026-02-31',complete:false,total:null,items:[{quantity:null,unit:null,unit_price:null,line_total:null,confidence:.4}]});
  assert.ok(issues.some(x=>/moneda/.test(x)));assert.ok(issues.some(x=>/fecha/.test(x)));assert.ok(issues.some(x=>/cantidad/.test(x)));assert.ok(issues.some(x=>/todo el documento/.test(x)));
 });
+test('a remittance needs legible delivery quantities but no invoice amounts or currency',()=>{
+ const doc={document_kind:'remittance',supplier_name:'Petersen',complete:true,currency:null,total:null,items:[{quantity:625,unit:'kg',unit_price:null,line_total:null,confidence:.99}]};
+ assert.deepEqual(M.documentIssues(doc),[]);doc.items[0].quantity=null;assert.ok(M.documentIssues(doc).some(x=>/cantidad positiva/.test(x)));
+});
 test('commercial wording cannot change a brand or unit while conserving the same digits, or add a certificate',()=>{
  const p={title:'Trabajo',items:[{id:'a',description:'Instalar disco Maxflexx 115 mm'}]},next=description=>({title:'Trabajo profesional',introduction:'Alcance solicitado.',items:[{id:'a',description}]});
  assert.equal(validateCommercialCopy(p,next('Instalación de disco Maxflexx 115 mm')).items.length,1);
