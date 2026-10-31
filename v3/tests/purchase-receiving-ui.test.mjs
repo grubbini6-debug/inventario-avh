@@ -60,6 +60,22 @@ test('invoice control distinguishes included IVA, pending legacy readings and in
   }finally{w.close();}
 });
 
+test('a crane quote in hs or Hrs. generates a service payload in hours without changing quantities or prices',async()=>{
+ const {w}=ui(),saved=[];try{
+  w.D.warehouses=[{id:'ac',name:'ACOMAR',active:true}];w.D.purchaseCompanies=[{id:'avh',name:'AVH',active:true}];w.D.suppliers=[{id:'crane',name:'Grúas de prueba'}];
+  w.FileReader=class{readAsDataURL(){this.result='data:application/pdf;base64,AAAA';queueMicrotask(()=>this.onload());}};
+  w.edge=async()=>({data:{document:{currency:'PYG',total:900000,supplier_name:'Grúas de prueba',confidence:.99,items:[{product_code:'1002',description:'Servicios de Grúa. 6 hs mínimas.',quantity:6,unit:'hs',unit_price:150000}]}}});
+  w.rpc=async(name,args)=>{saved.push({name,args:JSON.parse(JSON.stringify(args))});return{error:'Stopped at RPC boundary'};};
+  w.eval(read('../src/features/purchases/smart-purchase-flow.js'));w.AVHSmartPurchase.open();
+  const input=w.document.querySelector('#smartFile');Object.defineProperty(input,'files',{value:[new w.File(['PDF'],'grua.pdf',{type:'application/pdf'})]});await input.onchange();
+  assert.equal(w.document.querySelector('[data-unit]').value,'hora');
+  w.document.querySelector('#smartDest').value='service';w.document.querySelector('#smartDest').onchange();w.document.querySelector('#smartCompany').value='avh';
+  for(const unit of ['hs','Hrs.']){w.document.querySelector('[data-unit]').value=unit;await w.document.querySelector('#smartGenerate').onclick();}
+  assert.equal(saved.length,2);
+  for(const {name,args} of saved){assert.equal(name,'admin_create_purchase_from_quote');assert.equal(args.p_data.purchase_type,'service');assert.equal(args.p_data.warehouse_id,null);assert.equal(args.p_items[0].unit,'hora');assert.equal(args.p_items[0].quantity,6);assert.equal(args.p_items[0].unit_price,150000);assert.equal(args.p_items[0].affects_inventory,false);}
+ }finally{w.close();}
+});
+
 function receiptUi(){
   const {w}=ui();w.document.body.insertAdjacentHTML('beforeend','<section id="page-home"></section>');
   Object.assign(w,{profile:{id:'depositor',role:'admin',warehouse_id:'ac'},goPage:()=>{},canRefreshView:()=>false,renderStock:()=>{},alert:()=>{}});
