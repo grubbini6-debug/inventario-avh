@@ -7,6 +7,16 @@ const wire={id:'wst',sku:'CHT711120P',name:'TUBULAR WST E71T1C 1,2MM 15KG PREMIU
 const presentations=[{product_id:'wst',unit:'rollo',label:'Rollo 15 kg',factor_to_base:1}];
 const invoice={currency:'USD',subtotal:1836,tax:166.91,total:1836,tax_mode:'included',items:[{quantity:72,unit:'UN',base_unit:'kg',factor_to_base:15,unit_price:25.5,line_total:1836,confidence:.96}]};
 
+test('crane service hour abbreviations reconcile without changing the billed hours or price',()=>{
+ const product={id:'crane',base_unit:'hora'},po={quantity:6,unit:'hora',factor_to_base:1,unit_price:150000};
+ for(const raw of ['hs','HS','h','Hr','Hrs.','h.s.','hora','horas','hour','hours']){
+  assert.equal(M.unit(raw),'hora');
+  const compared=M.comparable(po,{quantity:6,unit:raw,unit_price:150000},product);
+  assert.equal(compared.poQty,6);assert.equal(compared.extQty,6);assert.equal(compared.extPrice,150000);
+ }
+ assert.equal(M.unit('x10'),'x10');assert.equal(M.unit('kg'),'kg');
+});
+
 test('72 rolls stay 72 stock units while the physical package weighs 1080 kg',()=>{
   assert.deepEqual(M.quantity(invoice.items[0],wire,presentations),{quantity:72,unit:'unidad',factor:1,kg:1080,package_kg:15});
   assert.equal(M.stockProblem({...invoice.items[0],factor_to_base:15},wire)?.includes('conversión debe ser 1'),true);
