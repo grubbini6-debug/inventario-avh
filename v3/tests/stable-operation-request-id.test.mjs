@@ -5,6 +5,15 @@ import vm from 'node:vm';
 
 const source=fs.readFileSync(new URL('../src/core/api.js',import.meta.url),'utf8');
 
+test('direct service confirmation keeps its root request id after a lost response',async()=>{
+ const bodies=[];let calls=0;
+ const c=context(async(_url,opt)=>{bodies.push(JSON.parse(opt.body));if(++calls===1)throw Error('Lost response');return response(200,'receipt');});
+ const args={p_purchase_id:'purchase',p_items:[{purchase_item_id:'item',quantity:3}],p_effective_date:'2026-10-30',p_notes:'Conforme'};
+ await vm.runInContext('rpc("admin_confirm_direct_purchase",'+JSON.stringify(args)+')',c);
+ await vm.runInContext('rpc("admin_confirm_direct_purchase",'+JSON.stringify(args)+')',c);
+ assert.ok(bodies[0].p_request_id);assert.equal(bodies[0].p_request_id,bodies[1].p_request_id);assert.equal(bodies[0].p_items[0].request_id,undefined);
+});
+
 function storage(){
   const values=new Map();
   return{

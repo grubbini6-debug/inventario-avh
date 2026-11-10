@@ -3,6 +3,7 @@
     "admin_cancel_purchase_balance",
     "admin_close_initial_inventory",
     "admin_confirm_purchase",
+    "admin_confirm_direct_purchase",
     "admin_create_purchase",
     "admin_create_purchase_from_quote",
     "admin_delete_purchase",

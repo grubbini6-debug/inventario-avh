@@ -31,6 +31,78 @@
     if(r.error)throw Error(r.error);return{path,documentId:r.data||null};
   }
 
+  const directPurchase=p=>p&&['service','direct','barge','other'].includes(p.destination_type)&&!p.warehouse_id;
+  const servicePurchase=p=>p.destination_type==='service'||['service','rental','freight'].includes(p.purchase_type);
+  const localToday=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Asuncion',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const pendingItems=id=>purchaseItems(id).filter(x=>Number(x.quantity)>Number(x.received_qty||0)+Number(x.cancelled_qty||0));
+
+  function directConfirmationHtml(p){
+    if(profile?.role!=='admin'||!directPurchase(p))return '';
+    const pending=pendingItems(p.id),receipts=purchaseReceipts(p.id).filter(r=>r.confirmation_type==='direct');
+    const eligible=pending.length&&['ordered','in_transit','partially_received'].includes(p.status)&&!purchaseItems(p.id).some(x=>x.affects_inventory);
+    return `<div class="card" id="directPurchaseConfirmation"><div class="section-head" style="margin-top:0"><div><h2>${servicePurchase(p)?'Conformidad del servicio':'Recepción directa por Compras'}</h2><p>${pending.length?`${pending.length} partida(s) pendientes de confirmar`:'Todas las cantidades están confirmadas o tienen el saldo cerrado'}</p></div></div>
+      <p>${servicePurchase(p)?'Registrá lo que el proveedor realizó y la fecha del trabajo.':'Registrá las cantidades que recibiste directamente y la fecha de entrega.'} La confirmación queda a nombre de quien la carga.</p>
+      ${eligible?`<button class="btn primary" id="confirmDirectPurchase">${servicePurchase(p)?'Confirmar servicio realizado':'Confirmar recepción directa'}</button>`:pending.length?'<div class="notice">La compra debe estar confirmada al proveedor y sus partidas deben corresponder a una entrega directa.</div>':''}
+      ${receipts.map(r=>{const actor=(D.profiles||[]).find(x=>x.id===r.received_by),who=actor?.full_name||actor?.username||'Compras';return `<div class="row"><div class="line"><div class="grow"><div class="title">${dateOnly(r.effective_date)} · ${safe(who)}</div><div class="subtext">Registrado ${safe(dtLocal(r.received_at))} · ${safe(r.notes||'')}</div></div><button class="btn sm soft" data-direct-docs="${safe(r.id)}">Adjuntar factura/remito</button></div></div>`}).join('')}
+    </div>`;
+  }
+
+  function openDirectConfirmation(id){
+    const p=(D.purchases||[]).find(x=>x.id===id);
+    if(profile?.role!=='admin'||!directPurchase(p))return;
+    const items=pendingItems(id),service=servicePurchase(p);
+    if(!items.length||!['ordered','in_transit','partially_received'].includes(p.status)||purchaseItems(id).some(x=>x.affects_inventory))return;
+    openModal(service?'Confirmar servicio realizado':'Confirmar recepción directa',`${p.po_number||'Compra'} · ${p.supplier_name||'Proveedor'}`,`
+      <div class="notice">${service?'Confirmá solamente las cantidades que el proveedor ya realizó.':'Confirmá solamente las cantidades que recibiste vos.'} Podés registrar una parte y completar el resto después.</div>
+      <div class="field"><label>Fecha de ${service?'realización':'recepción'} *</label><input id="directDate" type="date" max="${localToday()}" value="${localToday()}"></div>
+      <div class="list">${items.map(x=>{const pending=Number(x.quantity)-Number(x.received_qty||0)-Number(x.cancelled_qty||0);return `<div class="row"><div class="receive-grid"><div><div class="title">${safe(x.description)}</div><div class="subtext">Pendiente: ${fmt(pending)} ${safe(x.unit)}</div></div><div class="field" style="margin:0"><label>${service?'Realizado ahora':'Recibido ahora'}</label><input type="number" step="0.000001" min="0" max="${pending}" data-direct-qty="${safe(x.id)}" value=""></div></div></div>`}).join('')}</div>
+      <div class="field"><label>Detalle de la conformidad *</label><textarea id="directNotes" maxlength="4000" placeholder="Lugar, trabajo realizado, entrega recibida y observaciones…"></textarea></div>
+      <div class="receive-doc-grid"><div class="receive-doc-box"><h3>Factura (opcional)</h3><div class="field"><label>Nº factura</label><input id="directInvoiceNo"></div><div class="field"><label>Fecha factura</label><input id="directInvoiceDate" type="date"></div><div class="field"><label>PDF o foto</label><input id="directInvoiceFile" type="file" accept="application/pdf,image/*"></div></div>
+      <div class="receive-doc-box"><h3>Remito / parte de servicio (opcional)</h3><div class="field"><label>Nº documento</label><input id="directRemitNo"></div><div class="field"><label>Fecha documento</label><input id="directRemitDate" type="date"></div><div class="field"><label>PDF o foto</label><input id="directRemitFile" type="file" accept="application/pdf,image/*"></div></div></div>
+      <div class="hint">Podés adjuntar los documentos después desde esta misma compra.</div><button class="btn primary" id="directSave" style="margin-top:12px;width:100%">Guardar conformidad</button><div id="directMsg"></div>`);
+    let busy=false,snapshot=null,receiptId=null;
+    const controls=()=>[...$('#modalBody').querySelectorAll('input,textarea')];
+    $('#directSave').onclick=async()=>{
+      if(busy)return;
+      const button=$('#directSave'),message=$('#directMsg');
+      if(!snapshot){
+        const lines=[];let invalid=false;
+        $$('[data-direct-qty]').forEach(input=>{const quantity=Number(input.value||0);if(!Number.isFinite(quantity)||quantity<0||quantity>Number(input.max)||Math.abs(quantity*1e6-Math.round(quantity*1e6))>0.001)invalid=true;else if(quantity>0)lines.push({purchase_item_id:input.dataset.directQty,quantity})});
+        if(invalid)return msg(message,'Revisá las cantidades; no pueden superar lo pendiente y admiten hasta seis decimales.');
+        if(!lines.length)return msg(message,'Indicá al menos una cantidad realizada o recibida.');
+        const date=$('#directDate').value,notes=$('#directNotes').value.trim();
+        if(!date||date>localToday())return msg(message,'Indicá la fecha real; no puede ser futura.');
+        if(!notes)return msg(message,'Describí el trabajo o la entrega que estás confirmando.');
+        snapshot={args:{p_purchase_id:id,p_items:lines,p_effective_date:date,p_notes:notes},docs:[
+          {kind:'invoice',file:$('#directInvoiceFile').files?.[0],number:$('#directInvoiceNo').value,date:$('#directInvoiceDate').value},
+          {kind:'remittance',file:$('#directRemitFile').files?.[0],number:$('#directRemitNo').value,date:$('#directRemitDate').value}]};
+      }
+      busy=true;button.disabled=true;button.textContent='Guardando…';controls().forEach(input=>input.disabled=true);
+      try{
+        if(!receiptId){
+          const r=await rpc('admin_confirm_direct_purchase',snapshot.args);
+          if(r.error){
+            const uncertain=r.network||[408,429].includes(r.status)||Number(r.status)>=500;
+            if(!uncertain){snapshot=null;controls().forEach(input=>input.disabled=false);}
+            return msg(message,r.error+(uncertain?' Volvé a intentar con estos mismos datos; la confirmación no se duplicará.':''));
+          }
+          receiptId=r.data;if(!receiptId)throw Error('No se pudo comprobar el identificador. Volvé a intentar con los mismos datos.');
+        }
+        const errors=[];
+        for(const doc of snapshot.docs){
+          if(!doc.file||doc.saved)continue;
+          try{
+            const saved=await registerReceiptFile(receiptId,doc.kind,doc.file,id,doc.number,doc.date);doc.saved=true;
+            if(doc.kind==='invoice'&&saved?.documentId&&window.AVHPurchaseControl?.analyzeInvoice)try{await window.AVHPurchaseControl.analyzeInvoice(id,saved.documentId,{reload:false})}catch{errors.push('La factura quedó guardada; su análisis está pendiente.');}
+          }catch(e){errors.push((doc.kind==='invoice'?'Factura: ':'Remito: ')+(e.message||e));}
+        }
+        try{await loadAll(true)}catch{errors.push('Actualizá la pantalla para ver la conformidad registrada.');}
+        closeModal();await window.openPurchaseDetail(id);
+        if(errors.length)alert('La conformidad quedó guardada. Podés completar los documentos desde la compra. '+errors.join(' '));
+      }catch(e){msg(message,e.message||String(e))}finally{busy=false;button.disabled=false;button.textContent=receiptId?'Volver a la compra':'Guardar conformidad';}
+    };
+  }
+
   function receiptPurchaseCard(p){
     const pending=purchaseItems(p.id).filter(x=>Number(x.received_qty||0)+Number(x.cancelled_qty||0)<Number(x.quantity||0));
     return `<div class="row clickable purchase-row ${p.urgency||''}" data-life-receive="${p.id}"><div class="line"><div class="grow"><div class="title">${safe(p.supplier_name||'Proveedor sin definir')}</div><div class="subtext">${safe(p.company_name||'')} · ${safe(p.po_number||'Sin OC')} · ${safe(whNameLocal(p.warehouse_id))}</div><div class="metric-pills"><span>${pending.length} ítem${pending.length===1?'':'s'} pendientes</span>${p.expected_date?`<span>Entrega ${dateOnly(p.expected_date)}</span>`:''}</div></div><span class="badge amber">${safe(statusText(p.status))}</span></div></div>`;
@@ -65,10 +137,12 @@
   }
 
   function openAttachReceiptDocs(purchaseId,receiptId){
-    const p=(D.purchases||[]).find(x=>x.id===purchaseId&&x.destination_type==='warehouse'&&(x.warehouse_id===profile.warehouse_id||(x.delivery_warehouse_ids||[]).includes(profile.warehouse_id))),receipts=purchaseReceipts(purchaseId).filter(r=>!r.warehouse_id||r.warehouse_id===profile.warehouse_id),receipt=receiptId?receipts.find(r=>r.id===receiptId):receipts[0];if(!p||!receipt)return alert('No encontré una recepción activa de tu depósito para esta compra.');
+    const admin=profile?.role==='admin';
+    if(!admin&&profile?.role!=='depositor')return;
+    const p=(D.purchases||[]).find(x=>x.id===purchaseId&&(admin||(x.destination_type==='warehouse'&&(x.warehouse_id===profile.warehouse_id||(x.delivery_warehouse_ids||[]).includes(profile.warehouse_id))))),receipts=purchaseReceipts(purchaseId).filter(r=>admin||r.warehouse_id===profile.warehouse_id||(!r.warehouse_id&&r.confirmation_type!=='direct')),receipt=receiptId?receipts.find(r=>r.id===receiptId):receipts[0];if(!p||!receipt)return alert('No encontré una recepción activa para esta compra.');
     const docs=purchaseDocs(purchaseId).filter(d=>d.receipt_id===receipt.id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)),invoice=docs.find(d=>d.kind==='invoice'),remit=docs.find(d=>d.kind==='remittance');
-    openModal('Completar documentos',`${p.po_number||'Compra'} · ${p.supplier_name||'Proveedor'}`,`<div class="notice">La mercadería ya fue recibida. Acá podés completar factura o remito sin volver a tocar el stock. <b>Recepción:</b> ${safe(dtLocal(receipt.received_at))}. Completá la fecha que figura en cada documento. Si llegó solo un remito, cargalo en Remito; la factura puede quedar pendiente.</div><div class="receive-doc-grid"><div class="receive-doc-box"><h3>🧾 Factura</h3><div class="field"><label>Nº factura</label><input id="lateInvoiceNo" value="${safe(invoice?.document_number||'')}"></div><div class="field"><label>Fecha</label><input id="lateInvoiceDate" type="date" value="${safe(invoice?.document_date||'')}"></div><div class="field"><label>Archivo</label><input id="lateInvoiceFile" type="file" accept="application/pdf,image/*" capture="environment"></div></div><div class="receive-doc-box"><h3>📄 Remito</h3><div class="field"><label>Nº remito</label><input id="lateRemitNo" value="${safe(remit?.document_number||'')}"></div><div class="field"><label>Fecha</label><input id="lateRemitDate" type="date" value="${safe(remit?.document_date||'')}"></div><div class="field"><label>Archivo</label><input id="lateRemitFile" type="file" accept="application/pdf,image/*" capture="environment"></div></div></div><button id="lateSaveDocs" class="btn primary" style="width:100%">Guardar documentos</button><div id="lateDocsMsg"></div>`);
-    $('#lateSaveDocs').onclick=async()=>{const inv=$('#lateInvoiceFile').files?.[0],rem=$('#lateRemitFile').files?.[0];if(!inv&&!rem)return msg($('#lateDocsMsg'),'Elegí al menos un archivo.');const b=$('#lateSaveDocs');b.disabled=true;try{if(inv){const saved=await registerReceiptFile(receipt.id,'invoice',inv,purchaseId,$('#lateInvoiceNo').value,$('#lateInvoiceDate').value);if(saved?.documentId&&window.AVHPurchaseControl?.analyzeInvoice)try{await window.AVHPurchaseControl.analyzeInvoice(purchaseId,saved.documentId,{reload:false})}catch(e){console.warn('Análisis de factura pendiente',e)}}if(rem)await registerReceiptFile(receipt.id,'remittance',rem,purchaseId,$('#lateRemitNo').value,$('#lateRemitDate').value);await loadAll(true);closeModal();activeModule='purchase-receipts';renderPurchaseReceipts()}catch(e){msg($('#lateDocsMsg'),e.message||String(e))}finally{b.disabled=false}};
+    openModal('Completar documentos',`${p.po_number||'Compra'} · ${p.supplier_name||'Proveedor'}`,`<div class="notice">La recepción o conformidad ya está registrada. Acá podés completar factura o remito sin volver a confirmar cantidades. <b>Recepción:</b> ${safe(dtLocal(receipt.received_at))}. Completá la fecha que figura en cada documento. Si llegó solo un remito, cargalo en Remito; la factura puede quedar pendiente.</div><div class="receive-doc-grid"><div class="receive-doc-box"><h3>🧾 Factura</h3><div class="field"><label>Nº factura</label><input id="lateInvoiceNo" value="${safe(invoice?.document_number||'')}"></div><div class="field"><label>Fecha</label><input id="lateInvoiceDate" type="date" value="${safe(invoice?.document_date||'')}"></div><div class="field"><label>Archivo</label><input id="lateInvoiceFile" type="file" accept="application/pdf,image/*" capture="environment"></div></div><div class="receive-doc-box"><h3>📄 Remito</h3><div class="field"><label>Nº remito</label><input id="lateRemitNo" value="${safe(remit?.document_number||'')}"></div><div class="field"><label>Fecha</label><input id="lateRemitDate" type="date" value="${safe(remit?.document_date||'')}"></div><div class="field"><label>Archivo</label><input id="lateRemitFile" type="file" accept="application/pdf,image/*" capture="environment"></div></div></div><button id="lateSaveDocs" class="btn primary" style="width:100%">Guardar documentos</button><div id="lateDocsMsg"></div>`);
+    $('#lateSaveDocs').onclick=async()=>{const inv=$('#lateInvoiceFile').files?.[0],rem=$('#lateRemitFile').files?.[0];if(!inv&&!rem)return msg($('#lateDocsMsg'),'Elegí al menos un archivo.');const b=$('#lateSaveDocs');b.disabled=true;try{if(inv){const saved=await registerReceiptFile(receipt.id,'invoice',inv,purchaseId,$('#lateInvoiceNo').value,$('#lateInvoiceDate').value);if(saved?.documentId&&window.AVHPurchaseControl?.analyzeInvoice)try{await window.AVHPurchaseControl.analyzeInvoice(purchaseId,saved.documentId,{reload:false})}catch(e){console.warn('Análisis de factura pendiente',e)}}if(rem)await registerReceiptFile(receipt.id,'remittance',rem,purchaseId,$('#lateRemitNo').value,$('#lateRemitDate').value);await loadAll(true);closeModal();if(admin)await window.openPurchaseDetail(purchaseId);else{activeModule='purchase-receipts';renderPurchaseReceipts()}}catch(e){msg($('#lateDocsMsg'),e.message||String(e))}finally{b.disabled=false}};
   }
 
   window.renderPurchaseReceipts=function(){
@@ -96,5 +170,7 @@
   window.openPurchaseDetail=async function(id){
     await oldDetail?.apply(this,arguments);const p=(D.purchases||[]).find(x=>x.id===id),body=$('#purchaseRecordEnhancements')||$('#modalBody');if(!p||!body)return;
     const wrap=document.createElement('div');wrap.innerHTML=lifecycleHtml(p);body.prepend(wrap.firstElementChild);$$('[data-life-open]').forEach(b=>b.onclick=()=>openPurchaseDocument(b.dataset.lifeOpen));
+    const html=directConfirmationHtml(p);
+    if(html){body.insertAdjacentHTML('afterbegin',html);$('#confirmDirectPurchase')?.addEventListener('click',()=>openDirectConfirmation(id));$$('[data-direct-docs]').forEach(button=>button.onclick=()=>openAttachReceiptDocs(id,button.dataset.directDocs));}
   };
 })();

@@ -140,7 +140,7 @@
 
 
 /* Purchase record — dedicated enterprise-style purchase workspace */
-.purchase-record{display:grid;gap:14px;padding-bottom:18px}
+.purchase-record{display:grid;grid-template-columns:minmax(0,1fr);min-width:0;gap:14px;padding-bottom:18px}
 .purchase-breadcrumb{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:11px;margin-top:2px}
 .purchase-back{border:0;background:transparent;padding:4px 0;color:var(--green);font-weight:850}
 .purchase-record-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)}
@@ -159,7 +159,7 @@
 .purchase-record-tabs button.on{color:var(--green);border-bottom-color:var(--green)}
 .purchase-record-tabs button span{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#edf3ef;font-size:9px;margin-left:3px}
 .purchase-record-tabs button.on span{background:var(--green3)}
-.purchase-record-panel{display:none}
+.purchase-record-panel{display:none;min-width:0}
 .purchase-record-panel.on{display:block}
 .purchase-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .purchase-receipt-overview{margin-top:10px}
@@ -171,7 +171,7 @@
 .purchase-timeline-row{display:grid;grid-template-columns:18px 1fr;gap:10px;position:relative;padding:0 0 18px}
 .purchase-timeline-row:not(:last-child):before{content:"";position:absolute;left:5px;top:10px;bottom:0;width:2px;background:#e1e9e4}
 .purchase-timeline-mark{width:12px;height:12px;border-radius:50%;background:var(--green);border:3px solid #dff0e6;z-index:1;margin-top:2px}
-#purchaseRecordEnhancements{display:grid;gap:10px;margin-bottom:10px}
+#purchaseRecordEnhancements{display:grid;grid-template-columns:minmax(0,1fr);min-width:0;gap:10px;margin-bottom:10px}
 @media(min-width:900px){
   .purchase-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
 }

@@ -124,6 +124,15 @@ jobs:
           test -n "$AVH_CHROME_BIN"
           npm run test:browser:gases
 
+      - name: Guardar revisión de compras y conformidades
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avh-purchases-qa
+          path: /tmp/avh-purchases-qa
+          retention-days: 7
+          if-no-files-found: ignore
+
       - name: Probar destinos por módulo y costos FIFO en celular y administración
         working-directory: v3
         shell: bash
