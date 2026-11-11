@@ -103,6 +103,12 @@
         step('Describí la necesidad','Elegí un material o escribí su nombre. Indicá cantidad, unidad, urgencia, motivo y una observación que explique para qué se necesita.'),
         step('Seguí la solicitud','Cada envío queda registrado para que Compras revise la necesidad y actualice su estado. Consultá el seguimiento disponible en tu cuenta o pedí a Compras la respuesta.')
       ],'La solicitud informa una necesidad. El stock aumenta cuando se registra la recepción del material.','home'),
+      topic('my-movements','Depósito','Revisar mis movimientos','Comprobar tus entradas, salidas, transferencias y devoluciones.',[
+        step('Abrí Movimientos','Usá Movimientos en el menú o Ver todos mis movimientos en Inicio. El historial incluye tus registros anteriores del depósito asignado, también los anulados.'),
+        step('Buscá el registro','Filtrá por tipo, barcaza o fechas. Buscá por número, material, persona o destino.'),
+        step('Revisá el detalle','Abrí un movimiento para comprobar fecha, estado, cantidades, unidades, equivalencias, destino y observaciones.'),
+        step('Si encontrás un error','Usá Editar carga cuando esté disponible o Solicitar corrección para que Administración revise el registro.')
+      ],'Cada cuenta de depósito consulta aquí los movimientos que ella misma registró en su depósito asignado.','moves'),
       topic('correction','Depósito','Editar una carga de inventario','Corregir tus productos, cantidades, unidades y equivalencias.',[
         step('Encontrá el registro','En Inicio consultá Mis últimos movimientos y ubicá el movimiento que cargaste.'),
         step('Editá tu carga','Usá Editar carga en Inicio o en el último conteo guardado. Desde Inventario → Editar mis cargas también podés buscar registros anteriores. Solo editás lo que vos ingresaste en tu depósito.'),
@@ -226,7 +232,7 @@
     if(!eligible())return;
     const a=access();
     if(a.production)return goPage(['production-inventory','commercial'].includes(action)?action:'work-orders');
-    if(['home','stock','gases'].includes(action))return goPage(action);
+    if(['home','stock','moves','gases'].includes(action))return goPage(action);
     if(action==='purchases'&&a.admin){goPage('purchases');return window.renderPurchases?.()}
     if(action==='alerts'&&a.admin){goPage('more');return renderModule('alerts')}
     const adminTabs={'admin-users':'users','admin-products':'products','admin-opening':'opening',suppliers:'suppliers'};

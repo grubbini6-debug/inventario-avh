@@ -77,8 +77,8 @@
   }
 
   function recentHtml(){
-    const rows=ownMoves().filter(m=>m.type!=='correction').slice(0,8);
-    return rows.map(m=>`<div class="dep-history-row"><div class="line"><div class="grow"><div class="title">${safe((typeof TYPE_LABEL!=='undefined'&&TYPE_LABEL[m.type])||m.type)} #${m.movement_no}</div><div class="subtext">${(m.movement_lines||[]).map(l=>`${fmt(l.quantity)} ${safe(l.presentation_label||l.unit)} ${safe(l.products?.name||'')}`).join(' · ')||'Sin detalle'}<br>${dt(m.created_at)}</div></div><span class="badge">${safe(m.status||'')}</span></div>${m.created_by===profile.id&&m.status!=='cancelled'?`<div class="dep-history-actions">${window.AVHInventoryEditor?.canEdit(m)?`<button type="button" class="btn sm primary" data-dep-edit-load="${m.id}">Editar carga</button>`:''}<button class="btn sm soft" data-dep-correct="${m.id}">Solicitar corrección</button></div>`:''}</div>`).join('')||'<div class="empty">Todavía no hay movimientos.</div>';
+    const rows=ownMoves().filter(m=>m.created_by===profile.id&&m.type!=='correction').slice(0,8);
+    return rows.map(m=>`<div class="dep-history-row"><div class="line"><div class="grow"><div class="title">${safe((typeof TYPE_LABEL!=='undefined'&&TYPE_LABEL[m.type])||m.type)} #${m.movement_no}</div><div class="subtext">${(m.movement_lines||[]).map(l=>`${fmt(l.quantity)} ${safe(l.presentation_label||l.unit)} ${safe(l.products?.name||'')}`).join(' · ')||'Sin detalle'}<br>${dt(m.created_at)}</div></div><span class="badge">${safe(m.status||'')}</span></div><div class="dep-history-actions"><button type="button" class="btn sm soft" data-dep-movement-detail="${m.id}">Ver detalle</button></div>${m.created_by===profile.id&&m.status!=='cancelled'?`<div class="dep-history-actions">${window.AVHInventoryEditor?.canEdit(m)?`<button type="button" class="btn sm primary" data-dep-edit-load="${m.id}">Editar carga</button>`:''}<button class="btn sm soft" data-dep-correct="${m.id}">Solicitar corrección</button></div>`:''}</div>`).join('')||'<div class="empty">Todavía no hay movimientos.</div>';
   }
 
   function bind(){
@@ -95,13 +95,15 @@
     $$('[data-dep-correct]').forEach(b=>b.onclick=()=>requestCorrection(b.dataset.depCorrect));
     $$('[data-dep-edit-load]').forEach(b=>b.onclick=()=>window.AVHInventoryEditor.open(b.dataset.depEditLoad));
     $('#depEditLoadsList')?.addEventListener('click',()=>window.AVHInventoryEditor.list());
+    $('#depMovementHistory')?.addEventListener('click',()=>goPage('moves'));
+    $$('[data-dep-movement-detail]').forEach(b=>b.onclick=()=>openMovementDetail(b.dataset.depMovementDetail));
   }
 
   function decorate(){
     if(!isDep())return;const home=$('#page-home .dep-home');if(!home||$('#depCompleteOps'))return;
     const actions=home.querySelector('.dep-actions');if(actions)actions.insertAdjacentHTML('afterend',`<section id="depCompleteOps" class="dep-complete-section"><div class="dep-complete-head"><div><h2>Más opciones</h2><p>Acciones menos frecuentes del depósito.</p></div></div><div class="dep-ops-grid"><button id="depManualEntry" class="dep-op"><span class="ico">➕</span><b>Entrada manual</b><small>Ingreso que no viene de una OC.</small></button><button id="depSupplyRequest" class="dep-op request"><span class="ico">📝</span><b>Solicitar material</b><small>Pedí reposición o algo nuevo a administración.</small></button></div></section>`);
     const kpis=home.querySelector('.dep-today,.dep-kpis')||actions;if(kpis)kpis.insertAdjacentHTML('afterend',`<section id="depAttention" class="dep-complete-section"><div class="dep-complete-head"><div><h2>Atención requerida</h2><p>Transferencias, faltantes, solicitudes y documentos.</p></div></div><div class="dep-attention">${attentionHtml()}</div></section>`);
-    const heads=[...home.querySelectorAll('.section-head')],activity=heads.find(h=>h.querySelector('h2')?.textContent.trim()==='Actividad de hoy');if(activity){const oldList=activity.nextElementSibling;activity.style.display='none';if(oldList)oldList.style.display='none';activity.insertAdjacentHTML('afterend',`<section id="depRecentManaged" class="dep-complete-section"><div class="dep-complete-head"><div><h2>Mis últimos movimientos</h2><p>Revisá y editá lo que ingresaste en tu depósito.</p></div><button type="button" class="btn sm soft" id="depEditLoadsList">Ver todas mis cargas</button></div><div class="dep-attention">${recentHtml()}</div></section>`)}
+    const heads=[...home.querySelectorAll('.section-head')],activity=heads.find(h=>h.querySelector('h2')?.textContent.trim()==='Actividad de hoy');if(activity){const oldList=activity.nextElementSibling;activity.style.display='none';if(oldList)oldList.style.display='none';activity.insertAdjacentHTML('afterend',`<section id="depRecentManaged" class="dep-complete-section"><div class="dep-complete-head"><div><h2>Mis últimos movimientos</h2><p>Revisá las operaciones que registraste en tu depósito.</p></div><div class="split-actions"><button type="button" class="btn sm primary" id="depMovementHistory">Ver todos mis movimientos</button><button type="button" class="btn sm soft" id="depEditLoadsList">Editar mis cargas</button></div></div><div class="dep-attention">${recentHtml()}</div></section>`)}
     bind();
   }
 
