@@ -121,7 +121,7 @@ try{
  ocrDocument={...ocrDocument,document_number:'001-001-0000323',total:10000,items:[{description:materialItem.description,quantity:10,unit:'kg',confidence:.99}]};
  const physical=await open('admin',{width:390,height:844}),ph=physical.page;
  await ph.locator('.nav [data-page="purchases"]').click();await ph.locator(`[data-purchase-receive="${material.id}"]`).click();
- await ph.locator('#raiFile').setInputFiles({name:'Factura_materiales.png',mimeType:'image/png',buffer:read('src/assets/logo-avh.png')});await ph.waitForFunction(()=>document.querySelector('#raiNumber')?.value==='001-001-0000323');
+ await ph.locator('#raiFile').setInputFiles({name:'Factura_materiales.png',mimeType:'image/png',buffer:fs.readFileSync(path.join(root,'src/assets/logo-avh.png'))});await ph.waitForFunction(()=>document.querySelector('#raiNumber')?.value==='001-001-0000323');
  assert.equal(await ph.locator('[data-rai-quantity]').inputValue(),'10');await ph.locator('[data-rai-quantity]').fill('4');
  assert.ok(await ph.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1));await ph.screenshot({path:path.join(out,'recibir-materiales-mobile.png'),fullPage:true});
  await ph.locator('#raiSave').click();await ph.waitForSelector('#raiDone');
