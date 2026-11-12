@@ -106,7 +106,7 @@ test('Cargar factura and document-only mode attach to an existing receipt withou
     const h=ui({received}),{w}=h;try{
       w.D.purchaseReceipts=[{id:'previous',purchase_id:'p',effective_date:'2026-10-30'}];
       assert.equal(w.AVHPurchaseReceiving.action(h.p),received===6?'Cargar factura':'Recibir');
-      await w.AVHPurchaseReceiving.open('p');await h.file();w.$('#raiOperation').value='document';w.$('#raiOperation').onchange?.();await w.$('#raiSave').onclick();
+      await w.AVHPurchaseReceiving.open('p');await h.file();if(received===6)assert.doesNotMatch(w.$('#raiAnalysis').textContent,/no se pudieron vincular/);w.$('#raiOperation').value='document';w.$('#raiOperation').onchange?.();await w.$('#raiSave').onclick();
       assert.equal(h.calls.some(x=>x.name==='receive_purchase'||x.name==='admin_confirm_direct_purchase'),false);
       assert.equal(h.calls.find(x=>x.name==='register_purchase_receipt_document').args.p_receipt_id,'previous');
     }finally{h.close()}

@@ -49,6 +49,7 @@
     if(!digits(supplier.tax_id)&&supplier.name&&doc.supplier_name&&norm(supplier.name)!==norm(doc.supplier_name))warnings.push('El nombre del proveedor leído es diferente. Revisá que sea la factura de esta compra.');
     if(doc.currency&&p.currency&&doc.currency!==p.currency)warnings.push(`La factura está en ${doc.currency} y la compra en ${p.currency}. Revisá los importes.`);
     if(doc.complete===false||Number(doc.confidence||0)<.85)warnings.push('La lectura tiene dudas. Completá las cantidades mirando el original.');
+    if(!rows.length)return{warnings:[...new Set(warnings)],matched};
     let unmatched=0;
     for(const ext of Array.isArray(doc.items)?doc.items:[]){
       const candidates=rows.map(po=>({po,score:score(po,ext)})).filter(x=>x.score>=.7).sort((a,b)=>b.score-a.score);
@@ -196,6 +197,6 @@
       finally{if(current(s)&&$('#raiSave')){s.busy=false;button.disabled=false;button.textContent=s.receiptId?'Reintentar guardar documento':'Reintentar confirmación';}}
     };
   }
-  const style=document.createElement('style');style.textContent='.purchase-row-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.rai-upload{padding:16px;border:2px dashed #bfd6c7;border-radius:14px;margin:12px 0}.rai-preview{display:block;max-width:100%;max-height:280px;object-fit:contain;margin-top:10px;border-radius:8px}.rai-summary{padding:12px;background:#edf7f0;border-radius:12px;margin:10px 0}#purchaseReceiptAI [hidden]{display:none!important}';document.head.appendChild(style);
+  const style=document.createElement('style');style.textContent='.purchase-row-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.rai-upload{padding:16px;border:2px dashed #bfd6c7;border-radius:14px;margin:12px 0}.rai-preview{display:block;max-width:100%;max-height:280px;object-fit:contain;margin-top:10px;border-radius:8px}.rai-summary{padding:12px;background:#edf7f0;border-radius:12px;margin:10px 0}#purchaseReceiptAI [hidden]{display:none!important}@media(max-width:700px){#purchaseList .purchase-row>.line{flex-wrap:wrap}#purchaseList .purchase-row>.line>.grow{flex-basis:100%}#purchaseList .purchase-row-state{flex:1 1 100%;grid-template-columns:1fr auto;align-items:center;justify-items:start!important;text-align:left!important}#purchaseList .purchase-row-state .purchase-money{justify-self:end}#purchaseList .purchase-row-actions{grid-column:1/-1;justify-content:flex-start}}';document.head.appendChild(style);
   window.AVHPurchaseReceiving={action,open};
 })();
