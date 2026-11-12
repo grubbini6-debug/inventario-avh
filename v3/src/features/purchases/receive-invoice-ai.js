@@ -56,7 +56,7 @@
       const po=candidates[0].po,group=matched.get(po.id)||{quantity:0,valid:true,read:[]};
       const quantity=quantityInPurchaseUnit(po,ext);
       group.read.push(`${ext.quantity??'—'} ${ext.unit||''} ${ext.description||''}`);
-      if(identityIssue||doc.complete===false||Number(doc.confidence||0)<.85||Number(ext.confidence||0)<.9||quantity===null)group.valid=false;
+      if(identityIssue||!['invoice','receipt'].includes(doc.document_type)||doc.complete===false||Number(doc.confidence||0)<.85||Number(ext.confidence||0)<.9||quantity===null)group.valid=false;
       else group.quantity+=quantity;
       matched.set(po.id,group);
     }

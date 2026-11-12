@@ -53,10 +53,11 @@ test('warehouse receipts use the selected authorized warehouse and catalog packa
 });
 
 test('uncertain, ambiguous, excessive or incompatible OCR never silently fills a received quantity',async t=>{
-  for(const kind of ['confidence','ambiguous','excess','supplier','buyer','unit','identity'])await t.test(kind,async()=>{
+  for(const kind of ['confidence','ambiguous','excess','supplier','buyer','unit','identity','document_type'])await t.test(kind,async()=>{
     const h=ui(),{w}=h;try{
       const d=structuredClone(h.doc);
       if(kind==='confidence')d.items[0].confidence=.6;
+      if(kind==='document_type')d.document_type='quote';
       if(kind==='ambiguous')w.D.purchaseItems.push({...h.item,id:'item2'});
       if(kind==='excess'){h.item.received_qty=4;d.items[0].quantity=6;}
       if(kind==='supplier')d.supplier_tax_id='999-9';
