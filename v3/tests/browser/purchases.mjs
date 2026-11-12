@@ -14,12 +14,12 @@ import {printedText} from '../fixtures/pdf-text.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..'),out=process.env.AVH_QA_OUTPUT||'/tmp/avh-purchases-browser-qa';
 const db=await database(),q=(sql,args=[])=>db.query(sql,args),read=p=>fs.readFileSync(path.join(root,p),'utf8');
 const ids=Object.fromEntries(['admin','production','depositor','company','supplier','warehouse'].map(k=>[k,randomUUID()]));
-const errors=[],requests=[],files=new Map();let server,browser,queue=Promise.resolve(),mode='service';
+const errors=[],requests=[],files=new Map();let server,browser,queue=Promise.resolve(),mode='service',ocrDocument=null,loseInvoiceReceipt=false;
 async function login(user){await db.exec('reset role');await q("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:ids[user],role:'authenticated'})]);await db.exec('set role authenticated');}
 function as(user,fn){const job=queue.then(async()=>{await login(user);return fn();});queue=job.catch(()=>{});return job;}
 function owner(sql,args=[]){return as('admin',async()=>{await db.exec('reset role');return q(sql,args);});}
 async function rpc(user,name,args){return as(user,async()=>{
- const definitions={admin_create_purchase_from_quote:['p_data','p_items'],admin_purchase_order_document:['p_purchase_id'],admin_confirm_purchase:['p_purchase_id'],admin_confirm_direct_purchase:['p_purchase_id','p_items','p_effective_date','p_notes','p_request_id'],register_purchase_receipt_document:['p_receipt_id','p_kind','p_file_path','p_file_name','p_document_number','p_document_date'],commercial_context:[]},keys=definitions[name];
+ const definitions={admin_create_purchase_from_quote:['p_data','p_items'],admin_purchase_order_document:['p_purchase_id'],admin_confirm_purchase:['p_purchase_id'],admin_confirm_direct_purchase:['p_purchase_id','p_items','p_effective_date','p_notes','p_request_id'],receive_purchase:['p_purchase_id','p_items','p_notes','p_document_number','p_document_date','p_file_path'],register_purchase_receipt_document:['p_receipt_id','p_kind','p_file_path','p_file_name','p_document_number','p_document_date'],commercial_context:[]},keys=definitions[name];
  if(!keys)throw Error('Unexpected RPC '+name);return(await q('select public.'+name+'('+keys.map((_,n)=>'$'+(n+1)).join(',')+') result',keys.map(k=>args[k]))).rows[0].result;
 });}
 const quote=()=>({document_type:'quotation',document_number:mode==='service'?'TALLER-101':mode==='crane'?'GRUA-1002':'MAT-102',date:'2026-10-22',supplier_name:'Proveedor de prueba',supplier_tax_id:'80000000-0',customer_name:'Astillero Villa Hayes S.A.',customer_tax_id:'80000000-1',currency:'PYG',total:mode==='service'?150000:mode==='crane'?900000:10000,payment_terms:'Contado',confidence:.99,validation:{issues:[]},items:[mode==='service'?{description:'Reparación de alimentador',quantity:1,unit:'servicio',unit_price:150000}:mode==='crane'?{product_code:'1002',description:'Servicios de Grúa. 6 hs mínimas.',quantity:6,unit:'hs',unit_price:150000}:{description:'Chapa de prueba',quantity:10,unit:'kg',unit_price:1000}]});
@@ -42,9 +42,14 @@ try{
    const req=route.request(),url=new URL(req.url()),table=url.pathname.split('/').at(-1),headers={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*','Access-Control-Allow-Methods':'GET,POST,PATCH,OPTIONS'};requests.push(url.pathname);
    if(req.method()==='OPTIONS')return route.fulfill({headers,body:''});
    try{
-    if(url.pathname.includes('/functions/v1/purchase-document-ai'))return route.fulfill({headers,json:{document:quote(),reviewed:true}});
+    if(url.pathname.includes('/functions/v1/purchase-document-ai'))return route.fulfill({headers,json:{document:ocrDocument||quote(),reviewed:true}});
+    if(url.pathname.includes('/functions/v1/purchase-invoice-control-ai'))return route.fulfill({headers,json:{ok:true}});
     if(url.pathname.includes('/functions/v1/purchase-order-pdf')){const d=await rpc(user,'admin_purchase_order_document',{p_purchase_id:req.postDataJSON().purchase_id}),bytes=await makeCommercialPdf(d,pdfLib);return route.fulfill({headers,json:{filename:d.number+'.pdf',pdf_base64:Buffer.from(bytes).toString('base64')}});}
-    if(['admin_create_purchase_from_quote','admin_purchase_order_document','admin_confirm_purchase','admin_confirm_direct_purchase','register_purchase_receipt_document','commercial_context'].includes(table))return route.fulfill({headers,json:await rpc(user,table,req.postDataJSON())});
+    if(['admin_create_purchase_from_quote','admin_purchase_order_document','admin_confirm_purchase','admin_confirm_direct_purchase','receive_purchase','register_purchase_receipt_document','commercial_context'].includes(table)){
+     const result=await rpc(user,table,req.postDataJSON());
+     if(table==='admin_confirm_direct_purchase'&&loseInvoiceReceipt){loseInvoiceReceipt=false;return route.fulfill({headers,status:503,json:{message:'Respuesta perdida de prueba'}});}
+     return route.fulfill({headers,json:result});
+    }
     if(table==='purchase_documents'&&req.method()==='POST'){const d=req.postDataJSON();await as(user,()=>q('insert into purchase_documents(purchase_id,kind,file_path,file_name,document_number,document_date,analysis_status,analysis_data,uploaded_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9)',[d.purchase_id,d.kind,d.file_path,d.file_name,d.document_number,d.document_date,d.analysis_status,d.analysis_data,d.uploaded_by]));return route.fulfill({headers,json:null});}
     if(url.pathname.includes('/storage/v1/object/purchase-documents/')){const name=url.pathname.split('/purchase-documents/')[1];files.set(name,req.postDataBuffer());return route.fulfill({headers,json:{Key:name}});}
     if(url.pathname.includes('/rpc/'))return route.fulfill({headers,json:table==='fabrication_context'?{workshops:[],active_orders:0,produced_qty:0}:[]});
@@ -52,7 +57,7 @@ try{
     if(['profiles','warehouses','products','product_presentations','suppliers','purchase_companies'].includes(table))rows=(await owner('select * from public.'+table)).rows;
     if(user==='admin'&&table==='v_purchase_overview')rows=(await owner('select p.*,s.name supplier_name,c.name company_name from purchases p left join suppliers s on s.id=p.supplier_id left join purchase_companies c on c.id=p.company_id')).rows;
     if(user==='admin'&&['purchase_items','purchase_receipts','purchase_documents'].includes(table))rows=(await owner('select * from public.'+table)).rows;
-    const id=url.searchParams.get('id');if(id?.startsWith('eq.'))rows=rows.filter(x=>x.id===id.slice(3));const offset=Number(url.searchParams.get('offset')||0),limit=Number(url.searchParams.get('limit')||1000);return route.fulfill({headers,json:rows.slice(offset,offset+limit)});
+    for(const key of ['id','purchase_id','receipt_id','file_path']){const filter=url.searchParams.get(key);if(filter?.startsWith('eq.'))rows=rows.filter(x=>x[key]===filter.slice(3));}const offset=Number(url.searchParams.get('offset')||0),limit=Number(url.searchParams.get('limit')||1000);return route.fulfill({headers,json:rows.slice(offset,offset+limit)});
    }catch(e){return route.fulfill({headers,status:400,json:{message:e.message}});}
   });
   await page.routeWebSocket('**/*supabase.co/**',socket=>socket.onMessage(raw=>{const m=JSON.parse(String(raw));if(m.event==='phx_join')socket.send(JSON.stringify({topic:m.topic,event:'phx_reply',ref:m.ref,payload:{status:'ok'}}));}));
@@ -80,6 +85,52 @@ try{
  await cranePage.locator('#poDownload').click();await cranePage.waitForSelector('#cdPdf');assert.match(await cranePage.locator('#cdTotals').textContent(),/900.000/);const craneDownload=cranePage.waitForEvent('download');await cranePage.locator('#cdPdf').click();await(await craneDownload).saveAs(path.join(out,'oc-grua-6-horas.pdf'));const cranePrinted=printedText(await pdfLib.PDFDocument.load(fs.readFileSync(path.join(out,'oc-grua-6-horas.pdf'))));assert.match(cranePrinted,/Servicios de Grúa/);assert.match(cranePrinted,/hora/i);assert.ok(cranePrinted.includes(cranePurchase.po_number));await cranePage.waitForFunction(()=>!AVHCommercial.state.busy);await craneContext.context.close();
  mode='material';const mobile=await open('admin',{width:390,height:844}),m=mobile.page;await m.locator('.nav [data-page="purchases"]').click();await m.waitForSelector('#newPurchase');await m.locator('#newPurchase').click();await m.locator('#smartFile').setInputFiles({name:'Presupuesto_materiales.pdf',mimeType:'application/pdf',buffer:source});await m.waitForSelector('#smartGenerate');assert.equal(await m.locator('#smartDest').inputValue(),'warehouse');assert.ok(await m.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1));await m.screenshot({path:path.join(out,'compra-habitual-mobile.png'),fullPage:true});await m.locator('#smartGenerate').click();await m.waitForSelector('#poDownload');const material=(await owner("select * from purchases where purchase_type='stock'")).rows[0];assert.equal(material.warehouse_id,ids.warehouse);assert.equal((await owner('select bool_and(affects_inventory) stock from purchase_items where purchase_id=$1',[material.id])).rows[0].stock,true);
  for(const table of ['movements','inventory_batches'])assert.equal((await owner('select count(*)::int n from '+table)).rows[0].n,0,'service confirmations do not create stock');assert.equal((await owner('select count(*)::int n from purchase_receipts where purchase_id=$1',[material.id])).rows[0].n,0,'creating an OC does not register a receipt');await mobile.context.close();
- for(const user of ['production','depositor']){const {page,context}=await open(user,{width:390,height:844});await page.evaluate(()=>AVHSmartPurchase.open());assert.equal(await page.locator('#smartFile').count(),0);await assert.rejects(rpc(user,'admin_create_purchase_from_quote',{p_data:{},p_items:[]}),/Solo el administrador/);await context.close();}
- assert.ok(!requests.some(s=>/repair_|equipment_assets/.test(s)),'no retired module requests');assert.deepEqual(errors,[]);console.log('Compras: presupuesto de servicio sin máquina/serie → OC normal → original adjunto → PDF → confirmación. Compra de materiales y roles intactos; Reparaciones ausente en escritorio y celular.');
+ // The admin receives from the list without entering the long purchase detail.
+ // OCR is mocked; all confirmations, retries and document links execute real SQL.
+ ocrDocument={document_type:'invoice',document_number:'001-001-0000321',date:'2026-10-31',supplier_name:'Proveedor de prueba',supplier_tax_id:'80000000-0',customer_tax_id:'80000000-1',currency:'PYG',total:450000,confidence:.99,complete:true,items:[{description:craneItem.description,quantity:3,unit:'hs',confidence:.99}]};
+ const receiving=await open('admin',{width:1440,height:1000}),r=receiving.page;
+ await r.locator('.nav [data-page="purchases"]').click();
+ assert.equal(await r.locator(`[data-purchase-open="${cranePurchase.id}"]`).locator('..').locator('[data-purchase-receive]').isVisible(),true);
+ await r.locator(`[data-purchase-receive="${cranePurchase.id}"]`).click();
+ await r.locator('#raiFile').setInputFiles({name:'Factura_grua.pdf',mimeType:'application/pdf',buffer:source});
+ await r.waitForFunction(()=>document.querySelector('#raiNumber')?.value==='001-001-0000321');
+ assert.equal(await r.locator('[data-rai-quantity]').inputValue(),'3');
+ assert.equal(Number((await owner('select received_qty from purchase_items where id=$1',[craneItem.id])).rows[0].received_qty),3,'reading an invoice does not confirm work');
+ await r.locator('#raiDate').fill('2026-10-31');await r.screenshot({path:path.join(out,'recibir-factura-desktop.png'),fullPage:true});
+ loseInvoiceReceipt=true;await r.locator('#raiSave').click();await r.waitForFunction(()=>document.querySelector('#raiMessage')?.textContent.includes('no se duplicará'));
+ assert.equal(await r.locator('[data-rai-quantity]').isDisabled(),true);await r.locator('#raiSave').click();await r.waitForSelector('#raiDone');
+ assert.equal((await owner('select count(*)::int n from purchase_receipts where purchase_id=$1',[cranePurchase.id])).rows[0].n,2,'the lost response does not create an additional receipt');
+ assert.equal(Number((await owner('select received_qty from purchase_items where id=$1',[craneItem.id])).rows[0].received_qty),6);
+ assert.equal((await owner("select count(*)::int n from purchase_documents where purchase_id=$1 and kind='invoice' and receipt_id is not null",[cranePurchase.id])).rows[0].n,1);
+ await r.locator('#raiDone').click();assert.equal(await r.locator(`[data-purchase-receive="${cranePurchase.id}"]`).textContent(),'Cargar factura');
+ await receiving.context.close();
+
+ // Late invoice attachment on mobile must never post a new service confirmation.
+ ocrDocument={...ocrDocument,document_number:'001-001-0000322'};
+ const late=await open('admin',{width:390,height:844}),l=late.page;
+ await l.locator('.nav [data-page="purchases"]').click();await l.locator(`[data-purchase-receive="${cranePurchase.id}"]`).click();
+ assert.equal(await l.locator('#raiOperation').inputValue(),'document');assert.equal(await l.locator('#raiReceiveFields').isVisible(),false);
+ await l.locator('#raiFile').setInputFiles({name:'Factura_posterior.pdf',mimeType:'application/pdf',buffer:source});await l.waitForFunction(()=>document.querySelector('#raiNumber')?.value==='001-001-0000322');
+ assert.ok(await l.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1));await l.screenshot({path:path.join(out,'cargar-factura-mobile.png'),fullPage:true});
+ await l.locator('#raiSave').click();await l.waitForSelector('#raiDone');assert.equal((await owner('select count(*)::int n from purchase_receipts where purchase_id=$1',[cranePurchase.id])).rows[0].n,2);
+ await late.context.close();
+
+ // Warehouse receipt keeps stock, document and pending balance tied to the same OC.
+ await rpc('admin','admin_confirm_purchase',{p_purchase_id:material.id});
+ const materialItem=(await owner('select * from purchase_items where purchase_id=$1',[material.id])).rows[0];
+ ocrDocument={...ocrDocument,document_number:'001-001-0000323',total:10000,items:[{description:materialItem.description,quantity:10,unit:'kg',confidence:.99}]};
+ const physical=await open('admin',{width:390,height:844}),ph=physical.page;
+ await ph.locator('.nav [data-page="purchases"]').click();await ph.locator(`[data-purchase-receive="${material.id}"]`).click();
+ await ph.locator('#raiFile').setInputFiles({name:'Factura_materiales.png',mimeType:'image/png',buffer:fs.readFileSync(path.join(root,'src/assets/logo-avh.png'))});await ph.waitForFunction(()=>document.querySelector('#raiNumber')?.value==='001-001-0000323');
+ assert.equal(await ph.locator('[data-rai-quantity]').inputValue(),'10');await ph.locator('[data-rai-quantity]').fill('4');
+ assert.ok(await ph.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1));await ph.screenshot({path:path.join(out,'recibir-materiales-mobile.png'),fullPage:true});
+ await ph.locator('#raiSave').click();await ph.waitForSelector('#raiDone');
+ assert.equal((await owner('select status from purchases where id=$1',[material.id])).rows[0].status,'partially_received');
+ assert.equal(Number((await owner('select received_qty from purchase_items where id=$1',[materialItem.id])).rows[0].received_qty),4);
+ const stock=(await owner('select sum(quantity_remaining)::float qty from inventory_batches where warehouse_id=$1 and product_id=$2',[ids.warehouse,materialItem.product_id])).rows[0];assert.equal(stock.qty,4);
+ const attached=(await owner("select d.document_number,r.warehouse_id,r.received_by from purchase_documents d join purchase_receipts r on r.id=d.receipt_id where d.purchase_id=$1 and d.kind='invoice'",[material.id])).rows[0];
+ assert.equal(attached.document_number,'001-001-0000323');assert.equal(attached.warehouse_id,ids.warehouse);assert.equal(attached.received_by,ids.admin);
+ await physical.context.close();ocrDocument=null;
+ for(const user of ['production','depositor']){const {page,context}=await open(user,{width:390,height:844});await page.evaluate(()=>AVHSmartPurchase.open());assert.equal(await page.locator('#smartFile').count(),0);await page.evaluate(id=>AVHPurchaseReceiving.open(id),cranePurchase.id);assert.equal(await page.locator('#raiFile').count(),0);await assert.rejects(rpc(user,'admin_create_purchase_from_quote',{p_data:{},p_items:[]}),/Solo el administrador/);await context.close();}
+ assert.ok(!requests.some(s=>/repair_|equipment_assets/.test(s)),'no retired module requests');assert.deepEqual(errors,[]);console.log('Compras: OC, servicio y materiales; Recibir junto a Abrir compra, factura con IA, reintento sin duplicados, factura posterior y recepción parcial con stock verificados en escritorio y celular.');
 }catch(e){console.error(e);if(browser)for(const c of browser.contexts())for(const p of c.pages()){console.error(await p.evaluate(()=>({page:document.querySelector('.page.on')?.id,modal:document.querySelector('#modalBody')?.textContent?.slice(-1500),error:document.querySelector('#commercialError')?.textContent})));await p.screenshot({path:path.join(out,'failure.png'),fullPage:true});}throw e;}finally{if(browser)await browser.close();if(server)await new Promise(resolve=>server.close(resolve));await db.close();}
