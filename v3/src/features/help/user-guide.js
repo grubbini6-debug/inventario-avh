@@ -160,7 +160,8 @@
         step('Subí el presupuesto en Compras','Usá + Nueva compra con IA para cargar el archivo y revisar los datos detectados. Elegí Servicio para presupuestos de taller o reparación; la OC se genera desde esta misma compra. Para materiales elegí el destino habitual.'),
         step('Revisá los ítems','Cargá productos, cantidades, unidades, precios y moneda. Revisá el resumen antes de confirmar; las sugerencias de documentos o IA se verifican con el respaldo original.'),
         step('Seguí el estado','Abrí la compra para revisar cantidades recibidas, saldo pendiente y documentos. Cada entrega parcial se registra contra esa misma compra.'),
-        step('Completá documentos','Relacioná facturas y remitos con la compra o recepción correspondiente. Revisá avisos de documentación pendiente.')
+        step('Recibí desde el historial','Al lado de Abrir compra usá Recibir. Subí una foto o PDF de la factura o remito; la IA propone sus datos y cantidades. Revisá lo que llegó o el servicio realizado y confirmá.'),
+        step('Agregá la factura después','Si ya registraste la recepción, usá Cargar factura. En una compra con saldo pendiente también podés elegir Solo la factura de una recepción ya registrada para adjuntarla sin repetir cantidades.')
       ],'Una compra y su recepción representan pasos distintos: la recepción es la que incorpora los materiales efectivamente recibidos.','purchases'),
       topic('opening-admin','Administración','Habilitar y cerrar un inventario inicial','Autorizar el conteo del depositario y completar su valoración.',[
         step('Elegí el depósito','En Administración → Inventario inicial seleccioná el depósito existente y usá Abrir inventario inicial.'),

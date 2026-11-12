@@ -47,6 +47,7 @@
     "src/features/purchases/purchase-lifecycle.js",
     "src/features/purchases/purchase-document-control.js",
     "src/features/purchases/delivery-management.js",
+    "src/features/purchases/receive-invoice-ai.js",
     "src/features/purchases/po-polish.js",
     "src/features/admin/admin-attention-center.js",
     "src/features/admin/data-quality.js",
