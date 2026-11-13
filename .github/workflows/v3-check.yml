@@ -70,14 +70,23 @@ jobs:
           fi
           echo 'Browser smoke OK.'
 
-      - name: Probar historial de movimientos propios del depositario
+      - name: Probar movimientos propios y correcciones de conteo del depositario
         working-directory: v3
         shell: bash
         run: |
           set -euo pipefail
           export AVH_CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
           test -n "$AVH_CHROME_BIN"
-          npm run test:browser:depositor-movements
+          AVH_QA_OUTPUT=/tmp/avh-depositor-qa npm run test:browser:depositor-movements
+
+      - name: Guardar revisión de conteo de inventario
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avh-depositor-qa
+          path: /tmp/avh-depositor-qa
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Probar Fabricación Naval desde celular y supervisión
         working-directory: v3

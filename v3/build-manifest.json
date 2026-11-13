@@ -20,6 +20,7 @@
     "src/features/inventory/movement-governance.js",
     "src/features/inventory/inventory-corrections.js",
     "src/features/inventory/own-load-editor.js",
+    "src/features/inventory/physical-recount.js",
     "src/features/admin/depositor-management.js",
     "src/features/admin/opening-inventory.js",
     "src/features/admin/password-ux.js",

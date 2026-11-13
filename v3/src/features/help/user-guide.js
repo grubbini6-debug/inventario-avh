@@ -53,7 +53,8 @@
       topic('stock','Depósito','Consultar inventario y entender las unidades','Existencias, presentaciones, lotes y alertas.',[
         step('Abrí Inventario',a.admin?'Elegí el depósito que querés consultar y buscá el producto.':'Abrí Inventario y buscá el producto de tu depósito.'),
         step('Revisá la unidad base','El stock se controla en la unidad base del producto. Una presentación, como un rollo, puede equivaler a varios kg; revisá la conversión que muestra el formulario.'),
-        step('Consultá el detalle','Abrí el producto para revisar la información disponible de lotes y movimientos. Revisá las alertas de stock bajo para anticipar faltantes.')
+        step('Consultá el detalle','Abrí el producto para revisar la información disponible de lotes y movimientos. Revisá las alertas de stock bajo para anticipar faltantes.'),
+        ...(!a.admin?[step('Corregí una cantidad mal cargada','Tocá Corregir cantidad en el producto, o Nuevo conteo para elegir otro material. Ingresá la cantidad física total que tenés hoy y el motivo. Revisá la diferencia antes de guardar; el historial anterior se conserva. Los cilindros se corrigen desde Gases → Nuevo conteo.')]:[])
       ],'Contá unidades y cantidades reales. Si falta una conversión correcta, consultá a Compras antes de confirmar.','stock'),
       topic('save-and-sync','Primeros pasos','Guardar, sincronizar y resolver un error','Qué queda guardado y cómo cuidar una carga en curso.',[
         step('Completá y confirmá','Revisá material, cantidad, unidad, depósito o destino y documentación. Esperá el mensaje de confirmación del sistema.'),
